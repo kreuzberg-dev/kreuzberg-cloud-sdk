@@ -39,6 +39,13 @@ task spec:fetch  # copy + JSON→YAML from ../xberg-enterprise/services/api/spec
 
 CI also runs a weekly `spec-sync` workflow that opens an automated PR with the latest snapshot.
 
+## Pre-commit hooks
+
+Install the git hooks with `task setup` (or `poly hooks install` directly). On
+every commit, poly runs lint, format, and file-safety checks; the commit-msg
+hook validates the message. Run all hooks manually with
+`poly hooks run pre-commit --all-files`.
+
 ## Versioning
 
 The single source of truth is the root `VERSION` file. `scripts/sync-versions.py` (run via `task version:sync`) propagates that value into every per-package manifest:
