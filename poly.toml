@@ -171,11 +171,6 @@ enabled = true
 enabled = true
 # NOTE: env + per-module cwd (e.g. packages/go) not yet supported by [tools.*].
 
-# --- lightweight inline script hooks (no toolchain) ---
-[hooks.pre-commit.scripts.gh_actions_updater]
-# TODO: wire to vendored script / task target (was a shared pre-commit-hooks hook).
-run = "TODO-gh-actions-updater"
-
 # --- dropped / unmapped hooks (for the record) ---
 # dropped (toolchain) — stays as standalone CI job: textlint
 # dropped (toolchain) — stays as standalone CI job: tsc-typecheck
