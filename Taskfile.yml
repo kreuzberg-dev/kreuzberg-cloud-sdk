@@ -35,6 +35,7 @@ tasks:
       - pnpm install
       - cd packages/go/v1 && go mod download
       - cd packages/dart && dart pub get
+      - command -v poly >/dev/null 2>&1 || brew install goldziher/tap/poly
       - poly hooks install
 
   generate:

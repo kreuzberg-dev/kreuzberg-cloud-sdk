@@ -97,7 +97,7 @@ disable = ["MD013", "MD033", "MD041"]
 stages = ["pre-commit"]
 
 [hooks.builtin]
-polylint = { exclude = [
+lint = { exclude = [
     "**/*.lock",
     "**/Cargo.lock",
     "**/go.sum",
@@ -114,7 +114,7 @@ polylint = { exclude = [
     "spec/**",
     "spec/openapi.yaml/**",
 ] }
-polyfmt = { exclude = [
+fmt = { exclude = [
     "**/*.lock",
     "**/Cargo.lock",
     "**/go.sum",
