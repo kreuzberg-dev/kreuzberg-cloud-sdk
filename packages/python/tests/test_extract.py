@@ -73,7 +73,6 @@ def test_extract_sync_serializes_options_as_json_part(base_url: str, api_key: st
 
     body = route.calls.last.request.content
     assert b'name="options"' in body
-    # The "options" multipart part is the JSON-serialized dict.
     assert b'"chunk_content": true' in body
 
 
@@ -244,11 +243,8 @@ def test_extract_options_dict_round_trip_is_correct_json(base_url: str, api_key:
         client.extract(file=b"x", options=options)
 
     body = route.calls.last.request.content.decode("utf-8", errors="replace")
-    # Find the options JSON inside the multipart body
     marker = 'name="options"'
     assert marker in body
-    # The exact serialization is contractual: round-trip via json.loads is the
-    # cleanest assertion that nothing got mangled.
     start = body.index("\r\n\r\n", body.index(marker)) + 4
     end = body.index("\r\n", start)
     parsed = json.loads(body[start:end])

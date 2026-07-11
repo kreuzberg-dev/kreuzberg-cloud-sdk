@@ -21,7 +21,7 @@ describe("createClient", () => {
     };
     const client = createClient({ apiKey: "k", fetch: customFetch });
     expect(client).toBeDefined();
-    expect(called).toBe(false); // not called until a request is issued
+    expect(called).toBe(false);
   });
 
   it("works without an API key", () => {

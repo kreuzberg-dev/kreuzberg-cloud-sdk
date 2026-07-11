@@ -1,7 +1,5 @@
 version: "3"
 
-# TypeScript client tasks (pnpm workspace member at packages/typescript).
-
 vars:
   PKG_DIR: packages/typescript
 

@@ -18,8 +18,6 @@ from kreuzberg_cloud.errors import (
 )
 from kreuzberg_cloud.models import SandboxKey
 
-# Friendly aliases over the generated types: the API talks about "jobs" and
-# "extraction results", so expose the typed models under those names.
 Job = JobResponse
 JobResult = ExtractionResult
 

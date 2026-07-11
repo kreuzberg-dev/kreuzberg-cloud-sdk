@@ -99,7 +99,6 @@ def test_unknown_4xx_raises_base_error(base_url: str, api_key: str) -> None:
     )
     with KreuzbergCloud(api_key=api_key, base_url=base_url) as client, pytest.raises(KreuzbergCloudError) as exc_info:
         client.extract(file=b"x")
-    # 418 falls through to the base class — not a 5xx, not a known 4xx.
     assert exc_info.value.status_code == 418
     assert type(exc_info.value) is KreuzbergCloudError
 

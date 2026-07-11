@@ -25,9 +25,7 @@ type requestSpec struct {
 	path            string
 	body            io.Reader
 	bodyContentType string
-	// rewindBody is invoked before each retry attempt to reset the body
-	// reader to the start. Required when retries > 0 and body != nil.
-	rewindBody func() (io.Reader, error)
+	rewindBody      func() (io.Reader, error)
 }
 
 // doJSON executes spec, decodes a 2xx JSON response into out, and maps

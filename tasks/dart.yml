@@ -1,8 +1,5 @@
 version: "3"
 
-# Dart client tasks (pub workspace member at packages/dart).
-# Mirrors tasks/python.yml.
-
 vars:
   PKG_DIR: packages/dart
   GENERATED_DIR: packages/dart/lib/src/_generated

@@ -20,10 +20,6 @@ function load(name: string): ExtractionResult {
   return JSON.parse(readFileSync(resolve(FIXTURES, name), "utf-8")) as ExtractionResult;
 }
 
-// ---------------------------------------------------------------------------
-// Smoke: all fixtures must parse as valid JSON and cast without error
-// ---------------------------------------------------------------------------
-
 describe("all fixtures deserialize without error", () => {
   const fixtureNames = [
     "extraction_result_minimal.json",
@@ -37,10 +33,6 @@ describe("all fixtures deserialize without error", () => {
     expect(() => load(name)).not.toThrow();
   });
 });
-
-// ---------------------------------------------------------------------------
-// Minimal fixture
-// ---------------------------------------------------------------------------
 
 describe("minimal ExtractionResult", () => {
   it("should_have_correct_content_and_mime_type", () => {
@@ -60,10 +52,6 @@ describe("minimal ExtractionResult", () => {
     expect(typeof r.metadata).toBe("object");
   });
 });
-
-// ---------------------------------------------------------------------------
-// PDF fixture
-// ---------------------------------------------------------------------------
 
 describe("PDF ExtractionResult", () => {
   it("should_have_pdf_mime_type", () => {
@@ -108,10 +96,6 @@ describe("PDF ExtractionResult", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// XLSX with children fixture
-// ---------------------------------------------------------------------------
-
 describe("XLSX ExtractionResult with children", () => {
   it("should_have_xlsx_mime_type", () => {
     const r = load("extraction_result_xlsx_with_children.json");
@@ -148,10 +132,6 @@ describe("XLSX ExtractionResult with children", () => {
     expect(r.tables[0]?.cells[0]).toEqual(["Department", "Budget", "Actual"]);
   });
 });
-
-// ---------------------------------------------------------------------------
-// DOCX with revisions fixture
-// ---------------------------------------------------------------------------
 
 describe("DOCX ExtractionResult with revisions", () => {
   it("should_have_three_revisions", () => {
@@ -193,10 +173,6 @@ describe("DOCX ExtractionResult with revisions", () => {
     expect(kw?.positions).toEqual([4, 30]);
   });
 });
-
-// ---------------------------------------------------------------------------
-// URI fixture
-// ---------------------------------------------------------------------------
 
 describe("ExtractionResult with URIs", () => {
   it("should_have_three_uris", () => {

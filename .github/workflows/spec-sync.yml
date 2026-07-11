@@ -1,9 +1,6 @@
 name: spec-sync
 
 on:
-  # Weekly sweep on Monday 06:00 UTC. Source of truth is
-  # xberg-enterprise/services/api/spec/openapi.json — the canonical OpenAPI
-  # spec emitted by the public extraction API (utoipa-generated).
   schedule:
     - cron: "0 6 * * 1"
   workflow_dispatch:

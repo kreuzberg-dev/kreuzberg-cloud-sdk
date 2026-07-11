@@ -87,9 +87,6 @@ Future<List<JobResponse>> pollManyUntilTerminal({
       backoff: backoff,
     ),
   );
-  // `Future.wait` rethrows the first error and cancels logical interest in
-  // the remaining futures; in-flight HTTP calls finish but their results are
-  // discarded — matching the Go SDK's first-error-wins semantics.
   return Future.wait(futures, eagerError: true);
 }
 

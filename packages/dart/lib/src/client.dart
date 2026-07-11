@@ -118,7 +118,6 @@ class KreuzbergCloudClient {
   /// Call when the client is no longer needed (e.g. in shutdown handlers).
   void close({bool force = false}) => _dio.close(force: force);
 
-  // ---- Health -----------------------------------------------------------
 
   /// Liveness probe. Returns 200 with `status: ok` if the service is alive.
   Future<HealthResponse> healthz() => _api.health.healthz();
@@ -128,7 +127,6 @@ class KreuzbergCloudClient {
   /// component is unhealthy.
   Future<ReadinessResponse> readyz() => _api.health.readyz();
 
-  // ---- Extraction (JSON) ------------------------------------------------
 
   /// Submits one or more documents for extraction via the JSON endpoint.
   ///
@@ -178,7 +176,6 @@ class KreuzbergCloudClient {
     return ExtractResponse.fromJson(response.data!);
   }
 
-  // ---- Jobs -------------------------------------------------------------
 
   /// Fetches the current status (and result, when terminal) of a job.
   ///
@@ -237,7 +234,6 @@ class KreuzbergCloudClient {
     );
   }
 
-  // ---- Uploads ----------------------------------------------------------
 
   /// Requests presigned upload URLs for one or more documents. The client
   /// then PUTs each file to the returned URL out-of-band, and calls
@@ -250,7 +246,6 @@ class KreuzbergCloudClient {
   Future<ConfirmUploadResponse> confirmUpload(ConfirmUploadRequest request) =>
   _api.uploads.confirmUpload(body: request);
 
-  // ---- Usage ------------------------------------------------------------
 
   /// Returns usage and quota statistics for the given date range.
   ///

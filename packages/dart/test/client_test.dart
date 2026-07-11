@@ -273,7 +273,7 @@ void main() {
         fail('expected ServerException');
       } on DioException catch (e) {
         expect(e.error, isA<ServerException>());
-        expect(adapter.captured.length, 3); // initial + 2 retries
+        expect(adapter.captured.length, 3);
       }
     });
 

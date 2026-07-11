@@ -45,7 +45,7 @@ def test_wait_for_job_sync_returns_immediately_when_completed(base_url: str, api
 
     assert job.status == "completed"
     assert route.call_count == 1
-    assert elapsed < 1.0  # no polling beyond the first hit
+    assert elapsed < 1.0
 
 
 @respx.mock
@@ -146,7 +146,6 @@ def test_wait_for_job_exponential_backoff_increases_interval(
     def _record_sleep(seconds: float) -> None:
         sleeps.append(seconds)
 
-    # Patch the time.sleep used by the sync client (imported as a module symbol).
     from kreuzberg_cloud import client as client_module
 
     monkeypatch.setattr(client_module.time, "sleep", _record_sleep)
@@ -154,10 +153,8 @@ def test_wait_for_job_exponential_backoff_increases_interval(
     with KreuzbergCloud(api_key=api_key, base_url=base_url) as client:
         client.wait_for_job(job_id, poll_interval=0.5, timeout=10.0, backoff="exponential")
 
-    # Two sleeps before the third (terminal) response.
     assert len(sleeps) == 2
     assert sleeps[0] == pytest.approx(0.5)
-    # Exponential backoff doubles the interval (capped at 30s).
     assert sleeps[1] == pytest.approx(1.0)
 
 
@@ -217,9 +214,7 @@ def test_extract_and_wait_sync_returns_completed_job(base_url: str, api_key: str
     )
     respx.get(f"{base_url}/v1/jobs/{job_id}").mock(
         side_effect=[
-            # First call: surfaced by extract() itself (returns pending Job).
             httpx.Response(200, json=make_job_payload(job_id=job_id, status="pending")),
-            # Subsequent calls: poll loop inside wait_for_job.
             httpx.Response(200, json=make_job_payload(job_id=job_id, status="pending")),
             httpx.Response(
                 200,

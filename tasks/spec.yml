@@ -1,12 +1,5 @@
 version: "3"
 
-# Tasks for managing the vendored OpenAPI specification.
-#
-# Source of truth is the public extraction API spec emitted by
-# xberg-enterprise/services/api (utoipa-generated). The sibling cloud repo
-# commits the JSON snapshot at services/api/spec/openapi.json; we vendor
-# it here as YAML to match the codegen toolchain's preferred input format.
-
 vars:
   SPEC_PATH: spec/openapi.yaml
   UPSTREAM_LOCAL: ../xberg-enterprise/services/api/spec/openapi.json

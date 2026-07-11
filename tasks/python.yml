@@ -1,7 +1,5 @@
 version: "3"
 
-# Python client tasks (uv workspace member at packages/python).
-
 vars:
   PKG_DIR: packages/python
   GENERATED_DIR: packages/python/src/kreuzberg_cloud/_generated

@@ -22,11 +22,6 @@ def load(name: str) -> dict:  # type: ignore[type-arg]
     return json.loads((FIXTURES / name).read_text())
 
 
-# ---------------------------------------------------------------------------
-# Smoke: all fixtures must deserialize without error
-# ---------------------------------------------------------------------------
-
-
 @pytest.mark.parametrize(
     "fixture",
     [
@@ -42,11 +37,6 @@ def test_all_fixtures_deserialize_without_error(fixture: str) -> None:
     ExtractionResult.from_dict(raw)
 
 
-# ---------------------------------------------------------------------------
-# Minimal fixture
-# ---------------------------------------------------------------------------
-
-
 def test_minimal_extraction_result_content_and_mime_type() -> None:
     raw = load("extraction_result_minimal.json")
     result = ExtractionResult.from_dict(raw)
@@ -58,11 +48,6 @@ def test_minimal_extraction_result_empty_tables() -> None:
     raw = load("extraction_result_minimal.json")
     result = ExtractionResult.from_dict(raw)
     assert result.tables == []
-
-
-# ---------------------------------------------------------------------------
-# PDF fixture
-# ---------------------------------------------------------------------------
 
 
 def test_pdf_authors_are_present() -> None:
@@ -93,16 +78,12 @@ def test_table_page_number_and_markdown_present() -> None:
 
 
 def test_pdf_format_metadata_is_deserialized() -> None:
-    # The Python generator tries ExcelMetadata first (all-optional fields);
-    # it wins over OcrMetadata. The important thing is that format_ is not None
-    # and not UNSET — the discriminator value is preserved in additional_properties.
     from kreuzberg_cloud._generated.types import UNSET
 
     raw = load("extraction_result_pdf.json")
     result = ExtractionResult.from_dict(raw)
     assert result.metadata.format_ is not None
     assert result.metadata.format_ is not UNSET
-    # The format_type discriminator field leaks into additional_properties
     assert result.metadata.format_["format_type"] == "ocr"  # type: ignore[index]
 
 
@@ -112,11 +93,6 @@ def test_pdf_pages_are_deserialized() -> None:
     assert result.pages is not None
     assert len(result.pages) == 3
     assert result.pages[0].page_number == 1
-
-
-# ---------------------------------------------------------------------------
-# XLSX with children fixture
-# ---------------------------------------------------------------------------
 
 
 def test_xlsx_children_count() -> None:
@@ -138,7 +114,7 @@ def test_xlsx_child_carries_nested_extraction_result() -> None:
     raw = load("extraction_result_xlsx_with_children.json")
     result = ExtractionResult.from_dict(raw)
     nested = result.children[0].result  # type: ignore[index]
-    assert nested.content  # non-empty
+    assert nested.content
     assert nested.tables == []
 
 
@@ -158,11 +134,6 @@ def test_xlsx_format_metadata_sheet_count() -> None:
     assert isinstance(result.metadata.format_, ExcelMetadata)
     assert result.metadata.format_.sheet_count == 3
     assert result.metadata.format_.sheet_names == ["Q1", "Q2", "Q3"]
-
-
-# ---------------------------------------------------------------------------
-# DOCX with revisions fixture
-# ---------------------------------------------------------------------------
 
 
 def test_docx_revisions_count() -> None:
@@ -210,11 +181,6 @@ def test_docx_keyword_positions() -> None:
     result = ExtractionResult.from_dict(raw)
     kw = result.extracted_keywords[0]  # type: ignore[index]
     assert kw.positions == [4, 30]
-
-
-# ---------------------------------------------------------------------------
-# URI fixture
-# ---------------------------------------------------------------------------
 
 
 def test_uris_count() -> None:

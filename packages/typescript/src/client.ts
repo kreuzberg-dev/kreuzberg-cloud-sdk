@@ -337,7 +337,6 @@ export class KreuzbergCloud {
         }
         throw error;
       }
-      // raiseForStatus always throws; this line is unreachable but satisfies TS.
       throw new KreuzbergError("Unreachable", { status: response.status, body: null });
     }
   }

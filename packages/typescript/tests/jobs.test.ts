@@ -149,7 +149,6 @@ describe("waitForJob", () => {
       },
     });
     await client.waitForJob("job-1", { pollIntervalMs: 10 });
-    // 3 sleeps before the 4th poll returns completed; intervals 10, 20, 40
     expect(recorded).toEqual([10, 20, 40]);
   });
 

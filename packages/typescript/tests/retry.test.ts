@@ -103,7 +103,6 @@ describe("retry/backoff", () => {
       },
     });
     await client.getJob("x");
-    // Three retries: 200, 400, 800 (base 200 doubling)
     expect(sleeps).toEqual([200, 400, 800]);
   });
 
@@ -122,7 +121,7 @@ describe("retry/backoff", () => {
       sleep: async () => {},
     });
     await expect(client.getJob("x")).rejects.toBeInstanceOf(ServerError);
-    expect(attempts).toBe(3); // initial + 2 retries
+    expect(attempts).toBe(3);
   });
 
   it("does not retry on 401", async () => {

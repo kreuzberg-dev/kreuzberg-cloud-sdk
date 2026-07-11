@@ -69,7 +69,6 @@ func TestRetry_RetriesOn429HonoursRetryAfter(t *testing.T) {
 		t.Fatalf("GetJob: %v", err)
 	}
 	elapsed := time.Since(start)
-	// Retry-After 1s should make total elapsed at least ~900ms.
 	if elapsed < 900*time.Millisecond {
 		t.Errorf("elapsed = %v, want >= 900ms (Retry-After honored)", elapsed)
 	}
@@ -93,7 +92,6 @@ func TestRetry_GivesUpAfterMaxAttempts(t *testing.T) {
 	if !asError(err, &srv) {
 		t.Fatalf("expected ServerError after retries, got %T: %v", err, err)
 	}
-	// Original attempt + 2 retries = 3 total.
 	if got := calls.Load(); got != 3 {
 		t.Errorf("calls = %d, want 3", got)
 	}

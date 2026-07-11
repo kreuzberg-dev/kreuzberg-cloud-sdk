@@ -454,8 +454,6 @@ class AsyncKreuzbergCloud(_BaseClient):
         return cls(api_key=key.api_key, base_url=base_url, timeout=timeout)
 
 
-# Re-export friendly aliases. The OpenAPI-generated symbols are kept available
-# for power users who want the underlying types.
 __all__ = [
     "AsyncKreuzbergCloud",
     "BackoffStrategy",

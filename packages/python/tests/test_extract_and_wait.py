@@ -74,7 +74,6 @@ async def test_extract_and_wait_async_propagates_failed_status(base_url: str, ap
     async with AsyncKreuzbergCloud(api_key=api_key, base_url=base_url) as client:
         job = await client.extract_and_wait(file=b"data", poll_interval=0.01, timeout=2.0)
 
-    # Failed jobs are returned (not raised) so callers can branch on status.
     assert job.status == "failed"
 
 

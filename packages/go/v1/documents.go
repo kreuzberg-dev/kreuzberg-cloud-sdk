@@ -199,7 +199,6 @@ func (c *Client) PollDocumentDiff(
 			}
 			return &d, nil
 		case 202:
-			// still pending — fall through to backoff
 		case 422:
 			return nil, fmt.Errorf("xberg-enterprise: PollDocumentDiff failed: %s", string(body))
 		default:

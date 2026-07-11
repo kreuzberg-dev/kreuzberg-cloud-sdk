@@ -1,11 +1,3 @@
-// Minimal end-to-end example of the Xberg Enterprise Dart SDK.
-//
-// Run with:
-//
-//   XBERG_API_KEY=kc_... dart run example/main.dart
-//
-// Submits a small inline document, polls the resulting job to completion, and
-// prints the extracted Markdown.
 
 import 'dart:convert';
 import 'dart:io';

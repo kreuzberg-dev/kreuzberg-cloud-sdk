@@ -67,7 +67,7 @@ describe("KreuzbergCloud.fromSandbox", () => {
     });
     await client.getJob("job-1");
 
-    expect(seenAuth[0]).toBe(""); // bootstrap call has no auth
+    expect(seenAuth[0]).toBe("");
     expect(seenAuth[1]).toBe("Bearer kz_sandbox_minted");
   });
 

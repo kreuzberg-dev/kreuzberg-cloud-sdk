@@ -4,7 +4,6 @@ import 'package:test/test.dart';
 import 'package:kreuzberg_cloud_sdk/kreuzberg_cloud_sdk.dart';
 
 ExtractionResult _loadFixture(String name) {
-  // spec/fixtures lives at the repo root; from packages/dart/ the path is ../../spec/fixtures/
   final file = File('../../spec/fixtures/$name');
   final json = jsonDecode(file.readAsStringSync()) as Map<String, dynamic>;
   return ExtractionResult.fromJson(json);

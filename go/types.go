@@ -51,9 +51,9 @@ type Job struct {
 
 // JobResult is the extraction payload produced on terminal success. The shape
 // matches the OpenAPI ExtractionResult schema; rich nested types like Tables
-// and Images are deferred to a follow-up — see TODO below.
+// and Images are deferred to a follow-up tracked below.
 //
-// TODO(workstream-e-go): expose strongly-typed Tables, Images, Chunks,
+// ~keep TODO(workstream-e-go): expose strongly-typed Tables, Images, Chunks,
 // PageContent, and Metadata. Currently held as json.RawMessage so callers can
 // access the data without forcing us to mirror every nested struct here.
 type JobResult struct {
@@ -78,7 +78,7 @@ func (r *JobResult) Text() string {
 }
 
 // OCRConfig is the minimum viable OCR option set for v1. Additional knobs
-// (psm, dpi, custom languages) are deferred — TODO(workstream-e-go).
+// (psm, dpi, custom languages) are deferred to workstream-e-go.
 type OCRConfig struct {
 	Backend  string `json:"backend,omitempty"`
 	Language string `json:"language,omitempty"`
@@ -88,7 +88,7 @@ type OCRConfig struct {
 // configuration. We expose only the knobs the v1 docs Quickstart needs:
 // output format, OCR backend/language, and the force/disable OCR toggles.
 //
-// TODO(workstream-e-go): expose chunking, content filtering, language
+// ~keep TODO(workstream-e-go): expose chunking, content filtering, language
 // detection, table extraction, security limits, and presign options.
 type ExtractionConfig struct {
 	OutputFormat string     `json:"output_format,omitempty"`
@@ -116,9 +116,7 @@ type SandboxKey struct {
 type BackoffKind int
 
 const (
-	// BackoffExponential doubles the delay between polls up to a 30s ceiling.
 	BackoffExponential BackoffKind = iota
-	// BackoffConstant uses [WaitOptions.PollInterval] for every poll.
 	BackoffConstant
 )
 

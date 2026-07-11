@@ -27,5 +27,4 @@ export 'src/jobs_wait.dart' show BackoffKind, JobStatusTerminal;
 export 'src/retry.dart' show RetryPolicy;
 export 'src/version.dart' show packageVersion;
 
-// Generated request/response models and sub-client interfaces.
 export 'src/_generated/export.dart';

@@ -93,8 +93,6 @@ class RetryInterceptor extends Interceptor {
     if (status != null && policy.retryableStatuses.contains(status)) {
       return true;
     }
-    // Idempotent transport-level errors are also retryable when the request
-    // method is GET or the retryable-status set explicitly includes 0.
     return false;
   }
 
