@@ -22,8 +22,8 @@ class AnnotationKindType11:
 
     Attributes:
         annotation_type (AnnotationKindType11AnnotationType):
-        name (str):
-        value (None | str | Unset):
+        name (str): Name of the custom annotation kind.
+        value (None | str | Unset): Optional value or parameter for the annotation.
     """
 
     annotation_type: AnnotationKindType11AnnotationType

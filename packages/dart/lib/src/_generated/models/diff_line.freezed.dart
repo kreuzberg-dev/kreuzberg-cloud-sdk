@@ -27,7 +27,7 @@ DiffLine _$DiffLineFromJson(
           return DiffLineRemoved.fromJson(
             json
           );
-        
+
           default:
             throw CheckedFromJsonException(
   json,
@@ -36,7 +36,7 @@ DiffLine _$DiffLineFromJson(
   'Invalid union type "${json['kind']}"!'
 );
         }
-      
+
 }
 
 /// @nodoc

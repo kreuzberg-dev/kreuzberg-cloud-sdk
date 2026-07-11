@@ -12,7 +12,7 @@ T = TypeVar("T", bound="WebhookConfigMetadataType0")
 
 @_attrs_define
 class WebhookConfigMetadataType0:
-    """Optional key-value metadata to include in the webhook payload"""
+    """Optional key-value metadata included in the webhook payload."""
 
     additional_properties: dict[str, str] = _attrs_field(init=False, factory=dict)
 

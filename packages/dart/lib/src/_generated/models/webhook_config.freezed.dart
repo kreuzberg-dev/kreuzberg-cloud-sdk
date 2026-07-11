@@ -15,9 +15,9 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$WebhookConfig {
 
-/// URL to deliver results to
- String get url;/// Optional key-value metadata to include in the webhook payload
- Map<String, String>? get metadata;/// Optional HMAC secret for signing the webhook payload
+/// URL to deliver results to.
+ String get url;/// Optional key-value metadata included in the webhook payload.
+ Map<String, String>? get metadata;/// Optional HMAC-SHA256 secret for signing the webhook payload.
  String? get secret;
 /// Create a copy of WebhookConfig
 /// with the given fields replaced by the non-null parameter values.
@@ -217,11 +217,11 @@ class _WebhookConfig implements WebhookConfig {
   const _WebhookConfig({required this.url, final  Map<String, String>? metadata, this.secret}): _metadata = metadata;
   factory _WebhookConfig.fromJson(Map<String, dynamic> json) => _$WebhookConfigFromJson(json);
 
-/// URL to deliver results to
+/// URL to deliver results to.
 @override final  String url;
-/// Optional key-value metadata to include in the webhook payload
+/// Optional key-value metadata included in the webhook payload.
  final  Map<String, String>? _metadata;
-/// Optional key-value metadata to include in the webhook payload
+/// Optional key-value metadata included in the webhook payload.
 @override Map<String, String>? get metadata {
   final value = _metadata;
   if (value == null) return null;
@@ -230,7 +230,7 @@ class _WebhookConfig implements WebhookConfig {
   return EqualUnmodifiableMapView(value);
 }
 
-/// Optional HMAC secret for signing the webhook payload
+/// Optional HMAC-SHA256 secret for signing the webhook payload.
 @override final  String? secret;
 
 /// Create a copy of WebhookConfig

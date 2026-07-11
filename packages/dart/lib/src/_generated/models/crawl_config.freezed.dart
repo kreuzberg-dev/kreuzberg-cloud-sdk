@@ -16,7 +16,7 @@ T _$identity<T>(T value) => value;
 mixin _$CrawlConfig {
 
 /// Allow subdomains of the seed domain (default: true)
-@JsonKey(name: 'allow_subdomains') bool? get allowSubdomains;/// MIME types of documents to extract (default: all supported by kreuzberg)
+@JsonKey(name: 'allow_subdomains') bool? get allowSubdomains;/// MIME types of documents to extract (default: all supported by xberg)
 @JsonKey(name: 'allowed_file_types') List<String>? get allowedFileTypes;/// Browser rendering configuration overrides for this request
  BrowserOverrides? get browser;/// Per-request bypass override. When set, applies an external bypass.
 /// provider to bypass WAF/antibot on the crawl.
@@ -292,9 +292,9 @@ class _CrawlConfig implements CrawlConfig {
 
 /// Allow subdomains of the seed domain (default: true)
 @override@JsonKey(name: 'allow_subdomains') final  bool? allowSubdomains;
-/// MIME types of documents to extract (default: all supported by kreuzberg)
+/// MIME types of documents to extract (default: all supported by xberg)
  final  List<String>? _allowedFileTypes;
-/// MIME types of documents to extract (default: all supported by kreuzberg)
+/// MIME types of documents to extract (default: all supported by xberg)
 @override@JsonKey(name: 'allowed_file_types') List<String>? get allowedFileTypes {
   final value = _allowedFileTypes;
   if (value == null) return null;

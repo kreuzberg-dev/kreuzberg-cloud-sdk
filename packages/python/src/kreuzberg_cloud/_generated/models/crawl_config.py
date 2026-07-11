@@ -28,7 +28,7 @@ class CrawlConfig:
 
     Attributes:
         allow_subdomains (bool | None | Unset): Allow subdomains of the seed domain (default: true) Example: True.
-        allowed_file_types (list[str] | Unset): MIME types of documents to extract (default: all supported by kreuzberg)
+        allowed_file_types (list[str] | Unset): MIME types of documents to extract (default: all supported by xberg)
             Example: ['application/pdf', 'text/html'].
         browser (BrowserOverrides | None | Unset):
         bypass (BypassRequestOverride | None | Unset):
@@ -51,7 +51,7 @@ class CrawlConfig:
         respect_robots_txt (bool | None | Unset): Respect robots.txt (default: true) Example: True.
         stay_on_domain (bool | None | Unset): Stay on the same domain as seed URL (default: true) Example: True.
         strategy (None | str | Unset): Crawl strategy: "bfs" (default), "dfs", "best_first", "adaptive" Example: bfs.
-        user_agent (None | str | Unset): Custom User-Agent string Example: KreuzbergBot/1.0.
+        user_agent (None | str | Unset): Custom User-Agent string Example: XbergBot/1.0.
     """
 
     allow_subdomains: bool | None | Unset = UNSET

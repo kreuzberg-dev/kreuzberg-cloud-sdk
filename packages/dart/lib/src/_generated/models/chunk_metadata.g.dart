@@ -18,6 +18,9 @@ _ChunkMetadata _$ChunkMetadataFromJson(Map<String, dynamic> json) =>
           : HeadingContext.fromJson(
               json['heading_context'] as Map<String, dynamic>,
             ),
+      headingPath: (json['heading_path'] as List<dynamic>?)
+          ?.map((e) => e as String)
+          .toList(),
       imageIndices: (json['image_indices'] as List<dynamic>?)
           ?.map((e) => (e as num).toInt())
           .toList(),
@@ -33,6 +36,7 @@ Map<String, dynamic> _$ChunkMetadataToJson(_ChunkMetadata instance) =>
       'total_chunks': instance.totalChunks,
       'first_page': instance.firstPage,
       'heading_context': instance.headingContext,
+      'heading_path': instance.headingPath,
       'image_indices': instance.imageIndices,
       'last_page': instance.lastPage,
       'token_count': instance.tokenCount,

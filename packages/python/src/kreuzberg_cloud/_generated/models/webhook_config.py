@@ -18,13 +18,13 @@ T = TypeVar("T", bound="WebhookConfig")
 
 @_attrs_define
 class WebhookConfig:
-    """Webhook configuration for async delivery
+    """Webhook configuration for async delivery of job results.
 
     Attributes:
-        url (str): URL to deliver results to
-        metadata (None | Unset | WebhookConfigMetadataType0): Optional key-value metadata to include in the webhook
-            payload
-        secret (None | str | Unset): Optional HMAC secret for signing the webhook payload
+        url (str): URL to deliver results to.
+        metadata (None | Unset | WebhookConfigMetadataType0): Optional key-value metadata included in the webhook
+            payload.
+        secret (None | str | Unset): Optional HMAC-SHA256 secret for signing the webhook payload.
     """
 
     url: str

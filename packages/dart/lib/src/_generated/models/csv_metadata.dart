@@ -13,10 +13,19 @@ part 'csv_metadata.g.dart';
 @Freezed()
 abstract class CsvMetadata with _$CsvMetadata {
   const factory CsvMetadata({
+    /// Number of columns detected.
     @JsonKey(name: 'column_count') required int columnCount,
+
+    /// Whether the first row was treated as a header.
     @JsonKey(name: 'has_header') required bool hasHeader,
+
+    /// Total number of data rows (excluding the header row if present).
     @JsonKey(name: 'row_count') required int rowCount,
+
+    /// Inferred data type for each column (e.g. `"string"`, `"integer"`, `"float"`).
     @JsonKey(name: 'column_types') List<String>? columnTypes,
+
+    /// Field delimiter character (e.g. `","` or `"\t"`).
     String? delimiter,
   }) = _CsvMetadata;
 

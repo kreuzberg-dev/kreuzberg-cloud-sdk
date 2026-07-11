@@ -9,7 +9,8 @@ import type { components } from "./_generated/schema.js";
 
 export type ExtractionOptions = components["schemas"]["ExtractionOptions"];
 export type ExtractionConfig = components["schemas"]["ExtractionConfig"];
-export type ExtractionResult = components["schemas"]["ExtractionResult"];
+export type ExtractedDocument = components["schemas"]["ExtractedDocument"];
+export type ExtractionResult = ExtractedDocument;
 export type Job = components["schemas"]["JobResponse"];
 export type JobStatus = components["schemas"]["JobStatus"];
 export type WebhookConfig = components["schemas"]["WebhookConfig"];

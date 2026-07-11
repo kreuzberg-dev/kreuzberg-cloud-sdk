@@ -13,6 +13,9 @@ abstract class HealthResponse with _$HealthResponse {
   const factory HealthResponse({
     /// Service status
     required String status,
+
+    /// Deployment tier the frontend uses for runtime feature gating (ADR-0047).
+    required String tier,
   }) = _HealthResponse;
 
   factory HealthResponse.fromJson(Map<String, Object?> json) =>

@@ -11,7 +11,11 @@ _OcrPipelineStage _$OcrPipelineStageFromJson(Map<String, dynamic> json) =>
       backend: json['backend'] as String,
       language: json['language'] as String?,
       priority: (json['priority'] as num?)?.toInt(),
-      tesseractConfig: json['tesseract_config'],
+      tesseractConfig: json['tesseract_config'] == null
+          ? null
+          : TesseractConfig.fromJson(
+              json['tesseract_config'] as Map<String, dynamic>,
+            ),
       vlmConfig: json['vlm_config'],
     );
 

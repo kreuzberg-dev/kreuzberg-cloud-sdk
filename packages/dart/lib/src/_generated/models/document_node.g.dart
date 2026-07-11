@@ -9,7 +9,6 @@ part of 'document_node.dart';
 _DocumentNode _$DocumentNodeFromJson(Map<String, dynamic> json) =>
     _DocumentNode(
       content: NodeContent.fromJson(json['content'] as Map<String, dynamic>),
-      id: json['id'] as String,
       annotations: (json['annotations'] as List<dynamic>?)
           ?.map((e) => TextAnnotation.fromJson(e as Map<String, dynamic>))
           .toList(),
@@ -33,7 +32,6 @@ _DocumentNode _$DocumentNodeFromJson(Map<String, dynamic> json) =>
 Map<String, dynamic> _$DocumentNodeToJson(_DocumentNode instance) =>
     <String, dynamic>{
       'content': instance.content,
-      'id': instance.id,
       'annotations': instance.annotations,
       'attributes': instance.attributes,
       'bbox': instance.bbox,

@@ -22,7 +22,7 @@ class NodeContentType17:
     Attributes:
             kind (str): Kind of admonition (e.g. "note", "warning", "tip", "danger").
             node_type (NodeContentType17NodeType):
-            title (None | str | Unset):
+            title (None | str | Unset): Optional explicit title overriding the default kind label.
     """
 
     kind: str

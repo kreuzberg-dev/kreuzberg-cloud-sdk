@@ -1,10 +1,10 @@
 openapi: 3.1.0
 info:
   title: Xberg Enterprise API
-  description: Cloud document extraction API powered by Kreuzberg. Supports asynchronous extraction with webhook delivery.
+  description: Cloud document extraction API powered by Xberg. Supports asynchronous extraction with webhook delivery.
   contact:
     name: Xberg Enterprise
-    url: https://enterprise.xberg.io
+    url: https://example.com
     email: contact@xberg.io
   license:
     name: BUSL-1.1
@@ -30,6 +30,8 @@ paths:
                 $ref: '#/components/schemas/HealthResponse'
               example:
                 status: ok
+                tier: enterprise
+      security: []
   /readyz:
     get:
       tags:
@@ -54,6 +56,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ReadinessResponse'
+      security: []
   /v1/documents/{document_id}:
     get:
       tags:
@@ -135,6 +138,8 @@ paths:
           content:
             application/json:
               schema: {}
+        "401":
+          description: Unauthorized — missing or invalid API key
         "404":
           description: Version not found
           content:
@@ -181,6 +186,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/DiffAsyncAccepted'
+        "401":
+          description: Unauthorized — missing or invalid API key
         "404":
           description: Diff job not found
           content:
@@ -278,6 +285,9 @@ paths:
                   webhook:
                     url: https://example.com/webhook
                     secret: my-secret
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ExtractMultipartForm'
         required: true
       responses:
         "202":
@@ -354,7 +364,9 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
               example:
-                error: Invalid job ID format
+                error:
+                  code: validation
+                  message: Invalid job ID format
         "401":
           description: Unauthorized - missing or invalid API key
           content:
@@ -362,7 +374,9 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
               example:
-                error: Missing project context
+                error:
+                  code: unauthorized
+                  message: Missing or invalid API key
         "404":
           description: Job not found
           content:
@@ -370,7 +384,9 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
               example:
-                error: Job not found
+                error:
+                  code: job_not_found
+                  message: Job not found
         "500":
           description: Internal server error
           content:
@@ -378,7 +394,9 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
               example:
-                error: Database connection failed
+                error:
+                  code: internal
+                  message: Database connection failed
         "503":
           description: Service unavailable - dependency failure
           content:
@@ -386,52 +404,594 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
               example:
-                error: Database connection unavailable
+                error:
+                  code: service_unavailable
+                  message: Database connection unavailable
       security:
         - bearer_auth: []
-  /v1/sandbox/key:
-    post:
+  /v1/presets:
+    get:
       tags:
-        - super::sandbox
-      summary: Create sandbox API key
-      description: |-
-        Issues an ephemeral API key valid for 24 hours with a 50-page quota.
-        Limited to 10 keys per IP per 24 hours to prevent abuse.
-
-        # Returns
-        - `200 OK` with `CreateSandboxKeyResponse` on success
-        - `429 Too Many Requests` if IP has issued 10+ keys in past 24 hours
-        - `500 Internal Server Error` on database errors
-      operationId: create_sandbox_key
+        - presets
+      summary: '`GET /v1/presets` — list curated presets (public).'
+      operationId: list_presets
       responses:
         "200":
-          description: Sandbox key created successfully
+          description: Curated preset library
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CreateSandboxKeyResponse'
-              example:
-                api_key: sk_sandbox_ABC123DEF456GHI789JKL012MNO345PQR678STU901VWX234
-                expires_at: "2025-12-21T10:00:00Z"
-                pages_remaining: 50
-        "429":
-          description: 'Rate limit exceeded: max 10 keys per IP per 24 hours'
+                type: array
+                items:
+                  $ref: '#/components/schemas/PresetSummary'
+      security: []
+  /v1/presets/{id}:
+    get:
+      tags:
+        - presets
+      summary: '`GET /v1/presets/{id}` — full preset detail (public).'
+      operationId: get_preset
+      parameters:
+        - name: id
+          in: path
+          description: Preset identifier
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Preset detail
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SandboxErrorResponse'
-              example:
-                error: rate_limited
-                message: 'Rate limit exceeded: max 10 keys per IP per 24 hours'
+                $ref: '#/components/schemas/PresetDetail'
+        "404":
+          description: Preset not found
+          content:
+            application/json:
+              schema: {}
+      security: []
+  /v1/presets/{id}/sample/{name}:
+    get:
+      tags:
+        - presets
+      summary: '`GET /v1/presets/{id}/sample/{name}` — raw bundled sample bytes (public).'
+      operationId: get_preset_sample
+      parameters:
+        - name: id
+          in: path
+          description: Preset identifier
+          required: true
+          schema:
+            type: string
+        - name: name
+          in: path
+          description: Sample file name
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Sample bytes (octet-stream)
+        "404":
+          description: Preset or sample not found
+      security: []
+  /v1/rag/collections:
+    get:
+      tags:
+        - rag
+      summary: List RAG collections
+      description: Returns paginated list of collections ordered by creation time (newest first).
+      operationId: list_collections
+      parameters:
+        - name: limit
+          in: query
+          description: Maximum results per page (default 50, max 100)
+          required: false
+          schema:
+            type: integer
+            format: int32
+        - name: offset
+          in: query
+          description: Number of results to skip (default 0)
+          required: false
+          schema:
+            type: integer
+            format: int32
+      responses:
+        "200":
+          description: List of collections
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListCollectionsResponse'
+        "401":
+          description: Unauthorized — missing or invalid API key
         "500":
-          description: Internal server error
+          description: Database error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SandboxErrorResponse'
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearer_auth: []
+    post:
+      tags:
+        - rag
+      summary: Create a new RAG collection
+      description: |-
+        Creates a vector collection with the specified embedding and index configuration.
+        Collection names must be unique per project.
+        Returns 201 on success, 409 if a collection with that name already exists.
+      operationId: create_collection
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCollectionRequest'
+        required: true
+      responses:
+        "201":
+          description: Collection created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateCollectionResponse'
+        "400":
+          description: Invalid request parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "401":
+          description: Unauthorized — missing or invalid API key
+        "409":
+          description: Collection name already exists in this project
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "500":
+          description: Database error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearer_auth: []
+  /v1/rag/collections/{name}:
+    get:
+      tags:
+        - rag
+      summary: Get a RAG collection
+      description: Returns 404 if the collection does not exist or belongs to another project.
+      operationId: get_collection
+      parameters:
+        - name: name
+          in: path
+          description: Collection name
+          required: true
+          schema:
+            type: string
+          example: my-docs
+      responses:
+        "200":
+          description: Collection details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CollectionResponse'
+        "401":
+          description: Unauthorized — missing or invalid API key
+        "404":
+          description: Collection not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "500":
+          description: Database error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearer_auth: []
+    delete:
+      tags:
+        - rag
+      summary: Delete a RAG collection
+      description: |-
+        Marking the collection as deleted prevents new document uploads but
+        does not immediately remove data.
+        Returns 204 on success, 404 if the collection does not exist.
+      operationId: delete_collection
+      parameters:
+        - name: name
+          in: path
+          description: Collection name
+          required: true
+          schema:
+            type: string
+          example: my-docs
+      responses:
+        "204":
+          description: Collection deleted
+        "401":
+          description: Unauthorized — missing or invalid API key
+        "404":
+          description: Collection not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "500":
+          description: Database error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearer_auth: []
+  /v1/rag/collections/{name}/documents:
+    post:
+      tags:
+        - rag
+      summary: Create a document in a RAG collection
+      description: |-
+        Supports two ingest paths:
+        - **Text source** → server chunks, enriches, embeds → 202 async
+        - **Chunks source** → worker handles embedding and enrichment → 202 async
+
+        Quota checks apply: if the collection has `quota_max_documents` set and
+        the active document count would exceed it, returns 429.
+
+        **Note:** The synchronous BYO-vector path (200 with all embeddings supplied) ships in Phase 6c.
+        Currently all ingest requests return 202 with a job_id for polling.
+      operationId: create_document
+      parameters:
+        - name: name
+          in: path
+          description: Collection name
+          required: true
+          schema:
+            type: string
+          example: my-docs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateDocumentRequest'
+        required: true
+      responses:
+        "202":
+          description: Document ingest queued asynchronously
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateDocumentAsyncResponse'
               example:
-                error: internal_error
-                message: Failed to create sandbox key
+                job_id: 01ARZ3NDEKTSV4RRFFQ69G5FAV
+                document_id: 550e8400-e29b-41d4-a716-446655440000
+                status: pending
+                poll: /v1/rag/jobs/01ARZ3NDEKTSV4RRFFQ69G5FAV
+        "401":
+          description: Unauthorized — missing or invalid API key
+        "404":
+          description: Collection not found or RAG disabled on project
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "429":
+          description: Collection quota exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "500":
+          description: Database or NATS error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearer_auth: []
+    delete:
+      tags:
+        - rag
+      summary: Delete documents from a RAG collection
+      description: Accepts either a list of document IDs or a metadata filter expression.
+      operationId: delete_documents
+      parameters:
+        - name: name
+          in: path
+          description: Collection name
+          required: true
+          schema:
+            type: string
+          example: my-docs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeleteDocumentsRequest'
+        required: true
+      responses:
+        "200":
+          description: Documents deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeleteDocumentsResponse'
+              example:
+                deleted_count: 5
+        "401":
+          description: Unauthorized — missing or invalid API key
+        "404":
+          description: Collection not found or RAG disabled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "500":
+          description: Database error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearer_auth: []
+  /v1/rag/collections/{name}/documents/{id}/reindex:
+    post:
+      tags:
+        - rag
+      summary: Reindex a document
+      description: |-
+        When `re_extract: true`, the worker re-pulls the source object from storage
+        and re-runs xberg extraction before re-chunking.
+      operationId: reindex_document
+      parameters:
+        - name: name
+          in: path
+          description: Collection name
+          required: true
+          schema:
+            type: string
+          example: my-docs
+        - name: id
+          in: path
+          description: Document ID
+          required: true
+          schema:
+            type: string
+            format: uuid
+          example: 550e8400-e29b-41d4-a716-446655440000
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReindexRequest'
+        required: true
+      responses:
+        "202":
+          description: Reindex job queued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateDocumentAsyncResponse'
+              example:
+                job_id: 01ARZ3NDEKTSV4RRFFQ69G5FAV
+                document_id: 550e8400-e29b-41d4-a716-446655440000
+                status: pending
+                poll: /v1/rag/jobs/01ARZ3NDEKTSV4RRFFQ69G5FAV
+        "401":
+          description: Unauthorized — missing or invalid API key
+        "404":
+          description: Document or collection not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "500":
+          description: Database or NATS error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearer_auth: []
+  /v1/rag/collections/{name}/migrate-embeddings:
+    post:
+      tags:
+        - rag
+      summary: Initiate embedding source migration
+      description: |-
+        Validates that the target version is greater than the current version
+        and that the target embedding source has the same dimension as the
+        current embedding source (cross-dimension migration is not supported).
+
+        Returns 202 with a job_id for polling progress.
+      operationId: migrate_embeddings
+      parameters:
+        - name: name
+          in: path
+          description: Collection name
+          required: true
+          schema:
+            type: string
+          example: my-docs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MigrateEmbeddingsRequest'
+        required: true
+      responses:
+        "202":
+          description: Migration queued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MigrateEmbeddingsResponse'
+        "401":
+          description: Unauthorized — missing or invalid API key
+        "404":
+          description: Collection not found or RAG disabled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "422":
+          description: Invalid migration parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearer_auth: []
+  /v1/rag/collections/{name}/migrate-embeddings/{job_id}:
+    get:
+      tags:
+        - rag
+      summary: Get migration job status
+      description: Returns the current status, progress details, or error information.
+      operationId: migrate_status
+      parameters:
+        - name: name
+          in: path
+          description: Collection name
+          required: true
+          schema:
+            type: string
+        - name: job_id
+          in: path
+          description: Migration job ID
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Migration status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MigrateStatusResponse'
+        "401":
+          description: Unauthorized — missing or invalid API key
+        "404":
+          description: Job not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearer_auth: []
+  /v1/rag/collections/{name}/retrieve:
+    post:
+      tags:
+        - rag
+      summary: Retrieve relevance-ranked chunks from a RAG collection
+      operationId: retrieve
+      parameters:
+        - name: name
+          in: path
+          description: Collection name
+          required: true
+          schema:
+            type: string
+          example: my-docs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RetrieveRequest'
+        required: true
+      responses:
+        "200":
+          description: Retrieve completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RetrieveResponse'
+        "401":
+          description: Unauthorized — missing or invalid API key
+        "404":
+          description: Collection not found or RAG disabled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "422":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "501":
+          description: Reranker kind not available in this deployment
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "503":
+          description: RAG service unavailable or retrieve limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "504":
+          description: Request deadline exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearer_auth: []
+  /v1/rag/jobs/{job_id}:
+    get:
+      tags:
+        - rag
+      summary: Poll async RAG operation status
+      description: |-
+        Returns the current job state, operation type, and any available progress details.
+        Status is determined by:
+        - For ingest/reindex: document status in vector_documents (pending→indexed or failed)
+        - For migrate: job status in NATS KV bucket (rag-migrate-status)
+
+        Returns 404 if the job_id does not exist or belongs to another project (RLS enforcement).
+      operationId: get_job
+      parameters:
+        - name: job_id
+          in: path
+          description: Job ID (ULID)
+          required: true
+          schema:
+            type: string
+          example: 01ARZ3NDEKTSV4RRFFQ69G5FAV
+      responses:
+        "200":
+          description: Job status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RagJobStatusResponse'
+        "401":
+          description: Unauthorized — missing or invalid API key
+        "404":
+          description: Job not found or access denied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "500":
+          description: Database or NATS error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearer_auth: []
   /v1/uploads/confirm:
     post:
       tags:
@@ -495,12 +1055,12 @@ paths:
                 batch_id: batch_550e8400-e29b-41d4-a716
                 uploads:
                   - job_id: 550e8400-e29b-41d4-a716-446655440000
-                    upload_url: https://storage.googleapis.com/kreuzberg-dev-uploads/...
+                    upload_url: https://storage.googleapis.com/xberg-dev-uploads/...
                     object_key: projects/abc123/uploads/550e8400-e29b-41d4-a716-446655440000
                     method: PUT
                     expires_in_secs: 3600
                   - job_id: 550e8400-e29b-41d4-a716-446655440001
-                    upload_url: https://storage.googleapis.com/kreuzberg-dev-uploads/...
+                    upload_url: https://storage.googleapis.com/xberg-dev-uploads/...
                     object_key: projects/abc123/uploads/550e8400-e29b-41d4-a716-446655440001
                     method: PUT
                     expires_in_secs: 3600
@@ -578,6 +1138,7 @@ components:
     AnnotationKind:
       oneOf:
         - type: object
+          description: Bold (strong) text formatting.
           required:
             - annotation_type
           properties:
@@ -586,6 +1147,7 @@ components:
               enum:
                 - bold
         - type: object
+          description: Italic (emphasis) text formatting.
           required:
             - annotation_type
           properties:
@@ -594,6 +1156,7 @@ components:
               enum:
                 - italic
         - type: object
+          description: Underlined text.
           required:
             - annotation_type
           properties:
@@ -602,6 +1165,7 @@ components:
               enum:
                 - underline
         - type: object
+          description: Strikethrough text.
           required:
             - annotation_type
           properties:
@@ -610,6 +1174,7 @@ components:
               enum:
                 - strikethrough
         - type: object
+          description: Inline code span.
           required:
             - annotation_type
           properties:
@@ -618,6 +1183,7 @@ components:
               enum:
                 - code
         - type: object
+          description: Subscript text.
           required:
             - annotation_type
           properties:
@@ -626,6 +1192,7 @@ components:
               enum:
                 - subscript
         - type: object
+          description: Superscript text.
           required:
             - annotation_type
           properties:
@@ -634,6 +1201,7 @@ components:
               enum:
                 - superscript
         - type: object
+          description: Hyperlink annotation.
           required:
             - url
             - annotation_type
@@ -646,8 +1214,10 @@ components:
               type:
                 - string
                 - "null"
+              description: Optional link title attribute.
             url:
               type: string
+              description: Hyperlink target URL.
         - type: object
           description: Highlighted text (PDF highlights, HTML `<mark>`).
           required:
@@ -669,6 +1239,7 @@ components:
                 - color
             value:
               type: string
+              description: CSS-compatible color value (e.g. `"#ff0000"`, `"red"`).
         - type: object
           description: Font size with units (e.g. "12pt", "1.2em", "16px").
           required:
@@ -681,6 +1252,7 @@ components:
                 - font_size
             value:
               type: string
+              description: Font size including unit (e.g. `"12pt"`, `"1.2em"`, `"16px"`).
         - type: object
           description: Extensible annotation for format-specific styling.
           required:
@@ -693,10 +1265,12 @@ components:
                 - custom
             name:
               type: string
+              description: Name of the custom annotation kind.
             value:
               type:
                 - string
                 - "null"
+              description: Optional value or parameter for the annotation.
       description: Types of inline text annotations.
     ArchiveEntry:
       type: object
@@ -704,7 +1278,7 @@ components:
         A single file extracted from an archive.
 
         When archives (ZIP, TAR, 7Z, GZIP) are extracted with recursive extraction
-        enabled, each processable file produces its own full `ExtractionResult`.
+        enabled, each processable file produces its own full `ExtractedDocument`.
       required:
         - path
         - mime_type
@@ -717,7 +1291,7 @@ components:
           type: string
           description: Archive-relative file path (e.g. "folder/document.pdf").
         result:
-          $ref: '#/components/schemas/ExtractionResult'
+          $ref: '#/components/schemas/ExtractedDocument'
           description: Full extraction result for this file.
     ArchiveMetadata:
       type: object
@@ -780,6 +1354,87 @@ components:
             items:
               type: string
           description: Key-value pairs (key="value")
+    AudioMetadata:
+      type: object
+      description: |-
+        Audio/video file metadata.
+
+        Populated from container tags (ID3v2, MP4 atoms, Vorbis comments, etc.) and
+        PCM decode properties. Available when the `transcription-types` feature is enabled.
+      properties:
+        bitrate:
+          type:
+            - integer
+            - "null"
+          format: int32
+          description: Audio bitrate in kbps from the source file tags/properties.
+          minimum: 0
+        channels:
+          type:
+            - integer
+            - "null"
+          format: int32
+          description: Number of audio channels (1 = mono, 2 = stereo).
+          minimum: 0
+        codec:
+          type:
+            - string
+            - "null"
+          description: Audio codec (e.g. "mp3", "aac", "opus", "flac").
+        container:
+          type:
+            - string
+            - "null"
+          description: Container format (e.g. "mpeg", "mp4", "ogg", "wav").
+        duration_ms:
+          type:
+            - integer
+            - "null"
+          format: int64
+          description: Duration in milliseconds derived from the decoded audio stream.
+          minimum: 0
+        sample_rate_hz:
+          type:
+            - integer
+            - "null"
+          format: int32
+          description: Sample rate in Hz after decode (always 16000 when resampled for Whisper).
+          minimum: 0
+    BibtexMetadata:
+      type: object
+      description: BibTeX bibliography metadata.
+      required:
+        - entry_count
+      properties:
+        authors:
+          type: array
+          items:
+            type: string
+          description: Author names collected across all bibliography entries.
+        citation_keys:
+          type: array
+          items:
+            type: string
+          description: BibTeX citation keys (e.g. `"knuth1984"`) for all entries.
+        entry_count:
+          type: integer
+          description: Number of entries in the bibliography.
+          minimum: 0
+        entry_types:
+          type:
+            - object
+            - "null"
+          description: Count of entries grouped by BibTeX entry type (e.g. `"article"` → 5).
+          additionalProperties:
+            type: integer
+            minimum: 0
+          propertyNames:
+            type: string
+        year_range:
+          oneOf:
+            - type: "null"
+            - $ref: '#/components/schemas/YearRange'
+              description: Earliest and latest publication years found in the bibliography.
     BlockType:
       type: string
       description: Types of block-level elements in Djot.
@@ -984,6 +1639,17 @@ components:
 
                 Contains the heading hierarchy this chunk falls under.
                 Only populated when `ChunkerType::Markdown` is used.
+        heading_path:
+          type: array
+          items:
+            type: string
+          description: |-
+            Flattened heading trail from document root to this chunk's section.
+
+            Each element is a heading's text, outermost first. Derived from
+            [`heading_context`](Self::heading_context) when present; empty otherwise.
+            Provides a binding-friendly, RAG-shaped breadcrumb without requiring
+            callers to walk the nested [`HeadingContext`] structure.
         image_indices:
           type: array
           items:
@@ -991,7 +1657,7 @@ components:
             format: int32
             minimum: 0
           description: |-
-            Indices into `ExtractionResult.images` for images on pages covered by this chunk.
+            Indices into `ExtractedDocument.images` for images on pages covered by this chunk.
 
             Contains zero-based indices into the top-level `images` collection for every
             image whose `page_number` falls within `[first_page, last_page]`.
@@ -1037,6 +1703,9 @@ components:
         - table_like
         - formula
         - code_block
+        - function
+        - class
+        - module
         - image
         - org_chart
         - diagram
@@ -1079,6 +1748,236 @@ components:
             - boolean
             - "null"
           description: Trim whitespace from chunk boundaries
+    CitationMetadata:
+      type: object
+      description: Citation file metadata (RIS, PubMed, EndNote).
+      required:
+        - citation_count
+      properties:
+        authors:
+          type: array
+          items:
+            type: string
+          description: Author names collected across all citation records.
+        citation_count:
+          type: integer
+          description: Total number of citation records in the file.
+          minimum: 0
+        dois:
+          type: array
+          items:
+            type: string
+          description: DOI identifiers found in the citation records.
+        format:
+          type:
+            - string
+            - "null"
+          description: Detected citation file format (e.g. `"ris"`, `"pubmed"`, `"endnote"`).
+        keywords:
+          type: array
+          items:
+            type: string
+          description: Keywords collected from all citation records.
+        year_range:
+          oneOf:
+            - type: "null"
+            - $ref: '#/components/schemas/YearRange'
+              description: Earliest and latest publication years found in the file.
+    ClassificationLabel:
+      type: object
+      description: A single label + confidence pair.
+      required:
+        - label
+      properties:
+        confidence:
+          type:
+            - number
+            - "null"
+          format: float
+          description: |-
+            Backend-reported confidence in `[0.0, 1.0]`. `None` when the backend (e.g. an LLM
+            prompt without explicit confidence schema) did not report one.
+        label:
+          type: string
+          description: Label name as configured in `PageClassificationConfig::labels`.
+    CodeChunkInfo:
+      type: object
+      description: |-
+        A single structurally-meaningful code chunk produced by tree-sitter parsing.
+
+        Purpose-built payload owned by xberg — deliberately does not expose the upstream
+        `tree_sitter_language_pack` types, so binding generators never need to resolve an
+        external crate's types across FFI/language boundaries.
+      required:
+        - text
+        - context_path
+        - node_types
+        - byte_start
+        - byte_end
+      properties:
+        byte_end:
+          type: integer
+          description: Exclusive end byte offset of this chunk in the original source.
+          minimum: 0
+        byte_start:
+          type: integer
+          description: Inclusive start byte offset of this chunk in the original source.
+          minimum: 0
+        context_path:
+          type: array
+          items:
+            type: string
+          description: Hierarchical path of enclosing structural items (e.g. `["MyClass", "my_method"]`).
+        node_types:
+          type: array
+          items:
+            type: string
+          description: |-
+            Tree-sitter node kinds that appear at the top level of this chunk (e.g.
+            `"function_definition"`, `"class_definition"`).
+        text:
+          type: string
+          description: The raw source text of this chunk.
+    CodeMetadata:
+      type: object
+      description: |-
+        Code-format metadata: the structural chunks produced by tree-sitter parsing.
+
+        Wrapped by [`FormatMetadata::Code`]. Kept as a named struct (rather than an inline
+        enum-variant body) so serde can tag it under internal tagging and utoipa can emit a
+        referenceable `CodeMetadata` component in the OpenAPI schema.
+      required:
+        - chunks
+      properties:
+        chunks:
+          type: array
+          items:
+            $ref: '#/components/schemas/CodeChunkInfo'
+          description: Structural code chunks (function/class/module boundaries).
+    CollectionChunkingConfig:
+      type: object
+      description: |-
+        Per-collection text chunking configuration.
+
+        Mirrors the tunable knobs of xberg's chunker. Every field is optional;
+        omitted fields fall back to the ingest pipeline's defaults. The API layer
+        converts this into xberg's native `ChunkingConfig` before persisting it
+        to the collection, so the ingest pipeline consumes the canonical type.
+      properties:
+        chunker_type:
+          type:
+            - string
+            - "null"
+          description: 'Chunker strategy: `text`, `markdown`, `yaml`, or `semantic`. Default `text`.'
+        max_characters:
+          type:
+            - integer
+            - "null"
+          format: int32
+          description: Maximum characters per chunk (must be greater than `overlap`). Default 1000.
+          minimum: 0
+        overlap:
+          type:
+            - integer
+            - "null"
+          format: int32
+          description: |-
+            Overlap between adjacent chunks in characters (must be less than
+            `max_characters`). Default 200.
+          minimum: 0
+        topic_threshold:
+          type:
+            - number
+            - "null"
+          format: float
+          description: |-
+            Cosine-similarity threshold (0.0–1.0) for the `semantic` chunker's topic
+            boundary detection. Ignored by other chunker types.
+        trim:
+          type:
+            - boolean
+            - "null"
+          description: Trim whitespace from chunk boundaries. Default true.
+      additionalProperties: false
+    CollectionResponse:
+      type: object
+      description: Response for collection retrieval / listing
+      required:
+        - id
+        - name
+        - embedding_dim
+        - distance_metric
+        - index_method
+      properties:
+        chunking_config:
+          oneOf:
+            - type: "null"
+            - $ref: '#/components/schemas/CollectionChunkingConfig'
+              description: Per-collection text chunking configuration
+        distance_metric:
+          type: string
+          description: Distance metric
+        embedding_dim:
+          type: integer
+          format: int32
+          description: Embedding dimension
+          minimum: 0
+        embedding_source:
+          type:
+            - string
+            - "null"
+          description: Embedding source for this collection
+        id:
+          type: string
+          description: Collection unique identifier
+        index_method:
+          type: string
+          description: Vector index method
+        name:
+          type: string
+          description: Collection name
+        quota_max_documents:
+          type:
+            - integer
+            - "null"
+          format: int64
+          description: Maximum documents quota
+          minimum: 0
+        rerank_default:
+          oneOf:
+            - type: "null"
+            - $ref: '#/components/schemas/RerankerSpec'
+              description: Default reranker spec for retrieve operations on this collection
+        stats:
+          oneOf:
+            - type: "null"
+            - $ref: '#/components/schemas/CollectionStatsResponse'
+              description: |-
+                Collection statistics. Populated on the single-collection detail view
+                (`GET /v1/rag/collections/{name}`); omitted from the list view, which is
+                intentionally lightweight and does not run per-collection counts.
+    CollectionStatsResponse:
+      type: object
+      description: Collection statistics response
+      required:
+        - document_count
+        - chunk_count
+      properties:
+        chunk_count:
+          type: integer
+          format: int64
+          description: Total chunks across all documents
+          minimum: 0
+        document_count:
+          type: integer
+          format: int64
+          description: Total documents in collection
+          minimum: 0
+        last_ingested_at:
+          type:
+            - string
+            - "null"
+          description: Last ingestion timestamp (RFC3339)
     ConfirmUploadRequest:
       type: object
       description: Request body for confirming uploads
@@ -1130,6 +2029,20 @@ components:
         - header
         - footer
         - footnote
+    ContributorRole:
+      type: object
+      description: JATS contributor with role.
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          description: Contributor display name.
+        role:
+          type:
+            - string
+            - "null"
+          description: Contributor role (e.g. `"author"`, `"editor"`).
     CrawlChildJob:
       type: object
       description: A child extraction job spawned by a crawl job.
@@ -1169,7 +2082,7 @@ components:
         result:
           oneOf:
             - type: "null"
-            - $ref: '#/components/schemas/ExtractionResult'
+            - $ref: '#/components/schemas/ExtractedDocument'
               description: Extraction result (when completed)
         source_url:
           type:
@@ -1201,7 +2114,7 @@ components:
           type: array
           items:
             type: string
-          description: 'MIME types of documents to extract (default: all supported by kreuzberg)'
+          description: 'MIME types of documents to extract (default: all supported by xberg)'
           example:
             - application/pdf
             - text/html
@@ -1328,7 +2241,7 @@ components:
             - string
             - "null"
           description: Custom User-Agent string
-          example: KreuzbergBot/1.0
+          example: XbergBot/1.0
       example:
         max_depth: 2
         max_pages: 100
@@ -1478,31 +2391,317 @@ components:
         mime_type: text/html
         size_bytes: 12345
         fetched_at: "2025-12-21T10:00:00Z"
-    CreateSandboxKeyRequest:
+    CreateCollectionRequest:
       type: object
-      description: Sandbox key creation request (body not used, but for API clarity)
-    CreateSandboxKeyResponse:
-      type: object
-      description: Sandbox key response
+      description: Request to create a new RAG collection.
       required:
-        - api_key
-        - expires_at
-        - pages_remaining
+        - name
+        - embedding_dim
       properties:
-        api_key:
+        chunking_config:
+          oneOf:
+            - type: "null"
+            - $ref: '#/components/schemas/CollectionChunkingConfig'
+              description: |-
+                Per-collection text chunking configuration.
+
+                Omit any field to inherit the ingest pipeline's built-in default
+                (max 1000 characters, 200-character overlap, text chunker).
+        distance_metric:
           type: string
-          description: 'The sandbox API key (use in Authorization: Bearer header)'
-          example: sk_sandbox_ABC123DEF456GHI789JKL012MNO345PQR678STU901VWX234
-        expires_at:
-          type: string
-          format: date-time
-          description: When the key expires (RFC3339 format)
-          example: "2025-12-21T10:00:00Z"
-        pages_remaining:
+          description: Distance metric for similarity search ("cosine", "l2", "inner_product")
+        embedding_dim:
           type: integer
           format: int32
-          description: Page extraction quota for this key
-          example: 50
+          description: Embedding dimension (e.g., 384 for mxbai-embed-large-v1)
+          minimum: 0
+        embedding_source:
+          type:
+            - string
+            - "null"
+          description: |-
+            Embedding source for the collection.
+
+            Omit to use the deployment-wide default (usually "managed_local").
+            When provided, overrides the deployment default.
+        index_method:
+          type:
+            - string
+            - "null"
+          description: |-
+            Vector index method ("diskann" or "hnsw").
+
+            Omit to inherit the deployment-wide default
+            (`XBERG_VECTORSTORE_DEFAULT_INDEX_METHOD` env var, Helm value
+            `vectorstore.defaultIndexMethod`). The API layer is responsible for
+            filling the default before persisting the collection.
+        label_classifier_threshold:
+          type:
+            - number
+            - "null"
+          format: float
+          description: |-
+            Confidence threshold (0.0–1.0) for classify_text. Default 0.5 when
+            None and label_vocabulary is Some.
+        label_vocabulary:
+          type:
+            - array
+            - "null"
+          items:
+            type: string
+          description: |-
+            Labels vocabulary for xberg's classify_text. When None, auto-
+            classification is disabled and labels remain pass-through-only.
+            Length cap: 100 strings; each up to 64 chars.
+        name:
+          type: string
+          description: Collection name (unique per project)
+        quota_max_documents:
+          type:
+            - integer
+            - "null"
+          format: int64
+          description: Maximum documents quota for this collection
+          minimum: 0
+        rerank_default:
+          oneOf:
+            - type: "null"
+            - $ref: '#/components/schemas/RerankerSpec'
+              description: |-
+                Default reranker spec for retrieve operations on this collection.
+
+                When present, this reranker is used as the default unless the
+                retrieve request overrides it. Can be a Preset (ONNX cross-encoder)
+                or Llm (platform-managed LLM).
+      additionalProperties: false
+    CreateCollectionResponse:
+      type: object
+      description: Response for collection creation
+      required:
+        - id
+        - name
+        - embedding_dim
+        - distance_metric
+        - index_method
+      properties:
+        chunking_config:
+          oneOf:
+            - type: "null"
+            - $ref: '#/components/schemas/CollectionChunkingConfig'
+              description: Per-collection text chunking configuration
+        distance_metric:
+          type: string
+          description: Distance metric
+        embedding_dim:
+          type: integer
+          format: int32
+          description: Embedding dimension
+          minimum: 0
+        embedding_source:
+          type:
+            - string
+            - "null"
+          description: Embedding source for this collection
+        id:
+          type: string
+          description: Collection unique identifier
+        index_method:
+          type: string
+          description: Vector index method
+        name:
+          type: string
+          description: Collection name
+        quota_max_documents:
+          type:
+            - integer
+            - "null"
+          format: int64
+          description: Maximum documents quota
+          minimum: 0
+        rerank_default:
+          oneOf:
+            - type: "null"
+            - $ref: '#/components/schemas/RerankerSpec'
+              description: Default reranker spec for retrieve operations on this collection
+    CreateDocumentAsyncResponse:
+      type: object
+      description: Response for asynchronous document creation
+      required:
+        - job_id
+        - document_id
+        - status
+        - poll
+      properties:
+        document_id:
+          type: string
+          format: uuid
+          description: The pending document ID (for reference)
+        job_id:
+          type: string
+          description: Job identifier for polling
+        poll:
+          type: string
+          description: Polling endpoint
+        status:
+          type: string
+          description: Lifecycle status
+    CreateDocumentChunkInput:
+      type: object
+      description: Caller-supplied chunk for bring-your-own-chunks ingest
+      required:
+        - content
+      properties:
+        content:
+          type: string
+          description: Chunk content (text)
+        embedding:
+          type:
+            - array
+            - "null"
+          items:
+            type: number
+            format: float
+          description: |-
+            Caller-supplied embedding vector. When present on every chunk in the
+            request, triggers synchronous write (200). When absent on any chunk,
+            the entire request goes async and the worker embeds all chunks.
+        external_id:
+          type:
+            - string
+            - "null"
+          description: External identifier for this chunk (optional)
+        metadata:
+          description: Metadata attached to this chunk
+        ordinal:
+          type:
+            - integer
+            - "null"
+          format: int32
+          description: Position in the document (0-indexed)
+          minimum: 0
+      additionalProperties: false
+    CreateDocumentRequest:
+      type: object
+      description: |-
+        OpenAPI schema for [`CreateDocumentRequest`].
+
+        This DTO keeps the published request schema as the flat JSON object accepted
+        by the handler while runtime deserialization still uses [`CreateDocumentRequest`].
+      required:
+        - kind
+      properties:
+        chunks:
+          type:
+            - array
+            - "null"
+          items:
+            $ref: '#/components/schemas/CreateDocumentChunkInput'
+          description: 'Pre-split chunks for `kind: "chunks"`'
+        enrichment_overrides:
+          description: Pre-computed enrichments to skip the server's pass
+        external_id:
+          type:
+            - string
+            - "null"
+          description: Caller-supplied external identifier for the document
+        kind:
+          type: string
+          description: 'Source variant: `"text"` or `"chunks"`'
+        metadata:
+          description: Caller-supplied metadata stored alongside the document
+        mime:
+          type:
+            - string
+            - "null"
+          description: MIME type of the source document for audit purposes
+        source_object_key:
+          type:
+            - string
+            - "null"
+          description: GCS/S3 object key for the source document
+        text:
+          type:
+            - string
+            - "null"
+          description: 'Raw text content for `kind: "text"`'
+        title:
+          type:
+            - string
+            - "null"
+          description: Human-readable document title
+        webhook:
+          oneOf:
+            - type: "null"
+            - $ref: '#/components/schemas/WebhookConfig'
+              description: Optional webhook for ingest completion/failure delivery
+    CreateDocumentResponse:
+      type: object
+      description: Response for synchronous document creation (BYO-vector fast path)
+      required:
+        - document_id
+        - collection
+        - chunk_count
+        - embedding_dim
+        - ingested_at
+      properties:
+        chunk_count:
+          type: integer
+          format: int32
+          description: Number of chunks created
+        collection:
+          type: string
+          description: Collection name
+        document_id:
+          type: string
+          format: uuid
+          description: Unique document identifier
+        embedding_dim:
+          type: integer
+          format: int32
+          description: Embedding dimension (from collection spec)
+        external_id:
+          type:
+            - string
+            - "null"
+          description: Caller-supplied external ID (if provided)
+        ingested_at:
+          type: string
+          description: Ingestion timestamp (RFC3339)
+    CreateDocumentSource:
+      oneOf:
+        - type: object
+          description: Full-text document — server runs chunking + enrichment + embedding (async)
+          required:
+            - text
+            - kind
+          properties:
+            enrichment_overrides:
+              description: Pre-computed enrichments (keywords, entities, labels) to skip server's pass
+            kind:
+              type: string
+              enum:
+                - text
+            text:
+              type: string
+              description: Raw text content
+        - type: object
+          description: Pre-chunked document — chunks may or may not have embeddings
+          required:
+            - chunks
+            - kind
+          properties:
+            chunks:
+              type: array
+              items:
+                $ref: '#/components/schemas/CreateDocumentChunkInput'
+              description: List of pre-split chunks
+            enrichment_overrides:
+              description: Pre-computed enrichments to skip server's pass
+            kind:
+              type: string
+              enum:
+                - chunks
+      description: Document source variant for ingest
     CsvMetadata:
       type: object
       description: CSV/TSV file metadata.
@@ -1514,6 +2713,7 @@ components:
         column_count:
           type: integer
           format: int32
+          description: Number of columns detected.
           minimum: 0
         column_types:
           type:
@@ -1521,15 +2721,77 @@ components:
             - "null"
           items:
             type: string
+          description: Inferred data type for each column (e.g. `"string"`, `"integer"`, `"float"`).
         delimiter:
           type:
             - string
             - "null"
+          description: Field delimiter character (e.g. `","` or `"\t"`).
         has_header:
           type: boolean
+          description: Whether the first row was treated as a header.
         row_count:
           type: integer
           format: int32
+          description: Total number of data rows (excluding the header row if present).
+          minimum: 0
+    DbfFieldInfo:
+      type: object
+      description: dBASE field information.
+      required:
+        - name
+        - field_type
+      properties:
+        field_type:
+          type: string
+          description: dBASE field type character (e.g. `"C"` for character, `"N"` for numeric).
+        name:
+          type: string
+          description: Field (column) name.
+    DbfMetadata:
+      type: object
+      description: dBASE (DBF) file metadata.
+      required:
+        - record_count
+        - field_count
+      properties:
+        field_count:
+          type: integer
+          description: Number of field (column) definitions.
+          minimum: 0
+        fields:
+          type: array
+          items:
+            $ref: '#/components/schemas/DbfFieldInfo'
+          description: Descriptor for each field in the table schema.
+        record_count:
+          type: integer
+          description: Total number of data records in the DBF file.
+          minimum: 0
+    DeleteDocumentsRequest:
+      type: object
+      description: OpenAPI schema for [`DeleteDocumentsRequest`].
+      properties:
+        filter:
+          description: Vectorstore filter expression.
+        ids:
+          type:
+            - array
+            - "null"
+          items:
+            type: string
+            format: uuid
+          description: List of document UUIDs to delete.
+    DeleteDocumentsResponse:
+      type: object
+      description: Response for deletion operation
+      required:
+        - deleted_count
+      properties:
+        deleted_count:
+          type: integer
+          format: int64
+          description: Number of documents deleted
           minimum: 0
     DiffAsyncAccepted:
       type: object
@@ -1632,12 +2894,12 @@ components:
           description: |-
             The computed diff between the two extraction results.
 
-            Serialized to the wire as the full `kreuzberg::diff::ExtractionDiff`
+            Serialized to the wire as the full `xberg::diff::ExtractionDiff`
             shape. The OpenAPI schema declares this as an opaque object because
             the underlying type recurses through `EmbeddedDiff -> Box<ExtractionDiff>`
             and utoipa's schema collector goes into a stack-overflow on inlined
             recursion. SDKs that want a typed surface here should decode the
-            JSON manually against kreuzberg's published schema.
+            JSON manually against xberg's published schema.
         document_id:
           type: string
           format: uuid
@@ -1760,17 +3022,55 @@ components:
         url:
           type: string
           description: Link URL
+    DocumentCounts:
+      type: object
+      description: |-
+        Cheap structural counts for an extracted document.
+
+        Populated on every [`ExtractedDocument`] returned by `extract` /
+        `extract_batch`, regardless of whether the heavy `pages` / `images`
+        collections are materialized. A caller that only needs "how many pages /
+        tables / images did this document have?" (reporting, cost estimation,
+        progress, quotas) can read these without enabling per-page or per-image
+        extraction.
+
+        The page count comes from the parse (the extractor already walks the page
+        tree); it does not require opting into per-page content. `pages` is `0` for
+        inputs that are not page-addressable (e.g. plain text).
+      required:
+        - pages
+        - tables
+        - images
+      properties:
+        images:
+          type: integer
+          description: Images detected in the document.
+          minimum: 0
+        pages:
+          type: integer
+          description: Total pages in the source document (`0` when not page-addressable).
+          minimum: 0
+        tables:
+          type: integer
+          description: Tables detected in the document.
+          minimum: 0
     DocumentInput:
       type: object
-      description: Document input for JSON extraction requests
+      description: |-
+        Document input for JSON extraction requests.
+
+        A document is sourced **either** inline (`data`, base64-encoded) **or** by
+        reference to a connected integration (`integration`). Exactly one of the two
+        must be present; supplying both or neither is a 400.
       required:
         - filename
         - mime_type
-        - data
       properties:
         data:
-          type: string
-          description: Base64-encoded document data
+          type:
+            - string
+            - "null"
+          description: Base64-encoded document data. Mutually exclusive with `integration`.
         document_id:
           type:
             - string
@@ -1780,13 +3080,25 @@ components:
             Optional client-supplied document identifier. When provided, this
             extraction is recorded as a version of that logical document and the
             response carries `document_id` + `version_sequence`. Server mints a
-            new UUID when absent.
+            new UUID when absent. Not supported with `integration` (versioning needs
+            a content hash the integration source has not fetched yet) — the combo
+            is rejected with 400.
         filename:
           type: string
           description: Original filename
+        integration:
+          oneOf:
+            - type: "null"
+            - $ref: '#/components/schemas/IntegrationInput'
+              description: |-
+                Reference to a document in a connected integration. Mutually exclusive
+                with `data`; the worker resolves the bytes through the integration's
+                source connector at fetch time.
         mime_type:
           type: string
-          description: MIME type of the document
+          description: |-
+            MIME type of the document. For an integration-sourced document this is a
+            hint only — the worker prefers the connector-reported type at fetch time.
     DocumentNode:
       type: object
       description: |-
@@ -1795,7 +3107,6 @@ components:
         Each node has deterministic `id`, typed `content`, optional `parent`/`children`
         for tree structure, and metadata like page number, bounding box, and content layer.
       required:
-        - id
         - content
       properties:
         annotations:
@@ -1834,10 +3145,13 @@ components:
           description: Node content — tagged enum, type-specific data only.
         content_layer:
           $ref: '#/components/schemas/ContentLayer'
-          description: Content layer classification.
-        id:
-          $ref: '#/components/schemas/NodeId'
-          description: Deterministic identifier (hash of content + position).
+          description: |-
+            Content layer classification.
+
+            Always serialised — Kotlin-Android (and any other typed binding) treats
+            the field as non-nullable, so omitting it from the JSON wire would
+            break consumer deserialisation.  `#[serde(default)]` covers the
+            missing-field case on inbound JSON.
         page:
           type:
             - integer
@@ -1881,7 +3195,7 @@ components:
 
         Populated by per-format extractors that understand change-tracking metadata
         (DOCX `w:ins`/`w:del`/`w:rPrChange`, ODT `text:change-*`, …). Every
-        extractor defaults to `ExtractionResult.revisions = None` until a
+        extractor defaults to `ExtractedDocument.revisions = None` until a
         format-specific implementation is added.
       required:
         - revision_id
@@ -1954,7 +3268,7 @@ components:
             Each value is the snake_case `node_type` tag of the corresponding
             [`NodeContent`] variant (e.g. `"paragraph"`, `"heading"`, `"table"`, …).
 
-            Computed from [`nodes`] via [`DocumentStructure::finalize_node_types`].
+            Computed from `nodes` via [`DocumentStructure::finalize_node_types`].
             Empty until that method is called (internal construction paths call it
             at the end of derivation).
         nodes:
@@ -2000,6 +3314,26 @@ components:
             - "null"
           format: int32
           description: Optional version sequence for lineage (None for non-lineage jobs)
+    DocumentSummary:
+      type: object
+      description: Summary of an extracted document.
+      required:
+        - text
+        - strategy
+      properties:
+        strategy:
+          $ref: '#/components/schemas/SummaryStrategy'
+          description: Strategy that produced this summary.
+        text:
+          type: string
+          description: Summary text (plain prose).
+        token_count:
+          type:
+            - integer
+            - "null"
+          format: int32
+          description: Approximate token count of the summary, when known.
+          minimum: 0
     DocumentVersionEntry:
       type: object
       description: Entry in the document versions list.
@@ -2056,6 +3390,44 @@ components:
           type: integer
           format: int32
           description: Version sequence number (incrementing per document).
+    DocxMetadata:
+      type: object
+      description: |-
+        Word document metadata.
+
+        Extracted from DOCX files using shared Office Open XML metadata extraction.
+        Integrates with `office_metadata` module for core/app/custom properties.
+      properties:
+        app_properties:
+          type:
+            - object
+            - "null"
+          description: |-
+            Application properties from docProps/app.xml (Word-specific statistics)
+
+            Contains word count, page count, paragraph count, editing time, etc.
+            DOCX-specific variant of Office application properties.
+        core_properties:
+          type:
+            - object
+            - "null"
+          description: |-
+            Core properties from docProps/core.xml (Dublin Core metadata)
+
+            Contains title, creator, subject, keywords, dates, etc.
+            Shared format across DOCX/PPTX/XLSX documents.
+        custom_properties:
+          type:
+            - object
+            - "null"
+          description: |-
+            Custom properties from docProps/custom.xml (user-defined properties)
+
+            Contains key-value pairs defined by users or applications.
+            Values can be strings, numbers, booleans, or dates.
+          additionalProperties: {}
+          propertyNames:
+            type: string
     Element:
       type: object
       description: |-
@@ -2064,14 +3436,10 @@ components:
         Represents a logical unit of content with semantic classification,
         unique identifier, and metadata for tracking origin and position.
       required:
-        - element_id
         - element_type
         - text
         - metadata
       properties:
-        element_id:
-          $ref: '#/components/schemas/ElementId'
-          description: Unique element identifier
         element_type:
           $ref: '#/components/schemas/ElementType'
           description: Semantic type of this element
@@ -2081,13 +3449,6 @@ components:
         text:
           type: string
           description: Text content of the element
-    ElementId:
-      type: string
-      description: |-
-        Unique identifier for semantic elements.
-
-        Wraps a string identifier that is deterministically generated
-        from element type, content, and page number.
     ElementMetadata:
       type: object
       description: Metadata for a semantic element.
@@ -2213,6 +3574,145 @@ components:
             - boolean
             - "null"
           description: Show model download progress
+    Entity:
+      type: object
+      description: A single named entity detected in the extracted text.
+      required:
+        - category
+        - text
+        - start
+        - end
+      properties:
+        category:
+          $ref: '#/components/schemas/EntityCategory'
+          description: Canonical category the entity belongs to (PERSON, ORG, LOCATION, etc.).
+        confidence:
+          type:
+            - number
+            - "null"
+          format: float
+          description: |-
+            Backend-reported confidence in `[0.0, 1.0]`. `None` when the backend does not
+            expose confidence scores.
+        end:
+          type: integer
+          format: int32
+          description: Byte-offset span in `ExtractedDocument::content` where the mention ends (exclusive).
+          minimum: 0
+        start:
+          type: integer
+          format: int32
+          description: Byte-offset span in `ExtractedDocument::content` where the mention starts.
+          minimum: 0
+        text:
+          type: string
+          description: Raw mention text exactly as it appeared in the source.
+    EntityCategory:
+      oneOf:
+        - type: string
+          description: A person's name.
+          enum:
+            - person
+        - type: string
+          description: A company, institution, or organisation name.
+          enum:
+            - organization
+        - type: string
+          description: A geographic location (city, country, address).
+          enum:
+            - location
+        - type: string
+          description: A calendar date.
+          enum:
+            - date
+        - type: string
+          description: A time of day or duration.
+          enum:
+            - time
+        - type: string
+          description: A monetary amount with optional currency.
+          enum:
+            - money
+        - type: string
+          description: A percentage value.
+          enum:
+            - percent
+        - type: string
+          description: An email address.
+          enum:
+            - email
+        - type: string
+          description: A phone number.
+          enum:
+            - phone
+        - type: string
+          description: A URL or URI.
+          enum:
+            - url
+        - type: object
+          description: A caller-supplied custom category label.
+          required:
+            - custom
+          properties:
+            custom:
+              type: string
+              description: A caller-supplied custom category label.
+      description: |-
+        Standard entity categories produced by built-in NER backends.
+
+        The `Custom(String)` variant lets caller-supplied categories (e.g. LLM
+        schemas) flow through without losing fidelity to the consumer.
+    EpubMetadata:
+      type: object
+      description: EPUB metadata (Dublin Core extensions).
+      properties:
+        cover_image:
+          type:
+            - string
+            - "null"
+          description: Path or identifier of the cover image within the EPUB container.
+        coverage:
+          type:
+            - string
+            - "null"
+          description: Dublin Core `coverage` field (geographic or temporal scope).
+        dc_format:
+          type:
+            - string
+            - "null"
+          description: Dublin Core `format` field (media type of the resource).
+        dc_type:
+          type:
+            - string
+            - "null"
+          description: Dublin Core `type` field (nature or genre of the resource).
+        relation:
+          type:
+            - string
+            - "null"
+          description: Dublin Core `relation` field (related resource identifier).
+        source:
+          type:
+            - string
+            - "null"
+          description: Dublin Core `source` field (origin resource identifier).
+    ErrorBody:
+      type: object
+      description: Error body containing code, message, and optional details.
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: string
+          description: Stable string error code (e.g., "rag.vector.dim_mismatch", "not_found")
+          example: rag.vector.dim_mismatch
+        details:
+          description: Optional detailed error information (context-specific)
+        message:
+          type: string
+          description: Human-readable error message
+          example: Caller-supplied embedding does not match collection dimension
     ErrorMetadata:
       type: object
       description: Error metadata (for batch operations).
@@ -2222,18 +3722,22 @@ components:
       properties:
         error_type:
           type: string
+          description: Machine-readable error type identifier (e.g. "UnsupportedFormat").
         message:
           type: string
+          description: Human-readable error description.
     ErrorResponse:
       type: object
-      description: Error response
+      description: |-
+        Canonical error response body.
+
+        Wraps the nested error envelope required by all API error paths.
       required:
         - error
       properties:
         error:
-          type: string
-          description: Error message
-          example: Invalid job ID format
+          $ref: '#/components/schemas/ErrorBody'
+          description: The nested error body with code, message, and optional details.
     ExcelMetadata:
       type: object
       description: |-
@@ -2285,6 +3789,42 @@ components:
             - type: "null"
             - $ref: '#/components/schemas/WebhookConfig'
               description: Webhook configuration for async result delivery (optional)
+    ExtractMultipartForm:
+      type: object
+      description: |-
+        Multipart (`multipart/form-data`) variant of the extract request body.
+
+        Send one or more files as binary parts whose field name is the filename
+        (for example a part named `invoice.pdf`). Two reserved text parts carry
+        JSON: `options` (an [`ExtractionOptions`]) and `webhook` (a
+        [`WebhookConfig`]). To attach a lineage document id to a file, add a text
+        part named `document_id-<filename>` whose value is the document UUID.
+      required:
+        - file
+      properties:
+        file:
+          type: array
+          items:
+            type: integer
+            format: binary
+            minimum: 0
+          description: |-
+            A document file. Repeat with one binary part per file; the part's field
+            name (or filename) becomes the document filename and its `Content-Type`
+            the document MIME type.
+          contentMediaType: application/octet-stream
+        options:
+          oneOf:
+            - type: "null"
+            - $ref: '#/components/schemas/ExtractionOptions'
+              description: Optional `options` part — a JSON-encoded [`ExtractionOptions`].
+        webhook:
+          oneOf:
+            - type: "null"
+            - $ref: '#/components/schemas/WebhookConfig'
+              description: |-
+                Optional `webhook` part — a JSON-encoded [`WebhookConfig`] for async
+                result delivery.
     ExtractResponse:
       type: object
       description: Extract response (HTTP 202)
@@ -2309,6 +3849,356 @@ components:
         status:
           type: string
           description: Job status
+    ExtractedDocument:
+      type: object
+      description: |-
+        Document extracted by the core extraction pipeline.
+
+        `extract` and `extract_batch` return an `ExtractionResult` envelope whose
+        `results` field contains these per-document payloads.
+      required:
+        - content
+        - mime_type
+        - metadata
+        - tables
+      properties:
+        annotations:
+          type:
+            - array
+            - "null"
+          items:
+            $ref: '#/components/schemas/PdfAnnotation'
+          description: |-
+            PDF annotations extracted from the document.
+
+            When annotation extraction is enabled via `PdfConfig::extract_annotations`,
+            this field contains text notes, highlights, links, stamps, and other
+            annotations found in PDF documents.
+        children:
+          type:
+            - array
+            - "null"
+          items:
+            $ref: '#/components/schemas/ArchiveEntry'
+          description: |-
+            Nested extraction results from archive contents.
+
+            When extracting archives, each processable file inside produces its own
+            full extraction result. Set to `None` for non-archive formats.
+            Use `max_archive_depth` in config to control recursion depth.
+        chunks:
+          type:
+            - array
+            - "null"
+          items:
+            $ref: '#/components/schemas/Chunk'
+          description: |-
+            Text chunks when chunking is enabled.
+
+            When chunking configuration is provided, the content is split into
+            overlapping chunks for efficient processing. Each chunk contains the text,
+            optional embeddings (if enabled), and metadata about its position.
+        code_intelligence:
+          description: |-
+            Code intelligence results from tree-sitter analysis.
+
+            Populated when extracting source code files with the `tree-sitter` feature.
+            Contains metrics, structural analysis, imports/exports, comments,
+            docstrings, symbols, diagnostics, and optionally chunked code segments.
+
+            Stored as an opaque JSON value so that all language bindings (Go, Java,
+            C#, …) can deserialize it as a raw JSON object rather than a typed struct.
+            The underlying type is `tree_sitter_language_pack::ProcessResult`.
+        content:
+          type: string
+          description: Plain-text representation of the extracted document content.
+        counts:
+          $ref: '#/components/schemas/DocumentCounts'
+          description: |-
+            Cheap structural counts (pages, tables, images).
+
+            Always populated by the extraction pipeline, even when the `pages` /
+            `images` collections are `None`. See [`DocumentCounts`].
+        detected_languages:
+          type:
+            - array
+            - "null"
+          items:
+            type: string
+          description: ISO 639-1 language codes detected in the document content.
+        djot_content:
+          oneOf:
+            - type: "null"
+            - $ref: '#/components/schemas/DjotContent'
+              description: |-
+                Rich Djot content structure (when extracting Djot documents).
+
+                When extracting Djot documents with structured extraction enabled,
+                this field contains the full semantic structure including:
+                - Block-level elements with nesting
+                - Inline formatting with attributes
+                - Links, images, footnotes
+                - Math expressions
+                - Complete attribute information
+
+                The `content` field still contains plain text for backward compatibility.
+
+                Always `None` for non-Djot documents.
+        document:
+          oneOf:
+            - type: "null"
+            - $ref: '#/components/schemas/DocumentStructure'
+              description: |-
+                Structured document tree (when document structure extraction is enabled).
+
+                When `include_document_structure` is true in `ExtractionConfig`, this field
+                contains the full hierarchical representation of the document including:
+                - Heading-driven section nesting
+                - Table grids with cell-level metadata
+                - Content layer classification (body, header, footer, footnote)
+                - Inline text annotations (formatting, links)
+                - Bounding boxes and page numbers
+
+                Independent of `result_format` — can be combined with Unified or ElementBased.
+        elements:
+          type:
+            - array
+            - "null"
+          items:
+            $ref: '#/components/schemas/Element'
+          description: |-
+            Semantic elements when element-based result format is enabled.
+
+            When result_format is set to ElementBased, this field contains semantic
+            elements with type classification, unique identifiers, and metadata for
+            Unstructured-compatible element-based processing.
+        entities:
+          type:
+            - array
+            - "null"
+          items:
+            $ref: '#/components/schemas/Entity'
+          description: |-
+            Named entities detected in `content` by the NER post-processor.
+
+            `None` when no NER backend is configured. Populated by the `xberg-gliner`
+            ONNX backend or the LLM-driven backend (see `crates/xberg/src/text/ner/`).
+        extracted_keywords:
+          type:
+            - array
+            - "null"
+          items:
+            $ref: '#/components/schemas/Keyword'
+          description: |-
+            Extracted keywords when keyword extraction is enabled.
+
+            When keyword extraction (RAKE or YAKE) is configured, this field contains
+            the extracted keywords with scores, algorithm info, and position data.
+            Previously stored in `metadata.additional["keywords"]`.
+        extraction_confidence:
+          oneOf:
+            - type: "null"
+            - $ref: '#/components/schemas/ExtractionConfidence'
+              description: |-
+                Confidence score computed by the heuristics pipeline.
+
+                Populated when the `heuristics` feature is enabled and confidence
+                scoring has been performed.  Combines text-coverage, OCR aggregate
+                confidence, and schema-compliance into a single `[0, 1]` value.
+
+                `None` when confidence scoring is not configured or the feature is
+                absent.
+        extraction_method:
+          oneOf:
+            - type: "null"
+            - $ref: '#/components/schemas/ExtractionMethod'
+              description: |-
+                Extraction strategy used to produce the returned text.
+
+                Populated when the extractor can reliably distinguish native text extraction,
+                OCR-only extraction, or mixed native/OCR output.
+        form_fields:
+          type: array
+          items:
+            $ref: '#/components/schemas/PdfFormField'
+          description: |-
+            Form fields extracted from a PDF's AcroForm or XFA structure.
+
+            Populated by the PDF extractor when `PdfConfig::extract_form_fields` is
+            enabled (default) and the document is a fillable form. Empty otherwise.
+        formulas:
+          type: array
+          items:
+            $ref: '#/components/schemas/Formula'
+          description: |-
+            Mathematical formulas recognized in the document.
+
+            Populated by the layout-guided formula pipeline when the
+            `layout-detection` feature is enabled and the document contains regions
+            classified as formulas. Empty otherwise.
+        images:
+          type:
+            - array
+            - "null"
+          items:
+            $ref: '#/components/schemas/ExtractedImage'
+          description: |-
+            Extracted images from the document.
+
+            When image extraction is enabled via `ImageExtractionConfig`, this field
+            contains all images found in the document with their raw data and metadata.
+            Each image may optionally contain a nested `ocr_result` if OCR was performed.
+        llm_usage:
+          type:
+            - array
+            - "null"
+          items:
+            $ref: '#/components/schemas/LlmUsage'
+          description: |-
+            LLM token usage and cost data for all LLM calls made during this extraction.
+
+            Contains one entry per LLM call. Multiple entries are produced when
+            VLM OCR, structured extraction, or LLM embeddings run during
+            the same extraction.
+
+            `None` when no LLM was used.
+        metadata:
+          $ref: '#/components/schemas/Metadata'
+          description: Document-level metadata (author, title, dates, format-specific fields).
+        mime_type:
+          type: string
+          description: MIME type of the source document (e.g. `"application/pdf"`).
+        ocr_elements:
+          type:
+            - array
+            - "null"
+          items:
+            $ref: '#/components/schemas/OcrElement'
+          description: |-
+            OCR elements with full spatial and confidence metadata.
+
+            When OCR is performed with element extraction enabled, this field contains
+            the structured representation of detected text including:
+            - Bounding geometry (rectangles or quadrilaterals)
+            - Confidence scores (detection and recognition)
+            - Rotation information
+            - Hierarchical relationships (Tesseract only)
+
+            This field preserves all metadata that would otherwise be lost when
+            converting to plain text or markdown output formats.
+
+            Only populated when `OcrElementConfig.include_elements` is true.
+        page_classifications:
+          type:
+            - array
+            - "null"
+          items:
+            $ref: '#/components/schemas/PageClassification'
+          description: |-
+            Per-page classifications produced by the page-classification post-processor.
+
+            `None` when classification is not configured.
+        pages:
+          type:
+            - array
+            - "null"
+          items:
+            $ref: '#/components/schemas/PageContent'
+          description: |-
+            Per-page content when page extraction is enabled.
+
+            When page extraction is configured, the document is split into per-page content
+            with tables and images mapped to their respective pages.
+        processing_warnings:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProcessingWarning'
+          description: |-
+            Non-fatal warnings collected during processing pipeline stages.
+
+            Captures errors from optional pipeline features (embedding, chunking,
+            language detection, output formatting) that don't prevent extraction
+            but may indicate degraded results.
+            Previously stored as individual keys in `metadata.additional`.
+        quality_score:
+          type:
+            - number
+            - "null"
+          format: double
+          description: |-
+            Document quality score from quality analysis.
+
+            A value between 0.0 and 1.0 indicating the overall text quality.
+            Previously stored in `metadata.additional["quality_score"]`.
+        redaction_report:
+          oneOf:
+            - type: "null"
+            - $ref: '#/components/schemas/RedactionReport'
+              description: |-
+                Audit report of redactions applied by the redaction post-processor.
+
+                The redaction processor rewrites `content`, `formatted_content`, every
+                chunk's text, and the textual fields of `entities` / `summary` / `translation` /
+                `page_classifications` in place. This report describes what was found and how it
+                was replaced. `None` when redaction is not configured.
+        revisions:
+          type:
+            - array
+            - "null"
+          items:
+            $ref: '#/components/schemas/DocumentRevision'
+          description: |-
+            Tracked changes embedded in the source document.
+
+            Populated by per-format extractors that understand change-tracking
+            metadata (DOCX `w:ins`/`w:del`/`w:rPrChange`, ODT `text:change-*`,
+            …). Every extractor defaults to `None` until its format-specific
+            implementation is added. Extractors that do populate this field follow
+            the "accepted-changes" convention: inserted text is present in
+            `content`, deleted text is absent — the revision list is the separate
+            audit trail.
+        structured_output:
+          description: |-
+            Structured extraction output from LLM-based JSON schema extraction.
+
+            When `structured_extraction` is configured in `ExtractionConfig`, the
+            extracted document content is sent to a VLM with the provided JSON schema.
+            The response is parsed and stored here as a JSON value matching the schema.
+        summary:
+          oneOf:
+            - type: "null"
+            - $ref: '#/components/schemas/DocumentSummary'
+              description: |-
+                Summary of `content` produced by the summarisation post-processor.
+
+                `None` when summarisation is not configured. Populated by the TextRank
+                extractive backend (deterministic, no external service) or by the
+                liter-llm-driven abstractive backend.
+        tables:
+          type: array
+          items:
+            $ref: '#/components/schemas/Table'
+          description: Tables extracted from the document, each with structured cell data.
+        translation:
+          oneOf:
+            - type: "null"
+            - $ref: '#/components/schemas/Translation'
+              description: |-
+                Translation of `content` produced by the translation post-processor.
+
+                `None` when translation is not configured.
+        uris:
+          type:
+            - array
+            - "null"
+          items:
+            $ref: '#/components/schemas/ExtractedUri'
+          description: |-
+            URIs/links discovered during document extraction.
+
+            Contains hyperlinks, image references, citations, email addresses, and
+            other URI-like references found in the document. Always extracted when
+            present in the source document.
     ExtractedImage:
       type: object
       description: |-
@@ -2336,6 +4226,17 @@ components:
               description: |-
                 Bounding box of the image on the page (PDF coordinates: x0=left, y0=bottom, x1=right, y1=top).
                 Only populated for PDF-extracted images when position data is available from the PDF extractor.
+        caption:
+          type:
+            - string
+            - "null"
+          description: |-
+            VLM-generated caption describing the image, when captioning is configured.
+
+            Populated by the captioning post-processor
+            (`crates/xberg/src/plugins/processor/builtin/captioning.rs`), which routes
+            each image through `crate::llm::region_extractor::extract_region_with_vlm` in
+            caption mode. `None` when captioning is disabled or the VLM declined to caption.
         cluster_id:
           type:
             - integer
@@ -2359,6 +4260,13 @@ components:
           description: |-
             Raw image data (PNG, JPEG, WebP, etc. bytes).
             Uses `bytes::Bytes` for cheap cloning of large buffers.
+        data_base64:
+          type:
+            - string
+            - "null"
+          description: |-
+            Base64-encoded copy of `data`; populated when `ImageExtractionConfig::include_data_base64`
+            is `true`. Omitted from JSON by default; use instead of `data` in JSON-only clients.
         description:
           type:
             - string
@@ -2400,7 +4308,7 @@ components:
         ocr_result:
           oneOf:
             - type: "null"
-            - $ref: '#/components/schemas/ExtractionResult'
+            - $ref: '#/components/schemas/ExtractedDocument'
               description: |-
                 Nested OCR extraction result (if image was OCRed)
 
@@ -2413,6 +4321,18 @@ components:
           format: int32
           description: Page/slide number where image was found (1-indexed)
           minimum: 0
+        qr_codes:
+          type:
+            - array
+            - "null"
+          items:
+            $ref: '#/components/schemas/QrCode'
+          description: |-
+            QR codes decoded from this image, when QR detection is enabled.
+
+            Populated by the QR post-processor (`crates/xberg/src/extractors/qr.rs`) via
+            the pure-Rust `rqrr` decoder. `None` when QR detection is disabled; an empty
+            `Some(vec![])` when detection ran but found nothing.
         source_path:
           type:
             - string
@@ -2457,9 +4377,38 @@ components:
         url:
           type: string
           description: The URL or path string.
+    ExtractionConfidence:
+      type: object
+      description: |-
+        Combined confidence on `[0, 1]`.
+
+        When OCR did not run, the `ocr_aggregate` weight folds into `text_coverage`
+        so the weighted sum still totals 1.0.
+      required:
+        - text_coverage
+        - schema_compliance
+        - combined
+      properties:
+        combined:
+          type: number
+          format: float
+          description: Weighted blend in `[0, 1]`.  The value compared against the fallback threshold.
+        ocr_aggregate:
+          type:
+            - number
+            - "null"
+          format: float
+          description: Mean OCR per-element recognition confidence when OCR ran; `None` when it did not.
+        schema_compliance:
+          $ref: '#/components/schemas/SchemaCompliance'
+          description: Whether the merged output validates against the preset schema.
+        text_coverage:
+          type: number
+          format: float
+          description: Fraction of pages with a usable text layer.
     ExtractionConfig:
       type: object
-      description: Top-level extraction configuration — mirrors kreuzberg::ExtractionConfig.
+      description: Top-level extraction configuration — mirrors xberg::ExtractionConfig.
       properties:
         cache_namespace:
           type:
@@ -2527,7 +4476,10 @@ components:
             - "null"
           description: Include structured document tree in output
         keywords:
-          description: Keyword extraction configuration (flexible JSON)
+          oneOf:
+            - type: "null"
+            - $ref: '#/components/schemas/KeywordConfig'
+              description: Keyword extraction configuration
         language_detection:
           oneOf:
             - type: "null"
@@ -2551,6 +4503,13 @@ components:
             - "null"
           format: int32
           description: Maximum concurrent extractions
+          minimum: 0
+        max_embedded_file_bytes:
+          type:
+            - integer
+            - "null"
+          format: int64
+          description: Maximum size in bytes for embedded/attached files during recursive extraction
           minimum: 0
         ocr:
           oneOf:
@@ -2583,7 +4542,15 @@ components:
             - "null"
           description: 'Result format: "unified" or "element_based"'
         security_limits:
-          description: Security limits (flexible JSON)
+          oneOf:
+            - type: "null"
+            - $ref: '#/components/schemas/SecurityLimits'
+              description: Security limits for extraction (resource caps, recursion bounds)
+        structured_extraction:
+          oneOf:
+            - type: "null"
+            - $ref: '#/components/schemas/StructuredExtractionConfig'
+              description: 'LLM-driven structured extraction: schema + provider config.'
         token_reduction:
           oneOf:
             - type: "null"
@@ -2605,255 +4572,67 @@ components:
       type: object
       description: Extraction options (shared by JSON and multipart requests)
       properties:
+        context:
+          type:
+            - object
+            - "null"
+          description: |-
+            Free-form context map merged into the preset's `context_template`
+            (Mustache `{{key}}`) before the system prompt is sent to the model.
+            Ignored when `preset` is not set.
+          additionalProperties:
+            type: string
+          propertyNames:
+            type: string
         extraction_config:
           oneOf:
             - type: "null"
             - $ref: '#/components/schemas/ExtractionConfig'
-              description: Kreuzberg extraction configuration (optional, null = defaults).
-    ExtractionResult:
+              description: Xberg extraction configuration (optional, null = defaults).
+        preset:
+          type:
+            - string
+            - "null"
+          description: |-
+            Preset identifier (matches `crates/presets/library/<id>/v1.json`).
+            When set, the worker resolves the preset for structured-extraction
+            configuration. Mutually compatible with `extraction_config`.
+        saved_preset_id:
+          type:
+            - string
+            - "null"
+          format: uuid
+          description: |-
+            Saved preset ID (project-scoped user-created preset).
+            When set, the preset's schema, system_prompt, context_template,
+            preferred_call_mode, and emit_citations are merged into extraction_config.
+            Mutually exclusive with `preset` and raw `extraction_config.structured_extraction.schema`.
+        split_documents:
+          type:
+            - boolean
+            - "null"
+          description: |-
+            When set to true and the document is a PDF, enable multi-document
+            boundary detection and fan-out orchestration.
+    FictionBookMetadata:
       type: object
-      description: |-
-        General extraction result used by the core extraction API.
-
-        This is the main result type returned by all extraction functions.
-      required:
-        - content
-        - mime_type
-        - metadata
-        - tables
+      description: FictionBook (FB2) metadata.
       properties:
-        annotations:
+        annotation:
           type:
-            - array
+            - string
             - "null"
-          items:
-            $ref: '#/components/schemas/PdfAnnotation'
-          description: |-
-            PDF annotations extracted from the document.
-
-            When annotation extraction is enabled via `PdfConfig::extract_annotations`,
-            this field contains text notes, highlights, links, stamps, and other
-            annotations found in PDF documents.
-        children:
-          type:
-            - array
-            - "null"
-          items:
-            $ref: '#/components/schemas/ArchiveEntry'
-          description: |-
-            Nested extraction results from archive contents.
-
-            When extracting archives, each processable file inside produces its own
-            full extraction result. Set to `None` for non-archive formats.
-            Use `max_archive_depth` in config to control recursion depth.
-        chunks:
-          type:
-            - array
-            - "null"
-          items:
-            $ref: '#/components/schemas/Chunk'
-          description: |-
-            Text chunks when chunking is enabled.
-
-            When chunking configuration is provided, the content is split into
-            overlapping chunks for efficient processing. Each chunk contains the text,
-            optional embeddings (if enabled), and metadata about its position.
-        content:
-          type: string
-        detected_languages:
-          type:
-            - array
-            - "null"
+          description: Short annotation / summary from the FB2 `<annotation>` element.
+        genres:
+          type: array
           items:
             type: string
-        djot_content:
-          oneOf:
-            - type: "null"
-            - $ref: '#/components/schemas/DjotContent'
-              description: |-
-                Rich Djot content structure (when extracting Djot documents).
-
-                When extracting Djot documents with structured extraction enabled,
-                this field contains the full semantic structure including:
-                - Block-level elements with nesting
-                - Inline formatting with attributes
-                - Links, images, footnotes
-                - Math expressions
-                - Complete attribute information
-
-                The `content` field still contains plain text for backward compatibility.
-
-                Always `None` for non-Djot documents.
-        document:
-          oneOf:
-            - type: "null"
-            - $ref: '#/components/schemas/DocumentStructure'
-              description: |-
-                Structured document tree (when document structure extraction is enabled).
-
-                When `include_document_structure` is true in `ExtractionConfig`, this field
-                contains the full hierarchical representation of the document including:
-                - Heading-driven section nesting
-                - Table grids with cell-level metadata
-                - Content layer classification (body, header, footer, footnote)
-                - Inline text annotations (formatting, links)
-                - Bounding boxes and page numbers
-
-                Independent of `result_format` — can be combined with Unified or ElementBased.
-        elements:
-          type:
-            - array
-            - "null"
-          items:
-            $ref: '#/components/schemas/Element'
-          description: |-
-            Semantic elements when element-based result format is enabled.
-
-            When result_format is set to ElementBased, this field contains semantic
-            elements with type classification, unique identifiers, and metadata for
-            Unstructured-compatible element-based processing.
-        extracted_keywords:
-          type:
-            - array
-            - "null"
-          items:
-            $ref: '#/components/schemas/Keyword'
-          description: |-
-            Extracted keywords when keyword extraction is enabled.
-
-            When keyword extraction (RAKE or YAKE) is configured, this field contains
-            the extracted keywords with scores, algorithm info, and position data.
-            Previously stored in `metadata.additional["keywords"]`.
-        extraction_method:
-          oneOf:
-            - type: "null"
-            - $ref: '#/components/schemas/ExtractionMethod'
-              description: |-
-                Extraction strategy used to produce the returned text.
-
-                Populated when the extractor can reliably distinguish native text extraction,
-                OCR-only extraction, or mixed native/OCR output.
-        images:
-          type:
-            - array
-            - "null"
-          items:
-            $ref: '#/components/schemas/ExtractedImage'
-          description: |-
-            Extracted images from the document.
-
-            When image extraction is enabled via `ImageExtractionConfig`, this field
-            contains all images found in the document with their raw data and metadata.
-            Each image may optionally contain a nested `ocr_result` if OCR was performed.
-        llm_usage:
-          type:
-            - array
-            - "null"
-          items:
-            $ref: '#/components/schemas/LlmUsage'
-          description: |-
-            LLM token usage and cost data for all LLM calls made during this extraction.
-
-            Contains one entry per LLM call. Multiple entries are produced when
-            VLM OCR, structured extraction, or LLM embeddings run during
-            the same extraction.
-
-            `None` when no LLM was used.
-        metadata:
-          $ref: '#/components/schemas/Metadata'
-        mime_type:
-          type: string
-        ocr_elements:
-          type:
-            - array
-            - "null"
-          items:
-            $ref: '#/components/schemas/OcrElement'
-          description: |-
-            OCR elements with full spatial and confidence metadata.
-
-            When OCR is performed with element extraction enabled, this field contains
-            the structured representation of detected text including:
-            - Bounding geometry (rectangles or quadrilaterals)
-            - Confidence scores (detection and recognition)
-            - Rotation information
-            - Hierarchical relationships (Tesseract only)
-
-            This field preserves all metadata that would otherwise be lost when
-            converting to plain text or markdown output formats.
-
-            Only populated when `OcrElementConfig.include_elements` is true.
-        pages:
-          type:
-            - array
-            - "null"
-          items:
-            $ref: '#/components/schemas/PageContent'
-          description: |-
-            Per-page content when page extraction is enabled.
-
-            When page extraction is configured, the document is split into per-page content
-            with tables and images mapped to their respective pages.
-        processing_warnings:
+          description: Genre tags as declared in the FB2 `<genre>` elements.
+        sequences:
           type: array
           items:
-            $ref: '#/components/schemas/ProcessingWarning'
-          description: |-
-            Non-fatal warnings collected during processing pipeline stages.
-
-            Captures errors from optional pipeline features (embedding, chunking,
-            language detection, output formatting) that don't prevent extraction
-            but may indicate degraded results.
-            Previously stored as individual keys in `metadata.additional`.
-        quality_score:
-          type:
-            - number
-            - "null"
-          format: double
-          description: |-
-            Document quality score from quality analysis.
-
-            A value between 0.0 and 1.0 indicating the overall text quality.
-            Previously stored in `metadata.additional["quality_score"]`.
-        revisions:
-          type:
-            - array
-            - "null"
-          items:
-            $ref: '#/components/schemas/DocumentRevision'
-          description: |-
-            Tracked changes embedded in the source document.
-
-            Populated by per-format extractors that understand change-tracking
-            metadata (DOCX `w:ins`/`w:del`/`w:rPrChange`, ODT `text:change-*`,
-            …). Every extractor defaults to `None` until its format-specific
-            implementation is added. Extractors that do populate this field follow
-            the "accepted-changes" convention: inserted text is present in
-            `content`, deleted text is absent — the revision list is the separate
-            audit trail.
-        structured_output:
-          description: |-
-            Structured extraction output from LLM-based JSON schema extraction.
-
-            When `structured_extraction` is configured in `ExtractionConfig`, the
-            extracted document content is sent to a VLM with the provided JSON schema.
-            The response is parsed and stored here as a JSON value matching the schema.
-        tables:
-          type: array
-          items:
-            $ref: '#/components/schemas/Table'
-        uris:
-          type:
-            - array
-            - "null"
-          items:
-            $ref: '#/components/schemas/ExtractedUri'
-          description: |-
-            URIs/links discovered during document extraction.
-
-            Contains hyperlinks, image references, citations, email addresses, and
-            other URI-like references found in the document. Always extracted when
-            present in the source document.
+            type: string
+          description: Book series (sequence) names, if any.
     FileExtractionConfig:
       type: object
       description: |-
@@ -2946,8 +4725,25 @@ components:
         label:
           type: string
           description: Footnote label
+    FormFieldType:
+      type: string
+      description: |-
+        Kind of a PDF form field.
+
+        Mirrors `pdf_oxide`'s widget field taxonomy without leaking the upstream
+        type across the binding surface.
+      enum:
+        - text
+        - checkbox
+        - radio
+        - choice
+        - signature
+        - button
+        - unknown
     FormatMetadata:
       oneOf:
+        - $ref: '#/components/schemas/PdfMetadata'
+        - $ref: '#/components/schemas/DocxMetadata'
         - $ref: '#/components/schemas/ExcelMetadata'
         - $ref: '#/components/schemas/EmailMetadata'
         - $ref: '#/components/schemas/PptxMetadata'
@@ -2958,18 +4754,36 @@ components:
         - $ref: '#/components/schemas/HtmlMetadata'
         - $ref: '#/components/schemas/OcrMetadata'
         - $ref: '#/components/schemas/CsvMetadata'
+        - $ref: '#/components/schemas/BibtexMetadata'
+        - $ref: '#/components/schemas/CitationMetadata'
+        - $ref: '#/components/schemas/FictionBookMetadata'
+        - $ref: '#/components/schemas/DbfMetadata'
+        - $ref: '#/components/schemas/EpubMetadata'
+        - $ref: '#/components/schemas/JatsMetadata'
         - $ref: '#/components/schemas/PstMetadata'
+        - $ref: '#/components/schemas/AudioMetadata'
+        - $ref: '#/components/schemas/CodeMetadata'
       description: Format-specific metadata (discriminated union). Only one format type can exist per extraction result.
       discriminator:
         propertyName: format_type
         mapping:
           archive: '#/components/schemas/ArchiveMetadata'
+          audio: '#/components/schemas/AudioMetadata'
+          bibtex: '#/components/schemas/BibtexMetadata'
+          citation: '#/components/schemas/CitationMetadata'
+          code: '#/components/schemas/CodeMetadata'
           csv: '#/components/schemas/CsvMetadata'
+          dbf: '#/components/schemas/DbfMetadata'
+          docx: '#/components/schemas/DocxMetadata'
           email: '#/components/schemas/EmailMetadata'
+          epub: '#/components/schemas/EpubMetadata'
           excel: '#/components/schemas/ExcelMetadata'
+          fiction_book: '#/components/schemas/FictionBookMetadata'
           html: '#/components/schemas/HtmlMetadata'
           image: '#/components/schemas/ImageMetadata'
+          jats: '#/components/schemas/JatsMetadata'
           ocr: '#/components/schemas/OcrMetadata'
+          pdf: '#/components/schemas/PdfMetadata'
           pptx: '#/components/schemas/PptxMetadata'
           pst: '#/components/schemas/PstMetadata'
           text: '#/components/schemas/TextMetadata'
@@ -3017,6 +4831,45 @@ components:
             - integer
             - "null"
           description: Heading level (1-6) for headings, or nesting level for lists
+          minimum: 0
+    Formula:
+      type: object
+      description: |-
+        A mathematical formula detected and recognized in a document.
+
+        Populated by the layout-guided formula pipeline: regions classified as
+        `LayoutClass::Formula` are routed to the formula OCR task, which returns the
+        LaTeX source for the region. The field is always present on
+        [`ExtractedDocument`](super::extraction::ExtractedDocument) but only populated
+        when the `layout-detection` feature is active and the document contains
+        formula regions.
+      required:
+        - latex
+        - bbox
+        - page
+      properties:
+        bbox:
+          $ref: '#/components/schemas/BoundingBox'
+          description: |-
+            Bounding box of the formula region on its page, in rendered-image pixel coordinates.
+
+            The coordinates are in the space of the OCR-rendered page image at the OCR DPI
+            (typically 300 DPI). These coordinates are NOT comparable to bounding boxes from
+            native PDF text extraction, which use PDF point coordinates.
+        latex:
+          type: string
+          description: |-
+            LaTeX source of the recognized formula, without surrounding `$$` delimiters.
+
+            This field contains the raw LaTeX code as produced by the OCR backend.
+            To render the formula in Markdown or other formats, wrap with `$$..$$` delimiters as needed.
+        page:
+          type: integer
+          format: int32
+          description: |-
+            1-indexed page number the formula appears on in the document.
+
+            This is set by the extraction pipeline based on which page the formula was found on.
           minimum: 0
     GridCell:
       type: object
@@ -3125,11 +4978,16 @@ components:
       description: Health check response for liveness probes
       required:
         - status
+        - tier
       properties:
         status:
           type: string
           description: Service status
           example: ok
+        tier:
+          type: string
+          description: Deployment tier the frontend uses for runtime feature gating (ADR-0047).
+          example: enterprise
     HierarchicalBlock:
       type: object
       description: |-
@@ -3422,6 +5280,44 @@ components:
             - string
             - "null"
           description: Title attribute
+    ImagePreprocessingConfig:
+      type: object
+      description: |-
+        Image preprocessing configuration for OCR.
+
+        These settings control how images are preprocessed before OCR to improve
+        text recognition quality. Different preprocessing strategies work better
+        for different document types.
+      properties:
+        auto_rotate:
+          type: boolean
+          description: Auto-detect and correct image rotation.
+          default: false
+        binarization_method:
+          type: string
+          description: 'Binarization method: "otsu", "sauvola", "adaptive".'
+          default: otsu
+        contrast_enhance:
+          type: boolean
+          description: Enhance contrast for better text visibility.
+          default: false
+        denoise:
+          type: boolean
+          description: Remove noise from the image.
+          default: false
+        deskew:
+          type: boolean
+          description: Correct skew (tilted images).
+          default: true
+        invert_colors:
+          type: boolean
+          description: Invert colors (white text on black → black on white).
+          default: false
+        target_dpi:
+          type: integer
+          format: int32
+          description: Target DPI for the image (300 is standard, 600 for small text).
+          default: 300
     ImagePreprocessingMetadata:
       type: object
       description: |-
@@ -3505,6 +5401,20 @@ components:
         - inline-svg
         - external
         - relative
+    IncludeMask:
+      type: object
+      description: Mask of optional response fields.
+      properties:
+        content:
+          type: boolean
+          description: Include chunk content text. Default true.
+        document:
+          type: boolean
+          description: Include parent document summary. Default false.
+        score_breakdown:
+          type: boolean
+          description: Include primary-stage + rerank score breakdown. Default false.
+      additionalProperties: false
     InlineElement:
       type: object
       description: |-
@@ -3555,6 +5465,45 @@ components:
         - raw_inline
         - footnote_ref
         - symbol
+    IntegrationInput:
+      type: object
+      description: A reference to a document living in a connected integration.
+      required:
+        - integration_id
+        - resource_id
+      properties:
+        integration_id:
+          type: string
+          description: The `integrations.id` (hyphenated UUID) the document is fetched through.
+        resource_id:
+          type: string
+          description: Connector-specific document identifier (e.g. a Google Drive file id).
+    JatsMetadata:
+      type: object
+      description: JATS (Journal Article Tag Suite) metadata.
+      properties:
+        contributor_roles:
+          type: array
+          items:
+            $ref: '#/components/schemas/ContributorRole'
+          description: Authors and contributors with their stated roles.
+        copyright:
+          type:
+            - string
+            - "null"
+          description: Copyright statement from the article's `<permissions>` element.
+        history_dates:
+          type: object
+          description: Publication history dates keyed by event type (e.g. `"received"`, `"accepted"`).
+          additionalProperties:
+            type: string
+          propertyNames:
+            type: string
+        license:
+          type:
+            - string
+            - "null"
+          description: Open-access license URI from the article's `<license>` element.
     JobLookupResponse:
       oneOf:
         - $ref: '#/components/schemas/JobResponse'
@@ -3571,6 +5520,11 @@ components:
         - status
         - created_at
       properties:
+        child_job_ids:
+          type: array
+          items:
+            type: string
+          description: Child job IDs created from multi-document splitting (empty if not split or parent job)
         created_at:
           type: string
           format: date-time
@@ -3595,7 +5549,7 @@ components:
         result:
           oneOf:
             - type: "null"
-            - $ref: '#/components/schemas/ExtractionResult'
+            - $ref: '#/components/schemas/ExtractedDocument'
               description: Extraction result (only present when status is completed/partial_success)
         status:
           $ref: '#/components/schemas/JobStatus'
@@ -3645,6 +5599,54 @@ components:
       enum:
         - yake
         - rake
+    KeywordConfig:
+      type: object
+      description: Keyword extraction configuration.
+      properties:
+        algorithm:
+          $ref: '#/components/schemas/KeywordAlgorithm'
+          description: Algorithm to use for extraction.
+        language:
+          type:
+            - string
+            - "null"
+          description: |-
+            Language code for stopword filtering (e.g., "en", "de", "fr").
+
+            If None, no stopword filtering is applied.
+        max_keywords:
+          type: integer
+          description: 'Maximum number of keywords to extract (default: 10).'
+          minimum: 0
+        min_score:
+          type: number
+          format: float
+          description: |-
+            Minimum score threshold (0.0-1.0, default: 0.0).
+
+            Keywords with scores below this threshold are filtered out.
+            Note: Score ranges differ between algorithms.
+        ngram_range:
+          type: array
+          items:
+            type: integer
+            minimum: 0
+          description: |-
+            N-gram range for keyword extraction (min, max).
+
+            (1, 1) = unigrams only
+            (1, 2) = unigrams and bigrams
+            (1, 3) = unigrams, bigrams, and trigrams (default)
+        rake_params:
+          oneOf:
+            - type: "null"
+            - $ref: '#/components/schemas/RakeParams'
+              description: RAKE-specific tuning parameters.
+        yake_params:
+          oneOf:
+            - type: "null"
+            - $ref: '#/components/schemas/YakeParams'
+              description: YAKE-specific tuning parameters.
     LanguageDetectionConfig:
       type: object
       description: Language detection configuration.
@@ -3665,6 +5667,32 @@ components:
             - "null"
           format: double
           description: Minimum confidence threshold (0.0-1.0)
+    LatencyBreakdown:
+      type: object
+      description: Latency breakdown (milliseconds) for a single retrieve call.
+      required:
+        - retrieve_ms
+        - total_ms
+      properties:
+        rerank_ms:
+          type:
+            - integer
+            - "null"
+          format: int64
+          description: |-
+            Reranker call (when active). `None` when rerank was off or
+            fell back to primary order.
+          minimum: 0
+        retrieve_ms:
+          type: integer
+          format: int64
+          description: Primary-stage retrieve (vector / fts / hybrid).
+          minimum: 0
+        total_ms:
+          type: integer
+          format: int64
+          description: End-to-end including response serialization.
+          minimum: 0
     LayoutDetectionConfig:
       type: object
       description: Document layout detection configuration.
@@ -3759,6 +5787,32 @@ components:
         - email
         - phone
         - other
+    ListCollectionsResponse:
+      type: object
+      description: Response for listing collections (paginated)
+      required:
+        - collections
+        - total
+        - limit
+        - offset
+      properties:
+        collections:
+          type: array
+          items:
+            $ref: '#/components/schemas/CollectionResponse'
+          description: List of collections
+        limit:
+          type: integer
+          format: int32
+          description: Maximum results per page
+        offset:
+          type: integer
+          format: int32
+          description: Number of results skipped
+        total:
+          type: integer
+          format: int32
+          description: Total number of collections for this project
     ListVersionsQuery:
       type: object
       description: Query parameters for document versions list.
@@ -3771,6 +5825,60 @@ components:
           type: integer
           format: int32
           description: Number of versions to skip.
+    LlmConfig:
+      type: object
+      description: LLM provider configuration routed through liter-llm.
+      required:
+        - model
+      properties:
+        api_key:
+          type:
+            - string
+            - "null"
+          description: |-
+            API key for the provider. Mutually exclusive with `use_managed = true`.
+            Treated as a secret — never logged.
+        base_url:
+          type:
+            - string
+            - "null"
+          description: Override the provider base URL.
+        max_retries:
+          type:
+            - integer
+            - "null"
+          format: int32
+          description: Max retry attempts.
+          minimum: 0
+        max_tokens:
+          type:
+            - integer
+            - "null"
+          format: int64
+          description: Maximum tokens to generate.
+          minimum: 0
+        model:
+          type: string
+          description: liter-llm routing identifier, e.g. "openai/gpt-4o-mini".
+        temperature:
+          type:
+            - number
+            - "null"
+          format: double
+          description: Sampling temperature.
+        timeout_secs:
+          type:
+            - integer
+            - "null"
+          format: int64
+          description: Request timeout in seconds.
+          minimum: 0
+        use_managed:
+          type: boolean
+          description: |-
+            When true, the worker substitutes the Xberg-managed provider key
+            from the worker environment (resolved by provider prefix of `model`).
+            Requires the project to have `llm_managed_keys_enabled` set.
     LlmUsage:
       type: object
       description: |-
@@ -3966,6 +6074,121 @@ components:
             - string
             - "null"
           description: Document title
+    MigrateEmbeddingsRequest:
+      type: object
+      description: Request to migrate a collection's embedding source.
+      required:
+        - target_embedding_source
+        - target_embedding_version
+      properties:
+        target_embedding_source:
+          type: string
+          description: Target embedding source (e.g. "preset:quality", "preset:fast").
+        target_embedding_version:
+          type: integer
+          format: int32
+          description: Target embedding version (must be > collection's current embedding_version).
+          minimum: 0
+        webhook:
+          oneOf:
+            - type: "null"
+            - $ref: '#/components/schemas/WebhookConfig'
+              description: Optional webhook for migration completion/failure delivery.
+      additionalProperties: false
+    MigrateEmbeddingsResponse:
+      type: object
+      description: Response to a migrate embeddings request.
+      required:
+        - job_id
+        - collection_id
+        - from_source
+        - to_source
+        - from_version
+        - to_version
+        - status
+        - poll
+      properties:
+        collection_id:
+          type: string
+          format: uuid
+          description: Collection being migrated.
+        from_source:
+          type: string
+          description: Current embedding source.
+        from_version:
+          type: integer
+          format: int32
+          description: Current embedding version.
+          minimum: 0
+        job_id:
+          type: string
+          description: Job ID for polling progress.
+        poll:
+          type: string
+          description: 'Poll endpoint: `/v1/rag/collections/{name}/migrate-embeddings/{job_id}`.'
+        status:
+          $ref: '#/components/schemas/MigrateStatus'
+          description: Current migration status.
+        to_source:
+          type: string
+          description: Target embedding source.
+        to_version:
+          type: integer
+          format: int32
+          description: Target embedding version.
+          minimum: 0
+    MigrateProgress:
+      type: object
+      description: Detailed progress of an ongoing or completed migration.
+      required:
+        - documents_total
+        - documents_dual_written
+        - current_phase
+      properties:
+        current_phase:
+          type: string
+          description: Current phase of migration.
+        documents_dual_written:
+          type: integer
+          format: int64
+          description: Documents successfully dual-written to the new version.
+          minimum: 0
+        documents_total:
+          type: integer
+          format: int64
+          description: Total documents to migrate.
+          minimum: 0
+    MigrateStatus:
+      type: string
+      description: Current status of a migration job.
+      enum:
+        - pending
+        - running
+        - completed
+        - failed
+    MigrateStatusResponse:
+      type: object
+      description: Status response for migration progress polling.
+      required:
+        - job_id
+        - status
+      properties:
+        error:
+          type:
+            - string
+            - "null"
+          description: Error message (only when failed).
+        job_id:
+          type: string
+          description: Job ID.
+        progress:
+          oneOf:
+            - type: "null"
+            - $ref: '#/components/schemas/MigrateProgress'
+              description: Progress details (only available when running or completed).
+        status:
+          $ref: '#/components/schemas/MigrateStatus'
+          description: Current status.
     NodeContent:
       oneOf:
         - type: object
@@ -3980,6 +6203,7 @@ components:
                 - title
             text:
               type: string
+              description: The title text content.
         - type: object
           description: Section heading with level (1-6).
           required:
@@ -3990,6 +6214,7 @@ components:
             level:
               type: integer
               format: int32
+              description: Heading depth (1 = h1, 2 = h2, …, 6 = h6).
               minimum: 0
             node_type:
               type: string
@@ -3997,6 +6222,7 @@ components:
                 - heading
             text:
               type: string
+              description: The heading text content.
         - type: object
           description: Body text paragraph.
           required:
@@ -4009,6 +6235,7 @@ components:
                 - paragraph
             text:
               type: string
+              description: The paragraph text content.
         - type: object
           description: List container — children are `ListItem` nodes.
           required:
@@ -4021,6 +6248,7 @@ components:
                 - list
             ordered:
               type: boolean
+              description: '`true` for ordered (numbered) lists; `false` for unordered (bullet) lists.'
         - type: object
           description: Individual list item.
           required:
@@ -4033,6 +6261,7 @@ components:
                 - list_item
             text:
               type: string
+              description: The list item text content.
         - type: object
           description: Table with structured cell grid.
           required:
@@ -4041,6 +6270,7 @@ components:
           properties:
             grid:
               $ref: '#/components/schemas/TableGrid'
+              description: Structured grid of table cells.
             node_type:
               type: string
               enum:
@@ -4054,11 +6284,13 @@ components:
               type:
                 - string
                 - "null"
+              description: Optional alt text or caption describing the image.
             image_index:
               type:
                 - integer
                 - "null"
               format: int32
+              description: Index into the parent `ExtractedDocument::images` list.
               minimum: 0
             node_type:
               type: string
@@ -4079,12 +6311,14 @@ components:
               type:
                 - string
                 - "null"
+              description: Programming language identifier (e.g. `"rust"`, `"python"`).
             node_type:
               type: string
               enum:
                 - code
             text:
               type: string
+              description: The source code text content.
         - type: object
           description: Block quote — container, children carry the quoted content.
           required:
@@ -4106,6 +6340,7 @@ components:
                 - formula
             text:
               type: string
+              description: The formula source text (LaTeX or plain mathematical notation).
         - type: object
           description: Footnote reference content.
           required:
@@ -4118,6 +6353,7 @@ components:
                 - footnote
             text:
               type: string
+              description: The footnote body text.
         - type: object
           description: |-
             Logical grouping container (section, key-value area).
@@ -4132,15 +6368,18 @@ components:
                 - integer
                 - "null"
               format: int32
+              description: Heading level of the section heading that opened this group (1-6).
               minimum: 0
             heading_text:
               type:
                 - string
                 - "null"
+              description: Text of the section heading that opened this group.
             label:
               type:
                 - string
                 - "null"
+              description: Optional display label for the group (e.g. section name).
             node_type:
               type: string
               enum:
@@ -4173,6 +6412,7 @@ components:
               type:
                 - string
                 - "null"
+              description: Slide title text, if present.
         - type: object
           description: Definition list container — children are `DefinitionItem` nodes.
           required:
@@ -4191,12 +6431,14 @@ components:
           properties:
             definition:
               type: string
+              description: The definition or description of the term.
             node_type:
               type: string
               enum:
                 - definition_item
             term:
               type: string
+              description: The term being defined.
         - type: object
           description: Citation or bibliographic reference.
           required:
@@ -4206,12 +6448,14 @@ components:
           properties:
             key:
               type: string
+              description: Citation key (e.g. BibTeX key or reference ID).
             node_type:
               type: string
               enum:
                 - citation
             text:
               type: string
+              description: Formatted citation text as it appears in the document.
         - type: object
           description: |-
             Admonition / callout container (note, warning, tip, etc.).
@@ -4232,6 +6476,7 @@ components:
               type:
                 - string
                 - "null"
+              description: Optional explicit title overriding the default kind label.
         - type: object
           description: |-
             Raw block preserved verbatim from the source format.
@@ -4245,6 +6490,7 @@ components:
           properties:
             content:
               type: string
+              description: Verbatim source content in the specified format.
             format:
               type: string
               description: Source format identifier (e.g. "html", "latex", "jsx").
@@ -4264,6 +6510,7 @@ components:
                 type: array
                 items:
                   type: string
+              description: Key-value pairs extracted from the metadata block.
             node_type:
               type: string
               enum:
@@ -4273,14 +6520,6 @@ components:
 
         Uses `#[serde(tag = "node_type")]` to avoid "type" keyword collision in
         Go/Java/TypeScript bindings.
-    NodeId:
-      type: string
-      description: |-
-        Deterministic node identifier.
-
-        Generated from a hash of `node_type + text + page`. The same document
-        always produces the same IDs, making them useful for diffing, caching,
-        and external references.
     NodeIndex:
       type: integer
       format: int32
@@ -4420,9 +6659,17 @@ components:
             - $ref: '#/components/schemas/OcrQualityThresholds'
               description: Quality thresholds for OCR fallback decisions
         tesseract_config:
-          description: Tesseract-specific configuration (flexible JSON with 20+ fields)
+          oneOf:
+            - type: "null"
+            - $ref: '#/components/schemas/TesseractConfig'
+              description: Tesseract-specific configuration
         vlm_config:
           description: VLM (Vision Language Model) configuration
+        vlm_fallback:
+          oneOf:
+            - type: "null"
+            - $ref: '#/components/schemas/VlmFallbackPolicy'
+              description: VLM fallback policy for OCR operations
         vlm_prompt:
           type:
             - string
@@ -4536,6 +6783,7 @@ components:
             - integer
             - "null"
           format: int32
+          description: Number of columns in the detected table (if a single table was found).
           minimum: 0
         table_count:
           type: integer
@@ -4547,6 +6795,7 @@ components:
             - integer
             - "null"
           format: int32
+          description: Number of rows in the detected table (if a single table was found).
           minimum: 0
     OcrPipelineConfig:
       type: object
@@ -4582,7 +6831,10 @@ components:
           description: Priority (higher = tried first, default 100)
           minimum: 0
         tesseract_config:
-          description: Tesseract config override for this stage
+          oneOf:
+            - type: "null"
+            - $ref: '#/components/schemas/TesseractConfig'
+              description: Tesseract config override for this stage
         vlm_config:
           description: VLM config override for this stage
     OcrQualityThresholds:
@@ -4719,6 +6971,25 @@ components:
           format: int32
           description: Page number (1-indexed)
           minimum: 0
+    PageClassification:
+      type: object
+      description: Classification result for a single page.
+      required:
+        - page_number
+        - labels
+      properties:
+        labels:
+          type: array
+          items:
+            $ref: '#/components/schemas/ClassificationLabel'
+          description: |-
+            Labels assigned to the page. Single-label classification yields exactly one
+            entry; multi-label classification yields any subset of the configured label set.
+        page_number:
+          type: integer
+          format: int32
+          description: 1-indexed page number this classification belongs to.
+          minimum: 0
     PageConfig:
       type: object
       description: Page extraction configuration.
@@ -4773,7 +7044,7 @@ components:
             format: int32
             minimum: 0
           description: |-
-            Indices into `ExtractionResult.images` for images found on this page.
+            Indices into `ExtractedDocument.images` for images found on this page.
 
             Each value is a zero-based index into the top-level `images` collection.
             Only populated when `extract_images = true` in the extraction config.
@@ -4839,7 +7110,7 @@ components:
           description: |-
             Tables found on this page (uses Arc for memory efficiency)
 
-            Serializes as Vec<Table> for JSON compatibility while maintaining
+            Serializes as `Vec<Table>` for JSON compatibility while maintaining
             Arc semantics in-memory for zero-copy sharing.
     PageHierarchy:
       type: object
@@ -4871,14 +7142,6 @@ components:
       required:
         - number
       properties:
-        dimensions:
-          type:
-            - array
-            - "null"
-          items:
-            type: number
-            format: double
-          description: 'Dimensions in points (PDF) or pixels (images): (width, height)'
         has_vector_graphics:
           type: boolean
           description: |-
@@ -4886,7 +7149,7 @@ components:
 
             Indicates the presence of vector-drawn content such as charts, diagrams,
             or geometric shapes (e.g., from Adobe InDesign, LaTeX TikZ). These are
-            invisible to `ExtractionResult.images` since they are not embedded as raster
+            invisible to `ExtractedDocument.images` since they are not embedded as raster
             XObjects. Set to `true` when path count exceeds a heuristic threshold,
             signaling that downstream consumers may want to rasterize the page to
             capture this content.
@@ -5057,6 +7320,194 @@ components:
             - "null"
           format: float
           description: Top margin fraction to skip (0.0-1.0)
+    PdfFormField:
+      type: object
+      description: |-
+        A form field extracted from a PDF's AcroForm or XFA structure.
+
+        Populated by the PDF extractor when [`PdfConfig::extract_form_fields`] is
+        enabled and the document is a fillable form. Supports both AcroForm (standard)
+        and XFA (XML Forms Architecture) layers. When both are present, AcroForm fields
+        take priority (canonical fallback per PDF spec), and XFA-only fields are appended.
+        The collection is empty for non-form PDFs and for non-PDF formats.
+
+        [`PdfConfig::extract_form_fields`]: crate::core::config::PdfConfig::extract_form_fields
+      required:
+        - name
+        - full_name
+        - field_type
+      properties:
+        bbox:
+          oneOf:
+            - type: "null"
+            - $ref: '#/components/schemas/BoundingBox'
+              description: Widget bounding box on its page, if known.
+        default_value:
+          type:
+            - string
+            - "null"
+          description: Default field value, if any.
+        field_type:
+          $ref: '#/components/schemas/FormFieldType'
+          description: Classified field type.
+        flags:
+          type: integer
+          format: int32
+          description: Raw field-flags bitmask (read-only, required, multiline, …).
+          minimum: 0
+        full_name:
+          type: string
+          description: Fully-qualified field name (dotted path from the form root).
+        max_length:
+          type:
+            - integer
+            - "null"
+          format: int32
+          description: Maximum input length for text fields, if specified.
+          minimum: 0
+        name:
+          type: string
+          description: Partial field name (the leaf name within the field hierarchy).
+        page:
+          type:
+            - integer
+            - "null"
+          format: int32
+          description: |-
+            1-indexed page the field's widget appears on. Currently always `None` for
+            AcroForm fields; page assignment is a deferred enhancement requiring spatial
+            analysis of widget annotations per page.
+          minimum: 0
+        tooltip:
+          type:
+            - string
+            - "null"
+          description: Tooltip / alternate field description, if present.
+        value:
+          type:
+            - string
+            - "null"
+          description: Current field value, if any.
+    PdfMetadata:
+      type: object
+      description: |-
+        PDF-specific metadata.
+
+        Contains metadata fields specific to PDF documents that are not in the common
+        `Metadata` structure. Common fields like title, authors, keywords, and dates
+        are at the `Metadata` level.
+      properties:
+        height:
+          type:
+            - integer
+            - "null"
+          format: int64
+          description: First page height in points (1/72 inch)
+        is_encrypted:
+          type:
+            - boolean
+            - "null"
+          description: Whether the PDF is encrypted/password-protected
+        page_count:
+          type:
+            - integer
+            - "null"
+          format: int32
+          description: Total number of pages in the PDF document
+          minimum: 0
+        pdf_version:
+          type:
+            - string
+            - "null"
+          description: PDF version (e.g., "1.7", "2.0")
+        producer:
+          type:
+            - string
+            - "null"
+          description: PDF producer (application that created the PDF)
+        width:
+          type:
+            - integer
+            - "null"
+          format: int64
+          description: First page width in points (1/72 inch)
+    PiiCategory:
+      oneOf:
+        - type: string
+          description: Email address (e.g. `user@example.com`).
+          enum:
+            - email
+        - type: string
+          description: Phone number in any common format.
+          enum:
+            - phone
+        - type: string
+          description: US Social Security Number.
+          enum:
+            - ssn
+        - type: string
+          description: Payment card number (Visa, Mastercard, Amex, etc.).
+          enum:
+            - credit_card
+        - type: string
+          description: Postal / ZIP code.
+          enum:
+            - postal_code
+        - type: string
+          description: IPv4 or IPv6 address.
+          enum:
+            - ip_address
+        - type: string
+          description: International Bank Account Number.
+          enum:
+            - iban
+        - type: string
+          description: SWIFT / BIC bank identifier code.
+          enum:
+            - swift_bic
+        - type: string
+          description: Date of birth.
+          enum:
+            - date_of_birth
+        - type: string
+          description: Person name, surfaced by the optional NER backend.
+          enum:
+            - person
+        - type: string
+          description: Organization name, surfaced by the optional NER backend.
+          enum:
+            - organization
+        - type: string
+          description: Location, surfaced by the optional NER backend.
+          enum:
+            - location
+        - type: object
+          description: |-
+            Caller-supplied custom category (e.g. internal employee IDs).
+
+            Surfaced by the redaction engine when a hit comes from
+            [`RedactionConfig::custom_terms`](crate::core::config::redaction::RedactionConfig::custom_terms)
+            or [`RedactionConfig::custom_patterns`](crate::core::config::redaction::RedactionConfig::custom_patterns).
+            The string is the label passed alongside the term/pattern. Use those
+            fields rather than constructing `Custom` directly via the
+            `categories` filter — the pattern engine cannot detect arbitrary text
+            from a category name alone.
+          required:
+            - custom
+          properties:
+            custom:
+              type: string
+              description: |-
+                Caller-supplied custom category (e.g. internal employee IDs).
+
+                Surfaced by the redaction engine when a hit comes from
+                [`RedactionConfig::custom_terms`](crate::core::config::redaction::RedactionConfig::custom_terms)
+                or [`RedactionConfig::custom_patterns`](crate::core::config::redaction::RedactionConfig::custom_patterns).
+                The string is the label passed alongside the term/pattern. Use those
+                fields rather than constructing `Custom` directly via the
+                `categories` filter — the pattern engine cannot detect arbitrary text
+                from a category name alone.
+      description: PII categories the pattern engine recognises.
     PostProcessorConfig:
       type: object
       description: Post-processing pipeline configuration.
@@ -5114,6 +7565,118 @@ components:
           format: int32
           description: Number of tables
           minimum: 0
+    PresetCallMode:
+      type: string
+      description: Preferred call mode for a preset.
+      enum:
+        - text_only
+        - vision_only
+        - text_plus_vision
+    PresetCategory:
+      type: string
+      description: High-level category used to group presets in the registry UI.
+      enum:
+        - finance
+        - identity
+        - legal
+        - logistics
+        - medical
+        - hr
+        - other
+    PresetDetail:
+      type: object
+      description: Full preset detail, returned by `GET /v1/presets/{id}`.
+      required:
+        - id
+        - version
+        - schema_name
+        - description
+        - category
+        - schema
+        - system_prompt
+        - preferred_call_mode
+        - emit_citations
+        - fingerprint
+      properties:
+        category:
+          $ref: '#/components/schemas/PresetCategory'
+        context_template:
+          type:
+            - string
+            - "null"
+        description:
+          type: string
+        emit_citations:
+          type: boolean
+        fingerprint:
+          type: string
+        id:
+          type: string
+        preferred_call_mode:
+          $ref: '#/components/schemas/PresetCallMode'
+        sample:
+          oneOf:
+            - type: "null"
+            - $ref: '#/components/schemas/PresetSampleRef'
+        schema:
+          description: JSON Schema (Draft 2020-12) describing the structured output shape.
+        schema_name:
+          type: string
+        system_prompt:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        version:
+          type: string
+    PresetSampleRef:
+      type: object
+      description: Public pointer to bundled sample data exposed via `GET /v1/presets/{id}/sample`.
+      required:
+        - input_url
+        - output_url
+      properties:
+        input_url:
+          type: string
+          description: URL path (relative to the API root) to fetch the sample input bytes.
+        output_url:
+          type: string
+          description: URL path (relative to the API root) to fetch the reference output JSON.
+    PresetSummary:
+      type: object
+      description: Lightweight projection of a preset, returned by `GET /v1/presets`.
+      required:
+        - id
+        - version
+        - schema_name
+        - description
+        - category
+        - preferred_call_mode
+        - emit_citations
+        - fingerprint
+      properties:
+        category:
+          $ref: '#/components/schemas/PresetCategory'
+        description:
+          type: string
+        emit_citations:
+          type: boolean
+        fingerprint:
+          type: string
+          description: Stable sha256 fingerprint used by clients to detect updates.
+        id:
+          type: string
+        preferred_call_mode:
+          $ref: '#/components/schemas/PresetCallMode'
+        schema_name:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        version:
+          type: string
     PresignDocumentInput:
       type: object
       description: Document metadata for presigned upload (no bytes)
@@ -5197,6 +7760,61 @@ components:
         upload_url:
           type: string
           description: Presigned URL to upload the document to
+    PrimaryScore:
+      oneOf:
+        - type: object
+          description: Vector similarity score.
+          required:
+            - score
+            - kind
+          properties:
+            kind:
+              type: string
+              enum:
+                - vector
+            score:
+              type: number
+              format: float
+              description: Score value.
+        - type: object
+          description: Full-text rank score.
+          required:
+            - score
+            - kind
+          properties:
+            kind:
+              type: string
+              enum:
+                - full_text
+            score:
+              type: number
+              format: float
+              description: Score value.
+        - type: object
+          description: RRF-fused vector + full-text.
+          required:
+            - vector
+            - full_text
+            - rrf
+            - kind
+          properties:
+            full_text:
+              type: number
+              format: float
+              description: Full-text component.
+            kind:
+              type: string
+              enum:
+                - hybrid
+            rrf:
+              type: number
+              format: float
+              description: Reciprocal-rank-fusion combined score.
+            vector:
+              type: number
+              format: float
+              description: Vector component.
+      description: JSON-friendly mirror of vectorstore's internal `PrimaryScore`.
     ProcessingWarning:
       type: object
       description: |-
@@ -5221,7 +7839,7 @@ components:
       description: |-
         Per-request proxy override. When set on a crawl request, this proxy is
         used instead of the worker's process-wide `CRAWL_PROXY_URLS` pool.
-        Maps 1:1 onto `kreuzcrawl::ProxyConfig`.
+        Maps 1:1 onto `crawlberg::ProxyConfig`.
       required:
         - url
       properties:
@@ -5247,6 +7865,162 @@ components:
       properties:
         message_count:
           type: integer
+          description: Total number of email messages found in the PST archive.
+          minimum: 0
+    QrBoundingBox:
+      type: object
+      description: Pixel-space bounding box of a QR code inside its source image.
+      required:
+        - x
+        - y
+        - width
+        - height
+      properties:
+        height:
+          type: integer
+          format: int32
+          description: Height of the bounding box in pixels.
+          minimum: 0
+        width:
+          type: integer
+          format: int32
+          description: Width of the bounding box in pixels.
+          minimum: 0
+        x:
+          type: integer
+          format: int32
+          description: Horizontal pixel offset of the bounding box top-left corner.
+          minimum: 0
+        y:
+          type: integer
+          format: int32
+          description: Vertical pixel offset of the bounding box top-left corner.
+          minimum: 0
+    QrCode:
+      type: object
+      description: One QR code decoded from an extracted image.
+      required:
+        - payload
+      properties:
+        bbox:
+          oneOf:
+            - type: "null"
+            - $ref: '#/components/schemas/QrBoundingBox'
+              description: |-
+                Bounding box of the QR code inside the source image, in pixel coordinates
+                (`x`, `y` of the top-left corner; `width`, `height` of the rectangle).
+                `None` if the decoder did not report a bounding box.
+        confidence:
+          type:
+            - number
+            - "null"
+          format: float
+          description: |-
+            Detector-reported confidence in `[0.0, 1.0]`. `None` when the decoder
+            does not expose confidence (the default `rqrr` backend always reports
+            `Some` because successful decode implies high confidence).
+        payload:
+          type: string
+          description: Decoded payload (text, URL, vCard string, …).
+    RagJobKind:
+      type: string
+      description: Operation type for RAG async jobs
+      enum:
+        - ingest
+        - reindex
+        - migrate
+    RagJobProgress:
+      type: object
+      description: Progress details for long-running operations (migrate only)
+      required:
+        - documents_total
+        - documents_processed
+        - current_phase
+      properties:
+        current_phase:
+          type: string
+          description: 'Current processing phase (for migrate: "dual_write"|"index_build"|"swap"|"cleanup")'
+        documents_processed:
+          type: integer
+          format: int64
+          description: Documents successfully processed
+          minimum: 0
+        documents_total:
+          type: integer
+          format: int64
+          description: Total documents to process
+          minimum: 0
+    RagJobState:
+      type: string
+      description: Job lifecycle state
+      enum:
+        - pending
+        - running
+        - completed
+        - failed
+    RagJobStatusResponse:
+      type: object
+      description: |-
+        Unified RAG async job status response covering ingest, reindex, and migrate operations.
+
+        The response shape varies depending on the operation type (`kind`):
+        - **ingest**: status field reflects document ingestion progress (pending, indexed, failed)
+        - **reindex**: status field reflects re-chunking and re-embedding progress
+        - **migrate**: status and progress fields reflect embedding migration state
+      required:
+        - job_id
+        - kind
+        - state
+        - created_at
+      properties:
+        collection_id:
+          type:
+            - string
+            - "null"
+          format: uuid
+          description: Associated collection ID (for migrate only; absent for ingest/reindex)
+        created_at:
+          type: string
+          description: Timestamp when job was submitted (RFC3339)
+        document_id:
+          type:
+            - string
+            - "null"
+          format: uuid
+          description: Associated document ID (for ingest/reindex only; absent for migrate)
+        error:
+          type:
+            - string
+            - "null"
+          description: Error message if state = failed
+        job_id:
+          type: string
+          description: Job identifier (ULID) for this async operation
+        kind:
+          $ref: '#/components/schemas/RagJobKind'
+          description: 'Operation type: "ingest", "reindex", or "migrate"'
+        progress:
+          oneOf:
+            - type: "null"
+            - $ref: '#/components/schemas/RagJobProgress'
+              description: Progress details (only for migrate operations; null for ingest/reindex)
+        state:
+          $ref: '#/components/schemas/RagJobState'
+          description: Current job state
+    RakeParams:
+      type: object
+      description: RAKE-specific parameters.
+      required:
+        - min_word_length
+        - max_words_per_phrase
+      properties:
+        max_words_per_phrase:
+          type: integer
+          description: 'Maximum words in a keyword phrase (default: 3).'
+          minimum: 0
+        min_word_length:
+          type: integer
+          description: 'Minimum word length to consider (default: 1).'
           minimum: 0
     ReadinessChecks:
       type: object
@@ -5277,6 +8051,81 @@ components:
           type: string
           description: Overall readiness status
           example: ready
+    RedactionFinding:
+      type: object
+      description: 'One redaction event: which span was rewritten, why, and with what.'
+      required:
+        - start
+        - end
+        - category
+        - strategy
+        - replacement_token
+      properties:
+        category:
+          $ref: '#/components/schemas/PiiCategory'
+          description: PII category that fired this redaction.
+        end:
+          type: integer
+          format: int32
+          description: Byte-offset end (exclusive) in the original `ExtractedDocument::content`.
+          minimum: 0
+        replacement_token:
+          type: string
+          description: |-
+            String that replaced the original mention. Always present; for `Drop` the
+            replacement is the empty string.
+        start:
+          type: integer
+          format: int32
+          description: Byte-offset start in the original (pre-redaction) `ExtractedDocument::content`.
+          minimum: 0
+        strategy:
+          $ref: '#/components/schemas/RedactionStrategy'
+          description: Strategy applied to this finding (mask, hash, token-replace, drop).
+    RedactionReport:
+      type: object
+      description: |-
+        Audit report describing what the redaction processor found and how it replaced it.
+
+        The redactor returns this alongside the rewritten content so compliance, replay, and
+        audit-log consumers can see exactly what fired. Offsets are relative to the *original*
+        pre-redaction `content` and are intended for audit reconstruction only — the original
+        bytes are dropped at the end of the pipeline.
+      required:
+        - findings
+        - total_redacted
+      properties:
+        findings:
+          type: array
+          items:
+            $ref: '#/components/schemas/RedactionFinding'
+          description: Individual redaction findings in original-source byte order.
+        total_redacted:
+          type: integer
+          format: int32
+          description: Total number of redactions applied across the document.
+          minimum: 0
+    RedactionStrategy:
+      type: string
+      description: Strategy applied when a PII match is rewritten.
+      enum:
+        - mask
+        - hash
+        - token_replace
+        - drop
+    ReindexRequest:
+      type: object
+      description: Request to reindex a document (re-chunk, re-enrich, re-embed)
+      properties:
+        re_extract:
+          type: boolean
+          description: If true, re-extract from source object via xberg before re-chunking
+        webhook:
+          oneOf:
+            - type: "null"
+            - $ref: '#/components/schemas/WebhookConfig'
+              description: Optional webhook for reindex completion/failure delivery.
+      additionalProperties: false
     RelationshipKind:
       type: string
       description: Semantic kind of a relationship between document elements.
@@ -5288,6 +8137,186 @@ components:
         - label
         - toc_entry
         - cross_reference
+    RerankerKind:
+      type: string
+      description: |-
+        Wire-shape mirror of the internal `RerankerKind` — the response shape stays
+        stable even when we add variants internally.
+      enum:
+        - preset
+        - llm
+    RerankerSpec:
+      oneOf:
+        - type: object
+          description: Local ONNX cross-encoder preset.
+          required:
+            - name
+            - type
+          properties:
+            name:
+              type: string
+              description: 'Preset name: `fast | balanced | quality | multilingual`.'
+            type:
+              type: string
+              enum:
+                - preset
+        - type: object
+          description: Platform-managed LLM reranker (provider + API key from Helm env).
+          required:
+            - type
+          properties:
+            model:
+              type:
+                - string
+                - "null"
+              description: |-
+                Optional model override (e.g. `"gemini-1.5-pro"`). When
+                `None`, the platform default is used.
+            type:
+              type: string
+              enum:
+                - llm
+      description: |-
+        Caller-specified reranker. The Llm variant carries an optional
+        model override that picks from the platform-supported set.
+    RetrieveMode:
+      type: string
+      description: Retrieve mode discriminant.
+      enum:
+        - vector
+        - full_text
+        - hybrid
+    RetrieveRequest:
+      type: object
+      description: Retrieve request body.
+      properties:
+        candidate_multiplier:
+          type:
+            - integer
+            - "null"
+          format: int32
+          description: |-
+            1..=20, default 4. Ignored when rerank is inactive. The store
+            pulls `top_k * candidate_multiplier` candidates from the
+            primary stage so the reranker has more to choose from.
+          minimum: 0
+        filter:
+          description: Filter expression (deserialized by the vectorstore Filter IR).
+        group_by_document:
+          type: boolean
+          description: Collapse to one chunk per document.
+        include:
+          $ref: '#/components/schemas/IncludeMask'
+          description: Optional response field mask.
+        mode:
+          $ref: '#/components/schemas/RetrieveMode'
+          description: Retrieve mode. Defaults to `hybrid`.
+        query:
+          type:
+            - string
+            - "null"
+          description: |-
+            Text query. Required for full_text and hybrid modes; optional
+            for vector mode when `query_vector` is supplied.
+        query_vector:
+          type:
+            - array
+            - "null"
+          items:
+            type: number
+            format: float
+          description: |-
+            BYO query vector. Length must equal the collection's
+            `embedding_dim`. Forbidden when `mode = full_text`.
+        rerank:
+          oneOf:
+            - type: "null"
+            - $ref: '#/components/schemas/RerankerSpec'
+              description: |-
+                Three-state rerank: absent (collection default) | null
+                (disable) | present (override). The OpenAPI schema documents
+                this as `Option<RerankerSpec>` — callers control the third
+                state by simply omitting the field.
+        top_k:
+          type: integer
+          format: int32
+          description: Number of top results to return. `1..=200`, default 10.
+          minimum: 0
+      additionalProperties: false
+    RetrieveResponse:
+      type: object
+      description: Retrieve response body.
+      required:
+        - mode
+        - latency_breakdown
+        - chunks
+      properties:
+        chunks:
+          type: array
+          items:
+            $ref: '#/components/schemas/RetrievedChunk'
+          description: Result chunks (relevance-ordered).
+        latency_breakdown:
+          $ref: '#/components/schemas/LatencyBreakdown'
+          description: Latency breakdown.
+        mode:
+          $ref: '#/components/schemas/RetrieveMode'
+          description: Mode used.
+        rerank_applied:
+          oneOf:
+            - type: "null"
+            - $ref: '#/components/schemas/RerankerKind'
+              description: |-
+                Which reranker (if any) was actually applied. `None` if rerank
+                was off; also `None` if rerank was active but fell back to the
+                primary order — in that case `chunks[i].score_breakdown.rerank_fallback`
+                records the reason.
+    RetrievedChunk:
+      type: object
+      description: Single retrieved chunk in the response.
+      required:
+        - id
+        - document_id
+        - ordinal
+        - score
+        - chunk_metadata
+      properties:
+        chunk_metadata:
+          description: Chunk-level metadata.
+        content:
+          type:
+            - string
+            - "null"
+          description: Chunk content. Present iff `include.content`.
+        document:
+          description: Parent document summary. Present iff `include.document`.
+        document_id:
+          type: string
+          format: uuid
+          description: Parent document ID.
+        external_id:
+          type:
+            - string
+            - "null"
+          description: Caller-supplied external_id, if any.
+        id:
+          type: string
+          format: uuid
+          description: Chunk ID.
+        ordinal:
+          type: integer
+          format: int32
+          description: Position within document.
+          minimum: 0
+        score:
+          type: number
+          format: float
+          description: Effective score after rerank (or primary score when rerank off).
+        score_breakdown:
+          oneOf:
+            - type: "null"
+            - $ref: '#/components/schemas/ScoreBreakdown'
+              description: Score detail. Present iff `include.score_breakdown`.
     RevisionAnchor:
       oneOf:
         - type: object
@@ -5383,7 +8412,7 @@ components:
 
         For insertions and deletions the `content` field carries the added/removed
         lines as `DiffLine::Added` / `DiffLine::Removed` entries. For format
-        changes, `content` is empty — the property diff is left as a TODO for a
+        changes, `content` is empty — ~keep TODO: add the property diff in a
         later enrichment pass.
       required:
         - content
@@ -5407,21 +8436,111 @@ components:
         - deletion
         - format_change
         - comment
-    SandboxErrorResponse:
+    SchemaCompliance:
+      type: string
+      description: |-
+        Schema-validation outcome surfaced as one of three buckets.
+
+        Fold into the combined confidence score without leaking internal validation
+        error types.
+      enum:
+        - all_valid
+        - partial_valid
+        - all_invalid
+    ScoreBreakdown:
       type: object
-      description: Error response for sandbox key endpoint
+      description: Score detail for a single returned chunk.
       required:
-        - error
-        - message
+        - primary
+        - rank_primary
+        - rank_final
       properties:
-        error:
-          type: string
-          description: Error code
-          example: rate_limited
-        message:
-          type: string
-          description: Human-readable error message
-          example: 'Rate limit exceeded: max 10 keys per IP per 24 hours'
+        primary:
+          $ref: '#/components/schemas/PrimaryScore'
+          description: Primary-stage score discriminant + value(s).
+        rank_final:
+          type: integer
+          format: int32
+          description: |-
+            Rank position after reranking (1-indexed). Equal to
+            `rank_primary` when rerank was off or fell back.
+          minimum: 0
+        rank_primary:
+          type: integer
+          format: int32
+          description: Rank position in the primary-stage result set (1-indexed).
+          minimum: 0
+        rerank:
+          type:
+            - number
+            - "null"
+          format: float
+          description: Reranker score when rerank was applied. `None` otherwise.
+        rerank_fallback:
+          type:
+            - string
+            - "null"
+          description: |-
+            Reason rerank was skipped or fell back, if applicable.
+            Values: `"timeout"`.
+    SecurityLimits:
+      type: object
+      description: |-
+        Configuration for security limits across extractors.
+
+        All limits are intentionally conservative to prevent DoS attacks
+        while still supporting legitimate documents.
+      properties:
+        max_archive_size:
+          type: integer
+          description: Maximum uncompressed size for archives (500 MB)
+          default: 524288000
+          minimum: 0
+        max_compression_ratio:
+          type: integer
+          description: Maximum compression ratio before flagging as potential bomb (100:1)
+          default: 100
+          minimum: 0
+        max_content_size:
+          type: integer
+          description: Maximum string growth per document (100 MB)
+          default: 104857600
+          minimum: 0
+        max_entity_length:
+          type: integer
+          description: |-
+            Maximum length of any single XML entity / attribute / token (1 MiB).
+            This is a per-token cap, NOT a total cap — billion-laughs class
+            attacks where a single entity expands to hundreds of MB are caught
+            here, while normal long text content (a paragraph, a CDATA block) is
+            caught by `max_content_size` instead.
+          default: 1048576
+          minimum: 0
+        max_files_in_archive:
+          type: integer
+          description: Maximum number of files in archive (10,000)
+          default: 10000
+          minimum: 0
+        max_iterations:
+          type: integer
+          description: Maximum iterations per operation
+          default: 10000000
+          minimum: 0
+        max_nesting_depth:
+          type: integer
+          description: Maximum nesting depth for structures (100)
+          default: 1024
+          minimum: 0
+        max_table_cells:
+          type: integer
+          description: Maximum cells per table (100,000)
+          default: 100000
+          minimum: 0
+        max_xml_depth:
+          type: integer
+          description: Maximum XML depth (100 levels)
+          default: 1024
+          minimum: 0
     StructuredData:
       type: object
       description: Structured data (Schema.org, microdata, RDFa) block.
@@ -5447,6 +8566,45 @@ components:
         - json-ld
         - microdata
         - rdfa
+    StructuredExtractionConfig:
+      type: object
+      description: |-
+        LLM-driven structured extraction.
+
+        When set, the worker passes the extracted document text and the supplied
+        JSON schema to an LLM provider (routed through liter-llm) and returns the
+        validated JSON on `ExtractionResult::structured_output`.
+      required:
+        - schema
+        - llm
+      properties:
+        llm:
+          $ref: '#/components/schemas/LlmConfig'
+          description: LLM provider + model configuration.
+        prompt:
+          type:
+            - string
+            - "null"
+          description: Custom Jinja2 prompt template. When omitted, the xberg default is used.
+        schema:
+          description: JSON Schema (draft-07) the structured output must conform to.
+        schema_description:
+          type:
+            - string
+            - "null"
+          description: Optional human-readable schema description supplied to the LLM.
+        schema_name:
+          type: string
+          description: Schema name passed to the LLM's structured-output mode. Defaults to "extraction".
+        strict:
+          type: boolean
+          description: Strict mode — output must match the schema exactly (provider-dependent).
+    SummaryStrategy:
+      type: string
+      description: Summarisation strategy.
+      enum:
+        - extractive
+        - abstractive
     Table:
       type: object
       description: |-
@@ -5507,6 +8665,132 @@ components:
           format: int32
           description: Number of rows in the table.
           minimum: 0
+    TesseractConfig:
+      type: object
+      description: |-
+        Tesseract OCR configuration.
+
+        Provides fine-grained control over Tesseract OCR engine parameters.
+        Most users can use the defaults, but these settings allow optimization
+        for specific document types (invoices, handwriting, etc.).
+      properties:
+        classify_use_pre_adapted_templates:
+          type: boolean
+          description: Use pre-adapted templates for character classification
+          default: true
+        enable_table_detection:
+          type: boolean
+          description: Enable automatic table detection and reconstruction
+          default: true
+        language:
+          type: array
+          items:
+            type: string
+          description: |-
+            Language code(s) for OCR recognition.
+            Accepts either a single language code ("eng") or a list (["eng", "deu"]).
+            For Tesseract backend, languages are joined with "+".
+          default:
+            - eng
+        language_model_ngram_on:
+          type: boolean
+          description: Enable N-gram language model
+          default: false
+        min_confidence:
+          type: number
+          format: double
+          description: |-
+            Minimum confidence threshold (0.0-100.0).
+
+            Words with confidence below this threshold may be rejected or flagged.
+          default: 0
+        oem:
+          type: integer
+          format: int32
+          description: |-
+            OCR Engine Mode (0-3).
+
+            - 0: Legacy engine only
+            - 1: Neural nets (LSTM) only (usually best)
+            - 2: Legacy + LSTM
+            - 3: Default (based on what's available)
+          default: 3
+        output_format:
+          type: string
+          description: Output format ("text" or "markdown")
+          default: markdown
+        preprocessing:
+          oneOf:
+            - type: "null"
+            - $ref: '#/components/schemas/ImagePreprocessingConfig'
+              description: |-
+                Image preprocessing configuration.
+
+                Controls how images are preprocessed before OCR. Can significantly
+                improve quality for scanned documents or low-quality images.
+          default: null
+        psm:
+          type: integer
+          format: int32
+          description: |-
+            Page Segmentation Mode (0-13).
+
+            Common values:
+            - 3: Fully automatic page segmentation (native default)
+            - 6: Assume a single uniform block of text (WASM default — avoids layout-analysis hang)
+            - 11: Sparse text with no particular order
+          default: 3
+        table_column_threshold:
+          type: integer
+          format: int32
+          description: Column threshold for table detection (pixels)
+          default: 50
+        table_min_confidence:
+          type: number
+          format: double
+          description: Minimum confidence threshold for table detection (0.0-1.0)
+          default: 0
+        table_row_threshold_ratio:
+          type: number
+          format: double
+          description: Row threshold ratio for table detection (0.0-1.0)
+          default: 0.5
+        tessedit_char_blacklist:
+          type: string
+          description: Blacklist of forbidden characters (empty = none forbidden)
+          default: ""
+        tessedit_char_whitelist:
+          type: string
+          description: Whitelist of allowed characters (empty = all allowed)
+          default: ""
+        tessedit_dont_blkrej_good_wds:
+          type: boolean
+          description: Don't reject good words during block-level processing
+          default: true
+        tessedit_dont_rowrej_good_wds:
+          type: boolean
+          description: Don't reject good words during row-level processing
+          default: true
+        tessedit_enable_dict_correction:
+          type: boolean
+          description: Enable dictionary correction
+          default: true
+        tessedit_use_primary_params_model:
+          type: boolean
+          description: Use primary language params model
+          default: true
+        textord_space_size_is_variable:
+          type: boolean
+          description: Variable-width space detection
+          default: true
+        thresholding_method:
+          type: boolean
+          description: Use adaptive thresholding method
+          default: false
+        use_cache:
+          type: boolean
+          description: Enable OCR result caching
+          default: true
     TextAnnotation:
       type: object
       description: |-
@@ -5605,6 +8889,37 @@ components:
             - boolean
             - "null"
           description: Preserve capitalized/technical terms
+    Translation:
+      type: object
+      description: |-
+        Translation of the extracted content.
+
+        Holds the translated rendition of `ExtractedDocument::content` and (when
+        `preserve_markup` was requested) the translated `formatted_content`. Chunks
+        are translated in place inside `ExtractedDocument::chunks[*].content` rather
+        than duplicated here.
+      required:
+        - target_lang
+        - content
+      properties:
+        content:
+          type: string
+          description: Translated plain-text body. Matches the shape of `ExtractedDocument::content`.
+        formatted_content:
+          type:
+            - string
+            - "null"
+          description: |-
+            Translated markup body (Markdown / HTML / etc.) when `preserve_markup` was
+            enabled on the config. `None` otherwise.
+        source_lang:
+          type:
+            - string
+            - "null"
+          description: BCP-47 source language. `None` when the translation backend was asked to detect.
+        target_lang:
+          type: string
+          description: BCP-47 language tag the translation was produced into (e.g. `"de"`, `"fr-CA"`).
     UriKind:
       type: string
       description: Semantic classification of an extracted URI.
@@ -5697,9 +9012,51 @@ components:
           type: integer
           format: int64
           description: Total pages extracted in the period
+    VlmFallbackPolicy:
+      oneOf:
+        - type: object
+          description: No VLM fallback (default). Uses single-backend mode only.
+          required:
+            - mode
+          properties:
+            mode:
+              type: string
+              enum:
+                - disabled
+        - type: object
+          description: |-
+            Try the classical OCR backend first. If quality score is below threshold,
+            fall back to VLM. Requires `ocr.vlm_config` to be set.
+          required:
+            - quality_threshold
+            - mode
+          properties:
+            mode:
+              type: string
+              enum:
+                - on_low_quality
+            quality_threshold:
+              type: number
+              format: double
+        - type: object
+          description: |-
+            Skip classical backend and send every page directly to VLM.
+            Requires `ocr.vlm_config` to be set.
+          required:
+            - mode
+          properties:
+            mode:
+              type: string
+              enum:
+                - always
+      description: |-
+        VLM fallback policy for OCR operations.
+
+        Determines whether and when to fall back from classical OCR (tesseract, easyocr)
+        to Vision Language Model (VLM) processing.
     WebhookConfig:
       type: object
-      description: Webhook configuration for async delivery
+      description: Webhook configuration for async delivery of job results.
       required:
         - url
       properties:
@@ -5707,7 +9064,7 @@ components:
           type:
             - object
             - "null"
-          description: Optional key-value metadata to include in the webhook payload
+          description: Optional key-value metadata included in the webhook payload.
           additionalProperties:
             type: string
           propertyNames:
@@ -5716,10 +9073,70 @@ components:
           type:
             - string
             - "null"
-          description: Optional HMAC secret for signing the webhook payload
+          description: Optional HMAC-SHA256 secret for signing the webhook payload.
         url:
           type: string
-          description: URL to deliver results to
+          description: URL to deliver results to.
+    WebhookEvent:
+      type: object
+      description: |-
+        Webhook event payload delivered to customer endpoints on job completion/failure.
+
+        This is the exact JSON payload sent via HTTP POST to the webhook URL.
+        The payload is signed with HMAC-SHA256 (see `X-Webhook-Signature` header)
+        if a secret was configured.
+
+        The `results` field is present for successful extraction jobs and contains
+        the extracted document data. For failed jobs, `error` is populated instead.
+      required:
+        - event
+        - job_id
+        - timestamp
+      properties:
+        error:
+          oneOf:
+            - type: "null"
+            - $ref: '#/components/schemas/WebhookEventError'
+              description: Optional error details (present only if job failed or had partial failure).
+        event:
+          type: string
+          description: 'Event type: "job.completed" or "job.failed".'
+        job_id:
+          type: string
+          description: The job ID that triggered this webhook.
+        metadata:
+          type:
+            - object
+            - "null"
+          description: |-
+            Optional key-value metadata from the webhook configuration,
+            echoed back for request correlation.
+          additionalProperties:
+            type: string
+          propertyNames:
+            type: string
+        results:
+          description: |-
+            Optional extraction results (present only if job succeeded).
+            The shape depends on the extraction config (e.g., structured output,
+            table detection, OCR results). Consumers should inspect the `event` type
+            to determine expected fields.
+        timestamp:
+          type: string
+          description: RFC3339-formatted timestamp when the job completed.
+    WebhookEventError:
+      type: object
+      description: Error information included in webhook completion events.
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: string
+          description: Error code string carried from the job's `ErrorInfo` (e.g. "2001").
+        message:
+          type: string
+          description: Human-readable error message.
     XmlMetadata:
       type: object
       description: |-
@@ -5740,6 +9157,44 @@ components:
           items:
             type: string
           description: List of unique element tag names (sorted)
+    YakeParams:
+      type: object
+      description: YAKE-specific parameters.
+      required:
+        - window_size
+      properties:
+        window_size:
+          type: integer
+          description: |-
+            Window size for co-occurrence analysis (default: 2).
+
+            Controls the context window for computing co-occurrence statistics.
+          minimum: 0
+    YearRange:
+      type: object
+      description: Year range for bibliographic metadata.
+      properties:
+        max:
+          type:
+            - integer
+            - "null"
+          format: int32
+          description: Latest (maximum) year in the range.
+          minimum: 0
+        min:
+          type:
+            - integer
+            - "null"
+          format: int32
+          description: Earliest (minimum) year in the range.
+          minimum: 0
+        years:
+          type: array
+          items:
+            type: integer
+            format: int32
+            minimum: 0
+          description: All individual years present in the collection.
   securitySchemes:
     bearer_auth:
       type: http
@@ -5751,14 +9206,16 @@ tags:
     description: Document extraction endpoints
   - name: jobs
     description: Job status endpoints
-  - name: sandbox
-    description: Anonymous sandbox API key endpoints
+  - name: presets
+    description: Preset registry endpoints
   - name: uploads
     description: Presigned upload endpoints
   - name: usage
     description: Usage and billing endpoints
   - name: health
     description: Health check endpoints
+  - name: rag
+    description: RAG ingest, document lifecycle, and collection migration endpoints
 externalDocs:
   url: https://enterprise.xberg.io
   description: API reference and documentation

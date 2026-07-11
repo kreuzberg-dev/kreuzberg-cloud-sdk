@@ -22,9 +22,10 @@ mixin _$OcrConfig {
  String? get language;/// OCR output format override
 @JsonKey(name: 'output_format') String? get outputFormat;/// Multi-backend OCR pipeline with quality-based fallback
  OcrPipelineConfig? get pipeline;/// Quality thresholds for OCR fallback decisions
-@JsonKey(name: 'quality_thresholds') OcrQualityThresholds? get qualityThresholds;/// Tesseract-specific configuration (flexible JSON with 20+ fields)
-@JsonKey(name: 'tesseract_config') dynamic get tesseractConfig;/// VLM (Vision Language Model) configuration
-@JsonKey(name: 'vlm_config') dynamic get vlmConfig;/// Custom Jinja2 prompt template for VLM OCR
+@JsonKey(name: 'quality_thresholds') OcrQualityThresholds? get qualityThresholds;/// Tesseract-specific configuration
+@JsonKey(name: 'tesseract_config') TesseractConfig? get tesseractConfig;/// VLM (Vision Language Model) configuration
+@JsonKey(name: 'vlm_config') dynamic get vlmConfig;/// VLM fallback policy for OCR operations
+@JsonKey(name: 'vlm_fallback') VlmFallbackPolicy? get vlmFallback;/// Custom Jinja2 prompt template for VLM OCR
 @JsonKey(name: 'vlm_prompt') String? get vlmPrompt;
 /// Create a copy of OcrConfig
 /// with the given fields replaced by the non-null parameter values.
@@ -38,16 +39,16 @@ $OcrConfigCopyWith<OcrConfig> get copyWith => _$OcrConfigCopyWithImpl<OcrConfig>
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is OcrConfig&&(identical(other.autoRotate, autoRotate) || other.autoRotate == autoRotate)&&(identical(other.backend, backend) || other.backend == backend)&&(identical(other.elementConfig, elementConfig) || other.elementConfig == elementConfig)&&(identical(other.language, language) || other.language == language)&&(identical(other.outputFormat, outputFormat) || other.outputFormat == outputFormat)&&(identical(other.pipeline, pipeline) || other.pipeline == pipeline)&&(identical(other.qualityThresholds, qualityThresholds) || other.qualityThresholds == qualityThresholds)&&const DeepCollectionEquality().equals(other.tesseractConfig, tesseractConfig)&&const DeepCollectionEquality().equals(other.vlmConfig, vlmConfig)&&(identical(other.vlmPrompt, vlmPrompt) || other.vlmPrompt == vlmPrompt));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is OcrConfig&&(identical(other.autoRotate, autoRotate) || other.autoRotate == autoRotate)&&(identical(other.backend, backend) || other.backend == backend)&&(identical(other.elementConfig, elementConfig) || other.elementConfig == elementConfig)&&(identical(other.language, language) || other.language == language)&&(identical(other.outputFormat, outputFormat) || other.outputFormat == outputFormat)&&(identical(other.pipeline, pipeline) || other.pipeline == pipeline)&&(identical(other.qualityThresholds, qualityThresholds) || other.qualityThresholds == qualityThresholds)&&(identical(other.tesseractConfig, tesseractConfig) || other.tesseractConfig == tesseractConfig)&&const DeepCollectionEquality().equals(other.vlmConfig, vlmConfig)&&(identical(other.vlmFallback, vlmFallback) || other.vlmFallback == vlmFallback)&&(identical(other.vlmPrompt, vlmPrompt) || other.vlmPrompt == vlmPrompt));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,autoRotate,backend,elementConfig,language,outputFormat,pipeline,qualityThresholds,const DeepCollectionEquality().hash(tesseractConfig),const DeepCollectionEquality().hash(vlmConfig),vlmPrompt);
+int get hashCode => Object.hash(runtimeType,autoRotate,backend,elementConfig,language,outputFormat,pipeline,qualityThresholds,tesseractConfig,const DeepCollectionEquality().hash(vlmConfig),vlmFallback,vlmPrompt);
 
 @override
 String toString() {
-  return 'OcrConfig(autoRotate: $autoRotate, backend: $backend, elementConfig: $elementConfig, language: $language, outputFormat: $outputFormat, pipeline: $pipeline, qualityThresholds: $qualityThresholds, tesseractConfig: $tesseractConfig, vlmConfig: $vlmConfig, vlmPrompt: $vlmPrompt)';
+  return 'OcrConfig(autoRotate: $autoRotate, backend: $backend, elementConfig: $elementConfig, language: $language, outputFormat: $outputFormat, pipeline: $pipeline, qualityThresholds: $qualityThresholds, tesseractConfig: $tesseractConfig, vlmConfig: $vlmConfig, vlmFallback: $vlmFallback, vlmPrompt: $vlmPrompt)';
 }
 
 
@@ -58,11 +59,11 @@ abstract mixin class $OcrConfigCopyWith<$Res>  {
   factory $OcrConfigCopyWith(OcrConfig value, $Res Function(OcrConfig) _then) = _$OcrConfigCopyWithImpl;
 @useResult
 $Res call({
-@JsonKey(name: 'auto_rotate') bool? autoRotate, String? backend,@JsonKey(name: 'element_config') OcrElementConfig? elementConfig, String? language,@JsonKey(name: 'output_format') String? outputFormat, OcrPipelineConfig? pipeline,@JsonKey(name: 'quality_thresholds') OcrQualityThresholds? qualityThresholds,@JsonKey(name: 'tesseract_config') dynamic tesseractConfig,@JsonKey(name: 'vlm_config') dynamic vlmConfig,@JsonKey(name: 'vlm_prompt') String? vlmPrompt
+@JsonKey(name: 'auto_rotate') bool? autoRotate, String? backend,@JsonKey(name: 'element_config') OcrElementConfig? elementConfig, String? language,@JsonKey(name: 'output_format') String? outputFormat, OcrPipelineConfig? pipeline,@JsonKey(name: 'quality_thresholds') OcrQualityThresholds? qualityThresholds,@JsonKey(name: 'tesseract_config') TesseractConfig? tesseractConfig,@JsonKey(name: 'vlm_config') dynamic vlmConfig,@JsonKey(name: 'vlm_fallback') VlmFallbackPolicy? vlmFallback,@JsonKey(name: 'vlm_prompt') String? vlmPrompt
 });
 
 
-$OcrElementConfigCopyWith<$Res>? get elementConfig;$OcrPipelineConfigCopyWith<$Res>? get pipeline;$OcrQualityThresholdsCopyWith<$Res>? get qualityThresholds;
+$OcrElementConfigCopyWith<$Res>? get elementConfig;$OcrPipelineConfigCopyWith<$Res>? get pipeline;$OcrQualityThresholdsCopyWith<$Res>? get qualityThresholds;$TesseractConfigCopyWith<$Res>? get tesseractConfig;$VlmFallbackPolicyCopyWith<$Res>? get vlmFallback;
 
 }
 /// @nodoc
@@ -75,7 +76,7 @@ class _$OcrConfigCopyWithImpl<$Res>
 
 /// Create a copy of OcrConfig
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? autoRotate = freezed,Object? backend = freezed,Object? elementConfig = freezed,Object? language = freezed,Object? outputFormat = freezed,Object? pipeline = freezed,Object? qualityThresholds = freezed,Object? tesseractConfig = freezed,Object? vlmConfig = freezed,Object? vlmPrompt = freezed,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? autoRotate = freezed,Object? backend = freezed,Object? elementConfig = freezed,Object? language = freezed,Object? outputFormat = freezed,Object? pipeline = freezed,Object? qualityThresholds = freezed,Object? tesseractConfig = freezed,Object? vlmConfig = freezed,Object? vlmFallback = freezed,Object? vlmPrompt = freezed,}) {
   return _then(_self.copyWith(
 autoRotate: freezed == autoRotate ? _self.autoRotate : autoRotate // ignore: cast_nullable_to_non_nullable
 as bool?,backend: freezed == backend ? _self.backend : backend // ignore: cast_nullable_to_non_nullable
@@ -85,8 +86,9 @@ as String?,outputFormat: freezed == outputFormat ? _self.outputFormat : outputFo
 as String?,pipeline: freezed == pipeline ? _self.pipeline : pipeline // ignore: cast_nullable_to_non_nullable
 as OcrPipelineConfig?,qualityThresholds: freezed == qualityThresholds ? _self.qualityThresholds : qualityThresholds // ignore: cast_nullable_to_non_nullable
 as OcrQualityThresholds?,tesseractConfig: freezed == tesseractConfig ? _self.tesseractConfig : tesseractConfig // ignore: cast_nullable_to_non_nullable
-as dynamic,vlmConfig: freezed == vlmConfig ? _self.vlmConfig : vlmConfig // ignore: cast_nullable_to_non_nullable
-as dynamic,vlmPrompt: freezed == vlmPrompt ? _self.vlmPrompt : vlmPrompt // ignore: cast_nullable_to_non_nullable
+as TesseractConfig?,vlmConfig: freezed == vlmConfig ? _self.vlmConfig : vlmConfig // ignore: cast_nullable_to_non_nullable
+as dynamic,vlmFallback: freezed == vlmFallback ? _self.vlmFallback : vlmFallback // ignore: cast_nullable_to_non_nullable
+as VlmFallbackPolicy?,vlmPrompt: freezed == vlmPrompt ? _self.vlmPrompt : vlmPrompt // ignore: cast_nullable_to_non_nullable
 as String?,
   ));
 }
@@ -125,6 +127,30 @@ $OcrQualityThresholdsCopyWith<$Res>? get qualityThresholds {
 
   return $OcrQualityThresholdsCopyWith<$Res>(_self.qualityThresholds!, (value) {
     return _then(_self.copyWith(qualityThresholds: value));
+  });
+}/// Create a copy of OcrConfig
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
+$TesseractConfigCopyWith<$Res>? get tesseractConfig {
+    if (_self.tesseractConfig == null) {
+    return null;
+  }
+
+  return $TesseractConfigCopyWith<$Res>(_self.tesseractConfig!, (value) {
+    return _then(_self.copyWith(tesseractConfig: value));
+  });
+}/// Create a copy of OcrConfig
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
+$VlmFallbackPolicyCopyWith<$Res>? get vlmFallback {
+    if (_self.vlmFallback == null) {
+    return null;
+  }
+
+  return $VlmFallbackPolicyCopyWith<$Res>(_self.vlmFallback!, (value) {
+    return _then(_self.copyWith(vlmFallback: value));
   });
 }
 }
@@ -208,10 +234,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function(@JsonKey(name: 'auto_rotate')  bool? autoRotate,  String? backend, @JsonKey(name: 'element_config')  OcrElementConfig? elementConfig,  String? language, @JsonKey(name: 'output_format')  String? outputFormat,  OcrPipelineConfig? pipeline, @JsonKey(name: 'quality_thresholds')  OcrQualityThresholds? qualityThresholds, @JsonKey(name: 'tesseract_config')  dynamic tesseractConfig, @JsonKey(name: 'vlm_config')  dynamic vlmConfig, @JsonKey(name: 'vlm_prompt')  String? vlmPrompt)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function(@JsonKey(name: 'auto_rotate')  bool? autoRotate,  String? backend, @JsonKey(name: 'element_config')  OcrElementConfig? elementConfig,  String? language, @JsonKey(name: 'output_format')  String? outputFormat,  OcrPipelineConfig? pipeline, @JsonKey(name: 'quality_thresholds')  OcrQualityThresholds? qualityThresholds, @JsonKey(name: 'tesseract_config')  TesseractConfig? tesseractConfig, @JsonKey(name: 'vlm_config')  dynamic vlmConfig, @JsonKey(name: 'vlm_fallback')  VlmFallbackPolicy? vlmFallback, @JsonKey(name: 'vlm_prompt')  String? vlmPrompt)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _OcrConfig() when $default != null:
-return $default(_that.autoRotate,_that.backend,_that.elementConfig,_that.language,_that.outputFormat,_that.pipeline,_that.qualityThresholds,_that.tesseractConfig,_that.vlmConfig,_that.vlmPrompt);case _:
+return $default(_that.autoRotate,_that.backend,_that.elementConfig,_that.language,_that.outputFormat,_that.pipeline,_that.qualityThresholds,_that.tesseractConfig,_that.vlmConfig,_that.vlmFallback,_that.vlmPrompt);case _:
   return orElse();
 
 }
@@ -229,10 +255,10 @@ return $default(_that.autoRotate,_that.backend,_that.elementConfig,_that.languag
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function(@JsonKey(name: 'auto_rotate')  bool? autoRotate,  String? backend, @JsonKey(name: 'element_config')  OcrElementConfig? elementConfig,  String? language, @JsonKey(name: 'output_format')  String? outputFormat,  OcrPipelineConfig? pipeline, @JsonKey(name: 'quality_thresholds')  OcrQualityThresholds? qualityThresholds, @JsonKey(name: 'tesseract_config')  dynamic tesseractConfig, @JsonKey(name: 'vlm_config')  dynamic vlmConfig, @JsonKey(name: 'vlm_prompt')  String? vlmPrompt)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function(@JsonKey(name: 'auto_rotate')  bool? autoRotate,  String? backend, @JsonKey(name: 'element_config')  OcrElementConfig? elementConfig,  String? language, @JsonKey(name: 'output_format')  String? outputFormat,  OcrPipelineConfig? pipeline, @JsonKey(name: 'quality_thresholds')  OcrQualityThresholds? qualityThresholds, @JsonKey(name: 'tesseract_config')  TesseractConfig? tesseractConfig, @JsonKey(name: 'vlm_config')  dynamic vlmConfig, @JsonKey(name: 'vlm_fallback')  VlmFallbackPolicy? vlmFallback, @JsonKey(name: 'vlm_prompt')  String? vlmPrompt)  $default,) {final _that = this;
 switch (_that) {
 case _OcrConfig():
-return $default(_that.autoRotate,_that.backend,_that.elementConfig,_that.language,_that.outputFormat,_that.pipeline,_that.qualityThresholds,_that.tesseractConfig,_that.vlmConfig,_that.vlmPrompt);case _:
+return $default(_that.autoRotate,_that.backend,_that.elementConfig,_that.language,_that.outputFormat,_that.pipeline,_that.qualityThresholds,_that.tesseractConfig,_that.vlmConfig,_that.vlmFallback,_that.vlmPrompt);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -249,10 +275,10 @@ return $default(_that.autoRotate,_that.backend,_that.elementConfig,_that.languag
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function(@JsonKey(name: 'auto_rotate')  bool? autoRotate,  String? backend, @JsonKey(name: 'element_config')  OcrElementConfig? elementConfig,  String? language, @JsonKey(name: 'output_format')  String? outputFormat,  OcrPipelineConfig? pipeline, @JsonKey(name: 'quality_thresholds')  OcrQualityThresholds? qualityThresholds, @JsonKey(name: 'tesseract_config')  dynamic tesseractConfig, @JsonKey(name: 'vlm_config')  dynamic vlmConfig, @JsonKey(name: 'vlm_prompt')  String? vlmPrompt)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function(@JsonKey(name: 'auto_rotate')  bool? autoRotate,  String? backend, @JsonKey(name: 'element_config')  OcrElementConfig? elementConfig,  String? language, @JsonKey(name: 'output_format')  String? outputFormat,  OcrPipelineConfig? pipeline, @JsonKey(name: 'quality_thresholds')  OcrQualityThresholds? qualityThresholds, @JsonKey(name: 'tesseract_config')  TesseractConfig? tesseractConfig, @JsonKey(name: 'vlm_config')  dynamic vlmConfig, @JsonKey(name: 'vlm_fallback')  VlmFallbackPolicy? vlmFallback, @JsonKey(name: 'vlm_prompt')  String? vlmPrompt)?  $default,) {final _that = this;
 switch (_that) {
 case _OcrConfig() when $default != null:
-return $default(_that.autoRotate,_that.backend,_that.elementConfig,_that.language,_that.outputFormat,_that.pipeline,_that.qualityThresholds,_that.tesseractConfig,_that.vlmConfig,_that.vlmPrompt);case _:
+return $default(_that.autoRotate,_that.backend,_that.elementConfig,_that.language,_that.outputFormat,_that.pipeline,_that.qualityThresholds,_that.tesseractConfig,_that.vlmConfig,_that.vlmFallback,_that.vlmPrompt);case _:
   return null;
 
 }
@@ -264,7 +290,7 @@ return $default(_that.autoRotate,_that.backend,_that.elementConfig,_that.languag
 @JsonSerializable()
 
 class _OcrConfig implements OcrConfig {
-  const _OcrConfig({@JsonKey(name: 'auto_rotate') this.autoRotate, this.backend, @JsonKey(name: 'element_config') this.elementConfig, this.language, @JsonKey(name: 'output_format') this.outputFormat, this.pipeline, @JsonKey(name: 'quality_thresholds') this.qualityThresholds, @JsonKey(name: 'tesseract_config') this.tesseractConfig, @JsonKey(name: 'vlm_config') this.vlmConfig, @JsonKey(name: 'vlm_prompt') this.vlmPrompt});
+  const _OcrConfig({@JsonKey(name: 'auto_rotate') this.autoRotate, this.backend, @JsonKey(name: 'element_config') this.elementConfig, this.language, @JsonKey(name: 'output_format') this.outputFormat, this.pipeline, @JsonKey(name: 'quality_thresholds') this.qualityThresholds, @JsonKey(name: 'tesseract_config') this.tesseractConfig, @JsonKey(name: 'vlm_config') this.vlmConfig, @JsonKey(name: 'vlm_fallback') this.vlmFallback, @JsonKey(name: 'vlm_prompt') this.vlmPrompt});
   factory _OcrConfig.fromJson(Map<String, dynamic> json) => _$OcrConfigFromJson(json);
 
 /// Automatic page rotation detection
@@ -281,10 +307,12 @@ class _OcrConfig implements OcrConfig {
 @override final  OcrPipelineConfig? pipeline;
 /// Quality thresholds for OCR fallback decisions
 @override@JsonKey(name: 'quality_thresholds') final  OcrQualityThresholds? qualityThresholds;
-/// Tesseract-specific configuration (flexible JSON with 20+ fields)
-@override@JsonKey(name: 'tesseract_config') final  dynamic tesseractConfig;
+/// Tesseract-specific configuration
+@override@JsonKey(name: 'tesseract_config') final  TesseractConfig? tesseractConfig;
 /// VLM (Vision Language Model) configuration
 @override@JsonKey(name: 'vlm_config') final  dynamic vlmConfig;
+/// VLM fallback policy for OCR operations
+@override@JsonKey(name: 'vlm_fallback') final  VlmFallbackPolicy? vlmFallback;
 /// Custom Jinja2 prompt template for VLM OCR
 @override@JsonKey(name: 'vlm_prompt') final  String? vlmPrompt;
 
@@ -301,16 +329,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _OcrConfig&&(identical(other.autoRotate, autoRotate) || other.autoRotate == autoRotate)&&(identical(other.backend, backend) || other.backend == backend)&&(identical(other.elementConfig, elementConfig) || other.elementConfig == elementConfig)&&(identical(other.language, language) || other.language == language)&&(identical(other.outputFormat, outputFormat) || other.outputFormat == outputFormat)&&(identical(other.pipeline, pipeline) || other.pipeline == pipeline)&&(identical(other.qualityThresholds, qualityThresholds) || other.qualityThresholds == qualityThresholds)&&const DeepCollectionEquality().equals(other.tesseractConfig, tesseractConfig)&&const DeepCollectionEquality().equals(other.vlmConfig, vlmConfig)&&(identical(other.vlmPrompt, vlmPrompt) || other.vlmPrompt == vlmPrompt));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _OcrConfig&&(identical(other.autoRotate, autoRotate) || other.autoRotate == autoRotate)&&(identical(other.backend, backend) || other.backend == backend)&&(identical(other.elementConfig, elementConfig) || other.elementConfig == elementConfig)&&(identical(other.language, language) || other.language == language)&&(identical(other.outputFormat, outputFormat) || other.outputFormat == outputFormat)&&(identical(other.pipeline, pipeline) || other.pipeline == pipeline)&&(identical(other.qualityThresholds, qualityThresholds) || other.qualityThresholds == qualityThresholds)&&(identical(other.tesseractConfig, tesseractConfig) || other.tesseractConfig == tesseractConfig)&&const DeepCollectionEquality().equals(other.vlmConfig, vlmConfig)&&(identical(other.vlmFallback, vlmFallback) || other.vlmFallback == vlmFallback)&&(identical(other.vlmPrompt, vlmPrompt) || other.vlmPrompt == vlmPrompt));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,autoRotate,backend,elementConfig,language,outputFormat,pipeline,qualityThresholds,const DeepCollectionEquality().hash(tesseractConfig),const DeepCollectionEquality().hash(vlmConfig),vlmPrompt);
+int get hashCode => Object.hash(runtimeType,autoRotate,backend,elementConfig,language,outputFormat,pipeline,qualityThresholds,tesseractConfig,const DeepCollectionEquality().hash(vlmConfig),vlmFallback,vlmPrompt);
 
 @override
 String toString() {
-  return 'OcrConfig(autoRotate: $autoRotate, backend: $backend, elementConfig: $elementConfig, language: $language, outputFormat: $outputFormat, pipeline: $pipeline, qualityThresholds: $qualityThresholds, tesseractConfig: $tesseractConfig, vlmConfig: $vlmConfig, vlmPrompt: $vlmPrompt)';
+  return 'OcrConfig(autoRotate: $autoRotate, backend: $backend, elementConfig: $elementConfig, language: $language, outputFormat: $outputFormat, pipeline: $pipeline, qualityThresholds: $qualityThresholds, tesseractConfig: $tesseractConfig, vlmConfig: $vlmConfig, vlmFallback: $vlmFallback, vlmPrompt: $vlmPrompt)';
 }
 
 
@@ -321,11 +349,11 @@ abstract mixin class _$OcrConfigCopyWith<$Res> implements $OcrConfigCopyWith<$Re
   factory _$OcrConfigCopyWith(_OcrConfig value, $Res Function(_OcrConfig) _then) = __$OcrConfigCopyWithImpl;
 @override @useResult
 $Res call({
-@JsonKey(name: 'auto_rotate') bool? autoRotate, String? backend,@JsonKey(name: 'element_config') OcrElementConfig? elementConfig, String? language,@JsonKey(name: 'output_format') String? outputFormat, OcrPipelineConfig? pipeline,@JsonKey(name: 'quality_thresholds') OcrQualityThresholds? qualityThresholds,@JsonKey(name: 'tesseract_config') dynamic tesseractConfig,@JsonKey(name: 'vlm_config') dynamic vlmConfig,@JsonKey(name: 'vlm_prompt') String? vlmPrompt
+@JsonKey(name: 'auto_rotate') bool? autoRotate, String? backend,@JsonKey(name: 'element_config') OcrElementConfig? elementConfig, String? language,@JsonKey(name: 'output_format') String? outputFormat, OcrPipelineConfig? pipeline,@JsonKey(name: 'quality_thresholds') OcrQualityThresholds? qualityThresholds,@JsonKey(name: 'tesseract_config') TesseractConfig? tesseractConfig,@JsonKey(name: 'vlm_config') dynamic vlmConfig,@JsonKey(name: 'vlm_fallback') VlmFallbackPolicy? vlmFallback,@JsonKey(name: 'vlm_prompt') String? vlmPrompt
 });
 
 
-@override $OcrElementConfigCopyWith<$Res>? get elementConfig;@override $OcrPipelineConfigCopyWith<$Res>? get pipeline;@override $OcrQualityThresholdsCopyWith<$Res>? get qualityThresholds;
+@override $OcrElementConfigCopyWith<$Res>? get elementConfig;@override $OcrPipelineConfigCopyWith<$Res>? get pipeline;@override $OcrQualityThresholdsCopyWith<$Res>? get qualityThresholds;@override $TesseractConfigCopyWith<$Res>? get tesseractConfig;@override $VlmFallbackPolicyCopyWith<$Res>? get vlmFallback;
 
 }
 /// @nodoc
@@ -338,7 +366,7 @@ class __$OcrConfigCopyWithImpl<$Res>
 
 /// Create a copy of OcrConfig
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? autoRotate = freezed,Object? backend = freezed,Object? elementConfig = freezed,Object? language = freezed,Object? outputFormat = freezed,Object? pipeline = freezed,Object? qualityThresholds = freezed,Object? tesseractConfig = freezed,Object? vlmConfig = freezed,Object? vlmPrompt = freezed,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? autoRotate = freezed,Object? backend = freezed,Object? elementConfig = freezed,Object? language = freezed,Object? outputFormat = freezed,Object? pipeline = freezed,Object? qualityThresholds = freezed,Object? tesseractConfig = freezed,Object? vlmConfig = freezed,Object? vlmFallback = freezed,Object? vlmPrompt = freezed,}) {
   return _then(_OcrConfig(
 autoRotate: freezed == autoRotate ? _self.autoRotate : autoRotate // ignore: cast_nullable_to_non_nullable
 as bool?,backend: freezed == backend ? _self.backend : backend // ignore: cast_nullable_to_non_nullable
@@ -348,8 +376,9 @@ as String?,outputFormat: freezed == outputFormat ? _self.outputFormat : outputFo
 as String?,pipeline: freezed == pipeline ? _self.pipeline : pipeline // ignore: cast_nullable_to_non_nullable
 as OcrPipelineConfig?,qualityThresholds: freezed == qualityThresholds ? _self.qualityThresholds : qualityThresholds // ignore: cast_nullable_to_non_nullable
 as OcrQualityThresholds?,tesseractConfig: freezed == tesseractConfig ? _self.tesseractConfig : tesseractConfig // ignore: cast_nullable_to_non_nullable
-as dynamic,vlmConfig: freezed == vlmConfig ? _self.vlmConfig : vlmConfig // ignore: cast_nullable_to_non_nullable
-as dynamic,vlmPrompt: freezed == vlmPrompt ? _self.vlmPrompt : vlmPrompt // ignore: cast_nullable_to_non_nullable
+as TesseractConfig?,vlmConfig: freezed == vlmConfig ? _self.vlmConfig : vlmConfig // ignore: cast_nullable_to_non_nullable
+as dynamic,vlmFallback: freezed == vlmFallback ? _self.vlmFallback : vlmFallback // ignore: cast_nullable_to_non_nullable
+as VlmFallbackPolicy?,vlmPrompt: freezed == vlmPrompt ? _self.vlmPrompt : vlmPrompt // ignore: cast_nullable_to_non_nullable
 as String?,
   ));
 }
@@ -389,6 +418,30 @@ $OcrQualityThresholdsCopyWith<$Res>? get qualityThresholds {
 
   return $OcrQualityThresholdsCopyWith<$Res>(_self.qualityThresholds!, (value) {
     return _then(_self.copyWith(qualityThresholds: value));
+  });
+}/// Create a copy of OcrConfig
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
+$TesseractConfigCopyWith<$Res>? get tesseractConfig {
+    if (_self.tesseractConfig == null) {
+    return null;
+  }
+
+  return $TesseractConfigCopyWith<$Res>(_self.tesseractConfig!, (value) {
+    return _then(_self.copyWith(tesseractConfig: value));
+  });
+}/// Create a copy of OcrConfig
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
+$VlmFallbackPolicyCopyWith<$Res>? get vlmFallback {
+    if (_self.vlmFallback == null) {
+    return null;
+  }
+
+  return $VlmFallbackPolicyCopyWith<$Res>(_self.vlmFallback!, (value) {
+    return _then(_self.copyWith(vlmFallback: value));
   });
 }
 }

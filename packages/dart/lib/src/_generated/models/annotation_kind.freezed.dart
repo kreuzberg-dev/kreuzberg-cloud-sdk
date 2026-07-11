@@ -63,7 +63,7 @@ AnnotationKind _$AnnotationKindFromJson(
           return AnnotationKindCustom.fromJson(
             json
           );
-        
+
           default:
             throw CheckedFromJsonException(
   json,
@@ -72,7 +72,7 @@ AnnotationKind _$AnnotationKindFromJson(
   'Invalid union type "${json['annotation_type']}"!'
 );
         }
-      
+
 }
 
 /// @nodoc

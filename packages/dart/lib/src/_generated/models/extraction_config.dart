@@ -7,18 +7,21 @@ import 'package:freezed_annotation/freezed_annotation.dart';
 import 'chunking_config.dart';
 import 'content_filter_config.dart';
 import 'image_extraction_config.dart';
+import 'keyword_config.dart';
 import 'language_detection_config.dart';
 import 'layout_detection_config.dart';
 import 'ocr_config.dart';
 import 'page_config.dart';
 import 'pdf_config.dart';
 import 'post_processor_config.dart';
+import 'security_limits.dart';
+import 'structured_extraction_config.dart';
 import 'token_reduction_config.dart';
 
 part 'extraction_config.freezed.dart';
 part 'extraction_config.g.dart';
 
-/// Top-level extraction configuration — mirrors kreuzberg::ExtractionConfig.
+/// Top-level extraction configuration — mirrors xberg::ExtractionConfig.
 @Freezed()
 abstract class ExtractionConfig with _$ExtractionConfig {
   const factory ExtractionConfig({
@@ -58,8 +61,8 @@ abstract class ExtractionConfig with _$ExtractionConfig {
     /// Include structured document tree in output
     @JsonKey(name: 'include_document_structure') bool? includeDocumentStructure,
 
-    /// Keyword extraction configuration (flexible JSON)
-    dynamic keywords,
+    /// Keyword extraction configuration
+    KeywordConfig? keywords,
 
     /// Language detection configuration
     @JsonKey(name: 'language_detection')
@@ -73,6 +76,9 @@ abstract class ExtractionConfig with _$ExtractionConfig {
 
     /// Maximum concurrent extractions
     @JsonKey(name: 'max_concurrent_extractions') int? maxConcurrentExtractions,
+
+    /// Maximum size in bytes for embedded/attached files during recursive extraction
+    @JsonKey(name: 'max_embedded_file_bytes') int? maxEmbeddedFileBytes,
 
     /// OCR configuration
     OcrConfig? ocr,
@@ -92,8 +98,12 @@ abstract class ExtractionConfig with _$ExtractionConfig {
     /// Result format: "unified" or "element_based"
     @JsonKey(name: 'result_format') String? resultFormat,
 
-    /// Security limits (flexible JSON)
-    @JsonKey(name: 'security_limits') dynamic securityLimits,
+    /// Security limits for extraction (resource caps, recursion bounds)
+    @JsonKey(name: 'security_limits') SecurityLimits? securityLimits,
+
+    /// LLM-driven structured extraction: schema + provider config.
+    @JsonKey(name: 'structured_extraction')
+    StructuredExtractionConfig? structuredExtraction,
 
     /// Token reduction configuration
     @JsonKey(name: 'token_reduction') TokenReductionConfig? tokenReduction,

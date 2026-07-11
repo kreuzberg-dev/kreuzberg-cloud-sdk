@@ -55,11 +55,6 @@ class DocumentNode:
 
                 Uses `#[serde(tag = "node_type")]` to avoid "type" keyword collision in
                 Go/Java/TypeScript bindings.
-            id (str): Deterministic node identifier.
-
-                Generated from a hash of `node_type + text + page`. The same document
-                always produces the same IDs, making them useful for diffing, caching,
-                and external references.
             annotations (list[TextAnnotation] | Unset): Inline annotations (formatting, links) on this node's text content.
 
                 Only meaningful for text-carrying nodes; empty for containers.
@@ -99,7 +94,6 @@ class DocumentNode:
         | NodeContentType8
         | NodeContentType9
     )
-    id: str
     annotations: list[TextAnnotation] | Unset = UNSET
     attributes: DocumentNodeAttributesType0 | None | Unset = UNSET
     bbox: BoundingBox | None | Unset = UNSET
@@ -159,8 +153,6 @@ class DocumentNode:
         else:
             content = self.content.to_dict()
 
-        id = self.id
-
         annotations: list[dict[str, Any]] | Unset = UNSET
         if not isinstance(self.annotations, Unset):
             annotations = []
@@ -215,7 +207,6 @@ class DocumentNode:
         field_dict.update(
             {
                 "content": content,
-                "id": id,
             }
         )
         if annotations is not UNSET:
@@ -449,8 +440,6 @@ class DocumentNode:
 
         content = _parse_content(d.pop("content"))
 
-        id = d.pop("id")
-
         _annotations = d.pop("annotations", UNSET)
         annotations: list[TextAnnotation] | Unset = UNSET
         if _annotations is not UNSET:
@@ -532,7 +521,6 @@ class DocumentNode:
 
         document_node = cls(
             content=content,
-            id=id,
             annotations=annotations,
             attributes=attributes,
             bbox=bbox,

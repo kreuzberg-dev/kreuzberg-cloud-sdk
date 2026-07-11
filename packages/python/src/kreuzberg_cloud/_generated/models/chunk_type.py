@@ -1,12 +1,15 @@
 from typing import Literal, cast
 
 ChunkType = Literal[
+    "class",
     "code_block",
     "definitions",
     "diagram",
     "formula",
+    "function",
     "heading",
     "image",
+    "module",
     "operative_clause",
     "org_chart",
     "party_list",
@@ -17,12 +20,15 @@ ChunkType = Literal[
 ]
 
 CHUNK_TYPE_VALUES: set[ChunkType] = {
+    "class",
     "code_block",
     "definitions",
     "diagram",
     "formula",
+    "function",
     "heading",
     "image",
+    "module",
     "operative_clause",
     "org_chart",
     "party_list",

@@ -15,7 +15,7 @@ _CrawlChildJob _$CrawlChildJobFromJson(Map<String, dynamic> json) =>
       processingTimeMs: (json['processing_time_ms'] as num?)?.toInt(),
       result: json['result'] == null
           ? null
-          : ExtractionResult.fromJson(json['result'] as Map<String, dynamic>),
+          : ExtractedDocument.fromJson(json['result'] as Map<String, dynamic>),
       sourceUrl: json['source_url'] as String?,
     );
 

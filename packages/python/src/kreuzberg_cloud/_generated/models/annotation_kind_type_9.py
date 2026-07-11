@@ -21,7 +21,7 @@ class AnnotationKindType9:
 
     Attributes:
         annotation_type (AnnotationKindType9AnnotationType):
-        value (str):
+        value (str): CSS-compatible color value (e.g. `"#ff0000"`, `"red"`).
     """
 
     annotation_type: AnnotationKindType9AnnotationType

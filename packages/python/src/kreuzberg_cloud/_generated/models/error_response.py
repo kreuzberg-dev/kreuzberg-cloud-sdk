@@ -1,28 +1,34 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any, TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 from typing_extensions import Self
+
+if TYPE_CHECKING:
+    from ..models.error_body import ErrorBody
+
 
 T = TypeVar("T", bound="ErrorResponse")
 
 
 @_attrs_define
 class ErrorResponse:
-    """Error response
+    """Canonical error response body.
+
+    Wraps the nested error envelope required by all API error paths.
 
     Attributes:
-        error (str): Error message Example: Invalid job ID format.
+            error (ErrorBody): Error body containing code, message, and optional details.
     """
 
-    error: str
+    error: ErrorBody
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        error = self.error
+        error = self.error.to_dict()
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -36,8 +42,10 @@ class ErrorResponse:
 
     @classmethod
     def from_dict(cls, src_dict: Mapping[str, Any]) -> Self:
+        from ..models.error_body import ErrorBody
+
         d = dict(src_dict)
-        error = d.pop("error")
+        error = ErrorBody.from_dict(d.pop("error"))
 
         error_response = cls(
             error=error,

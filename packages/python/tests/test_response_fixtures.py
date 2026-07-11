@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pytest
 
-from kreuzberg_cloud._generated.models.extraction_result import ExtractionResult
+from kreuzberg_cloud import ExtractionResult
 
 FIXTURES = Path(__file__).resolve().parents[3] / "spec" / "fixtures"
 

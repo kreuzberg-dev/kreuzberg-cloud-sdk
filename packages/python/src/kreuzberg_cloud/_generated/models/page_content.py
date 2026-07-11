@@ -39,7 +39,7 @@ class PageContent:
             content (str): Text content for this page
             page_number (int): Page number (1-indexed)
             hierarchy (None | PageHierarchy | Unset):
-            image_indices (list[int] | Unset): Indices into `ExtractionResult.images` for images found on this page.
+            image_indices (list[int] | Unset): Indices into `ExtractedDocument.images` for images found on this page.
 
                 Each value is a zero-based index into the top-level `images` collection.
                 Only populated when `extract_images = true` in the extraction config.
@@ -69,7 +69,7 @@ class PageContent:
                 Only populated when the source is a PPTX file and notes are present.
             tables (list[Table] | Unset): Tables found on this page (uses Arc for memory efficiency)
 
-                Serializes as Vec<Table> for JSON compatibility while maintaining
+                Serializes as `Vec<Table>` for JSON compatibility while maintaining
                 Arc semantics in-memory for zero-copy sharing.
     """
 

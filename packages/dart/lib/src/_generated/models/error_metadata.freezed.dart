@@ -15,7 +15,9 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$ErrorMetadata {
 
-@JsonKey(name: 'error_type') String get errorType; String get message;
+/// Machine-readable error type identifier (e.g. "UnsupportedFormat").
+@JsonKey(name: 'error_type') String get errorType;/// Human-readable error description.
+ String get message;
 /// Create a copy of ErrorMetadata
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -213,7 +215,9 @@ class _ErrorMetadata implements ErrorMetadata {
   const _ErrorMetadata({@JsonKey(name: 'error_type') required this.errorType, required this.message});
   factory _ErrorMetadata.fromJson(Map<String, dynamic> json) => _$ErrorMetadataFromJson(json);
 
+/// Machine-readable error type identifier (e.g. "UnsupportedFormat").
 @override@JsonKey(name: 'error_type') final  String errorType;
+/// Human-readable error description.
 @override final  String message;
 
 /// Create a copy of ErrorMetadata

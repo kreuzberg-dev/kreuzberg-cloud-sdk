@@ -79,7 +79,7 @@ as String,
 @override
 @pragma('vm:prefer-inline')
 $ReadinessChecksCopyWith<$Res> get checks {
-  
+
   return $ReadinessChecksCopyWith<$Res>(_self.checks, (value) {
     return _then(_self.copyWith(checks: value));
   });
@@ -292,7 +292,7 @@ as String,
 @override
 @pragma('vm:prefer-inline')
 $ReadinessChecksCopyWith<$Res> get checks {
-  
+
   return $ReadinessChecksCopyWith<$Res>(_self.checks, (value) {
     return _then(_self.copyWith(checks: value));
   });

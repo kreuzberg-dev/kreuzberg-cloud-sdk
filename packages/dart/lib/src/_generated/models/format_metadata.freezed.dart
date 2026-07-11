@@ -19,16 +19,48 @@ FormatMetadata _$FormatMetadataFromJson(
           return FormatMetadataArchive.fromJson(
             json
           );
+                case 'audio':
+          return FormatMetadataAudio.fromJson(
+            json
+          );
+                case 'bibtex':
+          return FormatMetadataBibtex.fromJson(
+            json
+          );
+                case 'citation':
+          return FormatMetadataCitation.fromJson(
+            json
+          );
+                case 'code':
+          return FormatMetadataCode.fromJson(
+            json
+          );
                 case 'csv':
           return FormatMetadataCsv.fromJson(
+            json
+          );
+                case 'dbf':
+          return FormatMetadataDbf.fromJson(
+            json
+          );
+                case 'docx':
+          return FormatMetadataDocx.fromJson(
             json
           );
                 case 'email':
           return FormatMetadataEmail.fromJson(
             json
           );
+                case 'epub':
+          return FormatMetadataEpub.fromJson(
+            json
+          );
                 case 'excel':
           return FormatMetadataExcel.fromJson(
+            json
+          );
+                case 'fiction_book':
+          return FormatMetadataFictionBook.fromJson(
             json
           );
                 case 'html':
@@ -39,8 +71,16 @@ FormatMetadata _$FormatMetadataFromJson(
           return FormatMetadataImage.fromJson(
             json
           );
+                case 'jats':
+          return FormatMetadataJats.fromJson(
+            json
+          );
                 case 'ocr':
           return FormatMetadataOcr.fromJson(
+            json
+          );
+                case 'pdf':
+          return FormatMetadataPdf.fromJson(
             json
           );
                 case 'pptx':
@@ -59,7 +99,7 @@ FormatMetadata _$FormatMetadataFromJson(
           return FormatMetadataXml.fromJson(
             json
           );
-        
+
           default:
             throw CheckedFromJsonException(
   json,
@@ -68,7 +108,7 @@ FormatMetadata _$FormatMetadataFromJson(
   'Invalid union type "${json['format_type']}"!'
 );
         }
-      
+
 }
 
 /// @nodoc
@@ -117,17 +157,27 @@ extension FormatMetadataPatterns on FormatMetadata {
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeMap<TResult extends Object?>({TResult Function( FormatMetadataArchive value)?  archive,TResult Function( FormatMetadataCsv value)?  csv,TResult Function( FormatMetadataEmail value)?  email,TResult Function( FormatMetadataExcel value)?  excel,TResult Function( FormatMetadataHtml value)?  html,TResult Function( FormatMetadataImage value)?  image,TResult Function( FormatMetadataOcr value)?  ocr,TResult Function( FormatMetadataPptx value)?  pptx,TResult Function( FormatMetadataPst value)?  pst,TResult Function( FormatMetadataText value)?  text,TResult Function( FormatMetadataXml value)?  xml,required TResult orElse(),}){
+@optionalTypeArgs TResult maybeMap<TResult extends Object?>({TResult Function( FormatMetadataArchive value)?  archive,TResult Function( FormatMetadataAudio value)?  audio,TResult Function( FormatMetadataBibtex value)?  bibtex,TResult Function( FormatMetadataCitation value)?  citation,TResult Function( FormatMetadataCode value)?  code,TResult Function( FormatMetadataCsv value)?  csv,TResult Function( FormatMetadataDbf value)?  dbf,TResult Function( FormatMetadataDocx value)?  docx,TResult Function( FormatMetadataEmail value)?  email,TResult Function( FormatMetadataEpub value)?  epub,TResult Function( FormatMetadataExcel value)?  excel,TResult Function( FormatMetadataFictionBook value)?  fictionBook,TResult Function( FormatMetadataHtml value)?  html,TResult Function( FormatMetadataImage value)?  image,TResult Function( FormatMetadataJats value)?  jats,TResult Function( FormatMetadataOcr value)?  ocr,TResult Function( FormatMetadataPdf value)?  pdf,TResult Function( FormatMetadataPptx value)?  pptx,TResult Function( FormatMetadataPst value)?  pst,TResult Function( FormatMetadataText value)?  text,TResult Function( FormatMetadataXml value)?  xml,required TResult orElse(),}){
 final _that = this;
 switch (_that) {
 case FormatMetadataArchive() when archive != null:
-return archive(_that);case FormatMetadataCsv() when csv != null:
-return csv(_that);case FormatMetadataEmail() when email != null:
-return email(_that);case FormatMetadataExcel() when excel != null:
-return excel(_that);case FormatMetadataHtml() when html != null:
+return archive(_that);case FormatMetadataAudio() when audio != null:
+return audio(_that);case FormatMetadataBibtex() when bibtex != null:
+return bibtex(_that);case FormatMetadataCitation() when citation != null:
+return citation(_that);case FormatMetadataCode() when code != null:
+return code(_that);case FormatMetadataCsv() when csv != null:
+return csv(_that);case FormatMetadataDbf() when dbf != null:
+return dbf(_that);case FormatMetadataDocx() when docx != null:
+return docx(_that);case FormatMetadataEmail() when email != null:
+return email(_that);case FormatMetadataEpub() when epub != null:
+return epub(_that);case FormatMetadataExcel() when excel != null:
+return excel(_that);case FormatMetadataFictionBook() when fictionBook != null:
+return fictionBook(_that);case FormatMetadataHtml() when html != null:
 return html(_that);case FormatMetadataImage() when image != null:
-return image(_that);case FormatMetadataOcr() when ocr != null:
-return ocr(_that);case FormatMetadataPptx() when pptx != null:
+return image(_that);case FormatMetadataJats() when jats != null:
+return jats(_that);case FormatMetadataOcr() when ocr != null:
+return ocr(_that);case FormatMetadataPdf() when pdf != null:
+return pdf(_that);case FormatMetadataPptx() when pptx != null:
 return pptx(_that);case FormatMetadataPst() when pst != null:
 return pst(_that);case FormatMetadataText() when text != null:
 return text(_that);case FormatMetadataXml() when xml != null:
@@ -149,17 +199,27 @@ return xml(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult map<TResult extends Object?>({required TResult Function( FormatMetadataArchive value)  archive,required TResult Function( FormatMetadataCsv value)  csv,required TResult Function( FormatMetadataEmail value)  email,required TResult Function( FormatMetadataExcel value)  excel,required TResult Function( FormatMetadataHtml value)  html,required TResult Function( FormatMetadataImage value)  image,required TResult Function( FormatMetadataOcr value)  ocr,required TResult Function( FormatMetadataPptx value)  pptx,required TResult Function( FormatMetadataPst value)  pst,required TResult Function( FormatMetadataText value)  text,required TResult Function( FormatMetadataXml value)  xml,}){
+@optionalTypeArgs TResult map<TResult extends Object?>({required TResult Function( FormatMetadataArchive value)  archive,required TResult Function( FormatMetadataAudio value)  audio,required TResult Function( FormatMetadataBibtex value)  bibtex,required TResult Function( FormatMetadataCitation value)  citation,required TResult Function( FormatMetadataCode value)  code,required TResult Function( FormatMetadataCsv value)  csv,required TResult Function( FormatMetadataDbf value)  dbf,required TResult Function( FormatMetadataDocx value)  docx,required TResult Function( FormatMetadataEmail value)  email,required TResult Function( FormatMetadataEpub value)  epub,required TResult Function( FormatMetadataExcel value)  excel,required TResult Function( FormatMetadataFictionBook value)  fictionBook,required TResult Function( FormatMetadataHtml value)  html,required TResult Function( FormatMetadataImage value)  image,required TResult Function( FormatMetadataJats value)  jats,required TResult Function( FormatMetadataOcr value)  ocr,required TResult Function( FormatMetadataPdf value)  pdf,required TResult Function( FormatMetadataPptx value)  pptx,required TResult Function( FormatMetadataPst value)  pst,required TResult Function( FormatMetadataText value)  text,required TResult Function( FormatMetadataXml value)  xml,}){
 final _that = this;
 switch (_that) {
 case FormatMetadataArchive():
-return archive(_that);case FormatMetadataCsv():
-return csv(_that);case FormatMetadataEmail():
-return email(_that);case FormatMetadataExcel():
-return excel(_that);case FormatMetadataHtml():
+return archive(_that);case FormatMetadataAudio():
+return audio(_that);case FormatMetadataBibtex():
+return bibtex(_that);case FormatMetadataCitation():
+return citation(_that);case FormatMetadataCode():
+return code(_that);case FormatMetadataCsv():
+return csv(_that);case FormatMetadataDbf():
+return dbf(_that);case FormatMetadataDocx():
+return docx(_that);case FormatMetadataEmail():
+return email(_that);case FormatMetadataEpub():
+return epub(_that);case FormatMetadataExcel():
+return excel(_that);case FormatMetadataFictionBook():
+return fictionBook(_that);case FormatMetadataHtml():
 return html(_that);case FormatMetadataImage():
-return image(_that);case FormatMetadataOcr():
-return ocr(_that);case FormatMetadataPptx():
+return image(_that);case FormatMetadataJats():
+return jats(_that);case FormatMetadataOcr():
+return ocr(_that);case FormatMetadataPdf():
+return pdf(_that);case FormatMetadataPptx():
 return pptx(_that);case FormatMetadataPst():
 return pst(_that);case FormatMetadataText():
 return text(_that);case FormatMetadataXml():
@@ -177,17 +237,27 @@ return xml(_that);}
 /// }
 /// ```
 
-@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>({TResult? Function( FormatMetadataArchive value)?  archive,TResult? Function( FormatMetadataCsv value)?  csv,TResult? Function( FormatMetadataEmail value)?  email,TResult? Function( FormatMetadataExcel value)?  excel,TResult? Function( FormatMetadataHtml value)?  html,TResult? Function( FormatMetadataImage value)?  image,TResult? Function( FormatMetadataOcr value)?  ocr,TResult? Function( FormatMetadataPptx value)?  pptx,TResult? Function( FormatMetadataPst value)?  pst,TResult? Function( FormatMetadataText value)?  text,TResult? Function( FormatMetadataXml value)?  xml,}){
+@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>({TResult? Function( FormatMetadataArchive value)?  archive,TResult? Function( FormatMetadataAudio value)?  audio,TResult? Function( FormatMetadataBibtex value)?  bibtex,TResult? Function( FormatMetadataCitation value)?  citation,TResult? Function( FormatMetadataCode value)?  code,TResult? Function( FormatMetadataCsv value)?  csv,TResult? Function( FormatMetadataDbf value)?  dbf,TResult? Function( FormatMetadataDocx value)?  docx,TResult? Function( FormatMetadataEmail value)?  email,TResult? Function( FormatMetadataEpub value)?  epub,TResult? Function( FormatMetadataExcel value)?  excel,TResult? Function( FormatMetadataFictionBook value)?  fictionBook,TResult? Function( FormatMetadataHtml value)?  html,TResult? Function( FormatMetadataImage value)?  image,TResult? Function( FormatMetadataJats value)?  jats,TResult? Function( FormatMetadataOcr value)?  ocr,TResult? Function( FormatMetadataPdf value)?  pdf,TResult? Function( FormatMetadataPptx value)?  pptx,TResult? Function( FormatMetadataPst value)?  pst,TResult? Function( FormatMetadataText value)?  text,TResult? Function( FormatMetadataXml value)?  xml,}){
 final _that = this;
 switch (_that) {
 case FormatMetadataArchive() when archive != null:
-return archive(_that);case FormatMetadataCsv() when csv != null:
-return csv(_that);case FormatMetadataEmail() when email != null:
-return email(_that);case FormatMetadataExcel() when excel != null:
-return excel(_that);case FormatMetadataHtml() when html != null:
+return archive(_that);case FormatMetadataAudio() when audio != null:
+return audio(_that);case FormatMetadataBibtex() when bibtex != null:
+return bibtex(_that);case FormatMetadataCitation() when citation != null:
+return citation(_that);case FormatMetadataCode() when code != null:
+return code(_that);case FormatMetadataCsv() when csv != null:
+return csv(_that);case FormatMetadataDbf() when dbf != null:
+return dbf(_that);case FormatMetadataDocx() when docx != null:
+return docx(_that);case FormatMetadataEmail() when email != null:
+return email(_that);case FormatMetadataEpub() when epub != null:
+return epub(_that);case FormatMetadataExcel() when excel != null:
+return excel(_that);case FormatMetadataFictionBook() when fictionBook != null:
+return fictionBook(_that);case FormatMetadataHtml() when html != null:
 return html(_that);case FormatMetadataImage() when image != null:
-return image(_that);case FormatMetadataOcr() when ocr != null:
-return ocr(_that);case FormatMetadataPptx() when pptx != null:
+return image(_that);case FormatMetadataJats() when jats != null:
+return jats(_that);case FormatMetadataOcr() when ocr != null:
+return ocr(_that);case FormatMetadataPdf() when pdf != null:
+return pdf(_that);case FormatMetadataPptx() when pptx != null:
 return pptx(_that);case FormatMetadataPst() when pst != null:
 return pst(_that);case FormatMetadataText() when text != null:
 return text(_that);case FormatMetadataXml() when xml != null:
@@ -208,16 +278,26 @@ return xml(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>({TResult Function(@JsonKey(name: 'file_count')  int fileCount, @JsonKey(name: 'file_list')  List<String> fileList,  String format, @JsonKey(name: 'total_size')  int totalSize, @JsonKey(name: 'compressed_size')  int? compressedSize)?  archive,TResult Function(@JsonKey(name: 'column_count')  int columnCount, @JsonKey(name: 'has_header')  bool hasHeader, @JsonKey(name: 'row_count')  int rowCount, @JsonKey(name: 'column_types')  List<String>? columnTypes,  String? delimiter)?  csv,TResult Function( List<String> attachments, @JsonKey(name: 'bcc_emails')  List<String> bccEmails, @JsonKey(name: 'cc_emails')  List<String> ccEmails, @JsonKey(name: 'to_emails')  List<String> toEmails, @JsonKey(name: 'from_email')  String? fromEmail, @JsonKey(name: 'from_name')  String? fromName, @JsonKey(name: 'message_id')  String? messageId)?  email,TResult Function(@JsonKey(name: 'sheet_count')  int? sheetCount, @JsonKey(name: 'sheet_names')  List<String>? sheetNames)?  excel,TResult Function( String? author, @JsonKey(name: 'base_href')  String? baseHref, @JsonKey(name: 'canonical_url')  String? canonicalUrl,  String? description,  List<HeaderMetadata>? headers,  List<ImageMetadataType>? images,  List<String>? keywords,  String? language,  List<LinkMetadata>? links, @JsonKey(name: 'meta_tags')  Map<String, String>? metaTags, @JsonKey(name: 'open_graph')  Map<String, String>? openGraph, @JsonKey(name: 'structured_data')  List<StructuredData>? structuredData, @JsonKey(name: 'text_direction')  TextDirection? textDirection,  String? title, @JsonKey(name: 'twitter_card')  Map<String, String>? twitterCard)?  html,TResult Function( Map<String, String> exif,  String format,  int height,  int width)?  image,TResult Function( String language, @JsonKey(name: 'output_format')  String outputFormat,  int psm, @JsonKey(name: 'table_count')  int tableCount, @JsonKey(name: 'table_cols')  int? tableCols, @JsonKey(name: 'table_rows')  int? tableRows)?  ocr,TResult Function(@JsonKey(name: 'slide_count')  int slideCount, @JsonKey(name: 'slide_names')  List<String> slideNames, @JsonKey(name: 'image_count')  int? imageCount, @JsonKey(name: 'table_count')  int? tableCount)?  pptx,TResult Function(@JsonKey(name: 'message_count')  int messageCount)?  pst,TResult Function(@JsonKey(name: 'character_count')  int characterCount, @JsonKey(name: 'line_count')  int lineCount, @JsonKey(name: 'word_count')  int wordCount, @JsonKey(name: 'code_blocks')  List<List<String>>? codeBlocks,  List<String>? headers,  List<List<String>>? links)?  text,TResult Function(@JsonKey(name: 'element_count')  int elementCount, @JsonKey(name: 'unique_elements')  List<String> uniqueElements)?  xml,required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>({TResult Function(@JsonKey(name: 'file_count')  int fileCount, @JsonKey(name: 'file_list')  List<String> fileList,  String format, @JsonKey(name: 'total_size')  int totalSize, @JsonKey(name: 'compressed_size')  int? compressedSize)?  archive,TResult Function( int? bitrate,  int? channels,  String? codec,  String? container, @JsonKey(name: 'duration_ms')  int? durationMs, @JsonKey(name: 'sample_rate_hz')  int? sampleRateHz)?  audio,TResult Function(@JsonKey(name: 'entry_count')  int entryCount,  List<String>? authors, @JsonKey(name: 'citation_keys')  List<String>? citationKeys, @JsonKey(name: 'entry_types')  Map<String, int>? entryTypes, @JsonKey(name: 'year_range')  YearRange? yearRange)?  bibtex,TResult Function(@JsonKey(name: 'citation_count')  int citationCount,  List<String>? authors,  List<String>? dois,  String? format,  List<String>? keywords, @JsonKey(name: 'year_range')  YearRange? yearRange)?  citation,TResult Function( List<CodeChunkInfo> chunks)?  code,TResult Function(@JsonKey(name: 'column_count')  int columnCount, @JsonKey(name: 'has_header')  bool hasHeader, @JsonKey(name: 'row_count')  int rowCount, @JsonKey(name: 'column_types')  List<String>? columnTypes,  String? delimiter)?  csv,TResult Function(@JsonKey(name: 'field_count')  int fieldCount, @JsonKey(name: 'record_count')  int recordCount,  List<DbfFieldInfo>? fields)?  dbf,TResult Function(@JsonKey(name: 'app_properties')  dynamic appProperties, @JsonKey(name: 'core_properties')  dynamic coreProperties, @JsonKey(name: 'custom_properties')  Map<String, dynamic>? customProperties)?  docx,TResult Function( List<String> attachments, @JsonKey(name: 'bcc_emails')  List<String> bccEmails, @JsonKey(name: 'cc_emails')  List<String> ccEmails, @JsonKey(name: 'to_emails')  List<String> toEmails, @JsonKey(name: 'from_email')  String? fromEmail, @JsonKey(name: 'from_name')  String? fromName, @JsonKey(name: 'message_id')  String? messageId)?  email,TResult Function(@JsonKey(name: 'cover_image')  String? coverImage,  String? coverage, @JsonKey(name: 'dc_format')  String? dcFormat, @JsonKey(name: 'dc_type')  String? dcType,  String? relation,  String? source)?  epub,TResult Function(@JsonKey(name: 'sheet_count')  int? sheetCount, @JsonKey(name: 'sheet_names')  List<String>? sheetNames)?  excel,TResult Function( String? annotation,  List<String>? genres,  List<String>? sequences)?  fictionBook,TResult Function( String? author, @JsonKey(name: 'base_href')  String? baseHref, @JsonKey(name: 'canonical_url')  String? canonicalUrl,  String? description,  List<HeaderMetadata>? headers,  List<ImageMetadataType>? images,  List<String>? keywords,  String? language,  List<LinkMetadata>? links, @JsonKey(name: 'meta_tags')  Map<String, String>? metaTags, @JsonKey(name: 'open_graph')  Map<String, String>? openGraph, @JsonKey(name: 'structured_data')  List<StructuredData>? structuredData, @JsonKey(name: 'text_direction')  TextDirection? textDirection,  String? title, @JsonKey(name: 'twitter_card')  Map<String, String>? twitterCard)?  html,TResult Function( Map<String, String> exif,  String format,  int height,  int width)?  image,TResult Function(@JsonKey(name: 'contributor_roles')  List<ContributorRole>? contributorRoles,  String? copyright, @JsonKey(name: 'history_dates')  Map<String, String>? historyDates,  String? license)?  jats,TResult Function( String language, @JsonKey(name: 'output_format')  String outputFormat,  int psm, @JsonKey(name: 'table_count')  int tableCount, @JsonKey(name: 'table_cols')  int? tableCols, @JsonKey(name: 'table_rows')  int? tableRows)?  ocr,TResult Function( int? height, @JsonKey(name: 'is_encrypted')  bool? isEncrypted, @JsonKey(name: 'page_count')  int? pageCount, @JsonKey(name: 'pdf_version')  String? pdfVersion,  String? producer,  int? width)?  pdf,TResult Function(@JsonKey(name: 'slide_count')  int slideCount, @JsonKey(name: 'slide_names')  List<String> slideNames, @JsonKey(name: 'image_count')  int? imageCount, @JsonKey(name: 'table_count')  int? tableCount)?  pptx,TResult Function(@JsonKey(name: 'message_count')  int messageCount)?  pst,TResult Function(@JsonKey(name: 'character_count')  int characterCount, @JsonKey(name: 'line_count')  int lineCount, @JsonKey(name: 'word_count')  int wordCount, @JsonKey(name: 'code_blocks')  List<List<String>>? codeBlocks,  List<String>? headers,  List<List<String>>? links)?  text,TResult Function(@JsonKey(name: 'element_count')  int elementCount, @JsonKey(name: 'unique_elements')  List<String> uniqueElements)?  xml,required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case FormatMetadataArchive() when archive != null:
-return archive(_that.fileCount,_that.fileList,_that.format,_that.totalSize,_that.compressedSize);case FormatMetadataCsv() when csv != null:
-return csv(_that.columnCount,_that.hasHeader,_that.rowCount,_that.columnTypes,_that.delimiter);case FormatMetadataEmail() when email != null:
-return email(_that.attachments,_that.bccEmails,_that.ccEmails,_that.toEmails,_that.fromEmail,_that.fromName,_that.messageId);case FormatMetadataExcel() when excel != null:
-return excel(_that.sheetCount,_that.sheetNames);case FormatMetadataHtml() when html != null:
+return archive(_that.fileCount,_that.fileList,_that.format,_that.totalSize,_that.compressedSize);case FormatMetadataAudio() when audio != null:
+return audio(_that.bitrate,_that.channels,_that.codec,_that.container,_that.durationMs,_that.sampleRateHz);case FormatMetadataBibtex() when bibtex != null:
+return bibtex(_that.entryCount,_that.authors,_that.citationKeys,_that.entryTypes,_that.yearRange);case FormatMetadataCitation() when citation != null:
+return citation(_that.citationCount,_that.authors,_that.dois,_that.format,_that.keywords,_that.yearRange);case FormatMetadataCode() when code != null:
+return code(_that.chunks);case FormatMetadataCsv() when csv != null:
+return csv(_that.columnCount,_that.hasHeader,_that.rowCount,_that.columnTypes,_that.delimiter);case FormatMetadataDbf() when dbf != null:
+return dbf(_that.fieldCount,_that.recordCount,_that.fields);case FormatMetadataDocx() when docx != null:
+return docx(_that.appProperties,_that.coreProperties,_that.customProperties);case FormatMetadataEmail() when email != null:
+return email(_that.attachments,_that.bccEmails,_that.ccEmails,_that.toEmails,_that.fromEmail,_that.fromName,_that.messageId);case FormatMetadataEpub() when epub != null:
+return epub(_that.coverImage,_that.coverage,_that.dcFormat,_that.dcType,_that.relation,_that.source);case FormatMetadataExcel() when excel != null:
+return excel(_that.sheetCount,_that.sheetNames);case FormatMetadataFictionBook() when fictionBook != null:
+return fictionBook(_that.annotation,_that.genres,_that.sequences);case FormatMetadataHtml() when html != null:
 return html(_that.author,_that.baseHref,_that.canonicalUrl,_that.description,_that.headers,_that.images,_that.keywords,_that.language,_that.links,_that.metaTags,_that.openGraph,_that.structuredData,_that.textDirection,_that.title,_that.twitterCard);case FormatMetadataImage() when image != null:
-return image(_that.exif,_that.format,_that.height,_that.width);case FormatMetadataOcr() when ocr != null:
-return ocr(_that.language,_that.outputFormat,_that.psm,_that.tableCount,_that.tableCols,_that.tableRows);case FormatMetadataPptx() when pptx != null:
+return image(_that.exif,_that.format,_that.height,_that.width);case FormatMetadataJats() when jats != null:
+return jats(_that.contributorRoles,_that.copyright,_that.historyDates,_that.license);case FormatMetadataOcr() when ocr != null:
+return ocr(_that.language,_that.outputFormat,_that.psm,_that.tableCount,_that.tableCols,_that.tableRows);case FormatMetadataPdf() when pdf != null:
+return pdf(_that.height,_that.isEncrypted,_that.pageCount,_that.pdfVersion,_that.producer,_that.width);case FormatMetadataPptx() when pptx != null:
 return pptx(_that.slideCount,_that.slideNames,_that.imageCount,_that.tableCount);case FormatMetadataPst() when pst != null:
 return pst(_that.messageCount);case FormatMetadataText() when text != null:
 return text(_that.characterCount,_that.lineCount,_that.wordCount,_that.codeBlocks,_that.headers,_that.links);case FormatMetadataXml() when xml != null:
@@ -239,16 +319,26 @@ return xml(_that.elementCount,_that.uniqueElements);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>({required TResult Function(@JsonKey(name: 'file_count')  int fileCount, @JsonKey(name: 'file_list')  List<String> fileList,  String format, @JsonKey(name: 'total_size')  int totalSize, @JsonKey(name: 'compressed_size')  int? compressedSize)  archive,required TResult Function(@JsonKey(name: 'column_count')  int columnCount, @JsonKey(name: 'has_header')  bool hasHeader, @JsonKey(name: 'row_count')  int rowCount, @JsonKey(name: 'column_types')  List<String>? columnTypes,  String? delimiter)  csv,required TResult Function( List<String> attachments, @JsonKey(name: 'bcc_emails')  List<String> bccEmails, @JsonKey(name: 'cc_emails')  List<String> ccEmails, @JsonKey(name: 'to_emails')  List<String> toEmails, @JsonKey(name: 'from_email')  String? fromEmail, @JsonKey(name: 'from_name')  String? fromName, @JsonKey(name: 'message_id')  String? messageId)  email,required TResult Function(@JsonKey(name: 'sheet_count')  int? sheetCount, @JsonKey(name: 'sheet_names')  List<String>? sheetNames)  excel,required TResult Function( String? author, @JsonKey(name: 'base_href')  String? baseHref, @JsonKey(name: 'canonical_url')  String? canonicalUrl,  String? description,  List<HeaderMetadata>? headers,  List<ImageMetadataType>? images,  List<String>? keywords,  String? language,  List<LinkMetadata>? links, @JsonKey(name: 'meta_tags')  Map<String, String>? metaTags, @JsonKey(name: 'open_graph')  Map<String, String>? openGraph, @JsonKey(name: 'structured_data')  List<StructuredData>? structuredData, @JsonKey(name: 'text_direction')  TextDirection? textDirection,  String? title, @JsonKey(name: 'twitter_card')  Map<String, String>? twitterCard)  html,required TResult Function( Map<String, String> exif,  String format,  int height,  int width)  image,required TResult Function( String language, @JsonKey(name: 'output_format')  String outputFormat,  int psm, @JsonKey(name: 'table_count')  int tableCount, @JsonKey(name: 'table_cols')  int? tableCols, @JsonKey(name: 'table_rows')  int? tableRows)  ocr,required TResult Function(@JsonKey(name: 'slide_count')  int slideCount, @JsonKey(name: 'slide_names')  List<String> slideNames, @JsonKey(name: 'image_count')  int? imageCount, @JsonKey(name: 'table_count')  int? tableCount)  pptx,required TResult Function(@JsonKey(name: 'message_count')  int messageCount)  pst,required TResult Function(@JsonKey(name: 'character_count')  int characterCount, @JsonKey(name: 'line_count')  int lineCount, @JsonKey(name: 'word_count')  int wordCount, @JsonKey(name: 'code_blocks')  List<List<String>>? codeBlocks,  List<String>? headers,  List<List<String>>? links)  text,required TResult Function(@JsonKey(name: 'element_count')  int elementCount, @JsonKey(name: 'unique_elements')  List<String> uniqueElements)  xml,}) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>({required TResult Function(@JsonKey(name: 'file_count')  int fileCount, @JsonKey(name: 'file_list')  List<String> fileList,  String format, @JsonKey(name: 'total_size')  int totalSize, @JsonKey(name: 'compressed_size')  int? compressedSize)  archive,required TResult Function( int? bitrate,  int? channels,  String? codec,  String? container, @JsonKey(name: 'duration_ms')  int? durationMs, @JsonKey(name: 'sample_rate_hz')  int? sampleRateHz)  audio,required TResult Function(@JsonKey(name: 'entry_count')  int entryCount,  List<String>? authors, @JsonKey(name: 'citation_keys')  List<String>? citationKeys, @JsonKey(name: 'entry_types')  Map<String, int>? entryTypes, @JsonKey(name: 'year_range')  YearRange? yearRange)  bibtex,required TResult Function(@JsonKey(name: 'citation_count')  int citationCount,  List<String>? authors,  List<String>? dois,  String? format,  List<String>? keywords, @JsonKey(name: 'year_range')  YearRange? yearRange)  citation,required TResult Function( List<CodeChunkInfo> chunks)  code,required TResult Function(@JsonKey(name: 'column_count')  int columnCount, @JsonKey(name: 'has_header')  bool hasHeader, @JsonKey(name: 'row_count')  int rowCount, @JsonKey(name: 'column_types')  List<String>? columnTypes,  String? delimiter)  csv,required TResult Function(@JsonKey(name: 'field_count')  int fieldCount, @JsonKey(name: 'record_count')  int recordCount,  List<DbfFieldInfo>? fields)  dbf,required TResult Function(@JsonKey(name: 'app_properties')  dynamic appProperties, @JsonKey(name: 'core_properties')  dynamic coreProperties, @JsonKey(name: 'custom_properties')  Map<String, dynamic>? customProperties)  docx,required TResult Function( List<String> attachments, @JsonKey(name: 'bcc_emails')  List<String> bccEmails, @JsonKey(name: 'cc_emails')  List<String> ccEmails, @JsonKey(name: 'to_emails')  List<String> toEmails, @JsonKey(name: 'from_email')  String? fromEmail, @JsonKey(name: 'from_name')  String? fromName, @JsonKey(name: 'message_id')  String? messageId)  email,required TResult Function(@JsonKey(name: 'cover_image')  String? coverImage,  String? coverage, @JsonKey(name: 'dc_format')  String? dcFormat, @JsonKey(name: 'dc_type')  String? dcType,  String? relation,  String? source)  epub,required TResult Function(@JsonKey(name: 'sheet_count')  int? sheetCount, @JsonKey(name: 'sheet_names')  List<String>? sheetNames)  excel,required TResult Function( String? annotation,  List<String>? genres,  List<String>? sequences)  fictionBook,required TResult Function( String? author, @JsonKey(name: 'base_href')  String? baseHref, @JsonKey(name: 'canonical_url')  String? canonicalUrl,  String? description,  List<HeaderMetadata>? headers,  List<ImageMetadataType>? images,  List<String>? keywords,  String? language,  List<LinkMetadata>? links, @JsonKey(name: 'meta_tags')  Map<String, String>? metaTags, @JsonKey(name: 'open_graph')  Map<String, String>? openGraph, @JsonKey(name: 'structured_data')  List<StructuredData>? structuredData, @JsonKey(name: 'text_direction')  TextDirection? textDirection,  String? title, @JsonKey(name: 'twitter_card')  Map<String, String>? twitterCard)  html,required TResult Function( Map<String, String> exif,  String format,  int height,  int width)  image,required TResult Function(@JsonKey(name: 'contributor_roles')  List<ContributorRole>? contributorRoles,  String? copyright, @JsonKey(name: 'history_dates')  Map<String, String>? historyDates,  String? license)  jats,required TResult Function( String language, @JsonKey(name: 'output_format')  String outputFormat,  int psm, @JsonKey(name: 'table_count')  int tableCount, @JsonKey(name: 'table_cols')  int? tableCols, @JsonKey(name: 'table_rows')  int? tableRows)  ocr,required TResult Function( int? height, @JsonKey(name: 'is_encrypted')  bool? isEncrypted, @JsonKey(name: 'page_count')  int? pageCount, @JsonKey(name: 'pdf_version')  String? pdfVersion,  String? producer,  int? width)  pdf,required TResult Function(@JsonKey(name: 'slide_count')  int slideCount, @JsonKey(name: 'slide_names')  List<String> slideNames, @JsonKey(name: 'image_count')  int? imageCount, @JsonKey(name: 'table_count')  int? tableCount)  pptx,required TResult Function(@JsonKey(name: 'message_count')  int messageCount)  pst,required TResult Function(@JsonKey(name: 'character_count')  int characterCount, @JsonKey(name: 'line_count')  int lineCount, @JsonKey(name: 'word_count')  int wordCount, @JsonKey(name: 'code_blocks')  List<List<String>>? codeBlocks,  List<String>? headers,  List<List<String>>? links)  text,required TResult Function(@JsonKey(name: 'element_count')  int elementCount, @JsonKey(name: 'unique_elements')  List<String> uniqueElements)  xml,}) {final _that = this;
 switch (_that) {
 case FormatMetadataArchive():
-return archive(_that.fileCount,_that.fileList,_that.format,_that.totalSize,_that.compressedSize);case FormatMetadataCsv():
-return csv(_that.columnCount,_that.hasHeader,_that.rowCount,_that.columnTypes,_that.delimiter);case FormatMetadataEmail():
-return email(_that.attachments,_that.bccEmails,_that.ccEmails,_that.toEmails,_that.fromEmail,_that.fromName,_that.messageId);case FormatMetadataExcel():
-return excel(_that.sheetCount,_that.sheetNames);case FormatMetadataHtml():
+return archive(_that.fileCount,_that.fileList,_that.format,_that.totalSize,_that.compressedSize);case FormatMetadataAudio():
+return audio(_that.bitrate,_that.channels,_that.codec,_that.container,_that.durationMs,_that.sampleRateHz);case FormatMetadataBibtex():
+return bibtex(_that.entryCount,_that.authors,_that.citationKeys,_that.entryTypes,_that.yearRange);case FormatMetadataCitation():
+return citation(_that.citationCount,_that.authors,_that.dois,_that.format,_that.keywords,_that.yearRange);case FormatMetadataCode():
+return code(_that.chunks);case FormatMetadataCsv():
+return csv(_that.columnCount,_that.hasHeader,_that.rowCount,_that.columnTypes,_that.delimiter);case FormatMetadataDbf():
+return dbf(_that.fieldCount,_that.recordCount,_that.fields);case FormatMetadataDocx():
+return docx(_that.appProperties,_that.coreProperties,_that.customProperties);case FormatMetadataEmail():
+return email(_that.attachments,_that.bccEmails,_that.ccEmails,_that.toEmails,_that.fromEmail,_that.fromName,_that.messageId);case FormatMetadataEpub():
+return epub(_that.coverImage,_that.coverage,_that.dcFormat,_that.dcType,_that.relation,_that.source);case FormatMetadataExcel():
+return excel(_that.sheetCount,_that.sheetNames);case FormatMetadataFictionBook():
+return fictionBook(_that.annotation,_that.genres,_that.sequences);case FormatMetadataHtml():
 return html(_that.author,_that.baseHref,_that.canonicalUrl,_that.description,_that.headers,_that.images,_that.keywords,_that.language,_that.links,_that.metaTags,_that.openGraph,_that.structuredData,_that.textDirection,_that.title,_that.twitterCard);case FormatMetadataImage():
-return image(_that.exif,_that.format,_that.height,_that.width);case FormatMetadataOcr():
-return ocr(_that.language,_that.outputFormat,_that.psm,_that.tableCount,_that.tableCols,_that.tableRows);case FormatMetadataPptx():
+return image(_that.exif,_that.format,_that.height,_that.width);case FormatMetadataJats():
+return jats(_that.contributorRoles,_that.copyright,_that.historyDates,_that.license);case FormatMetadataOcr():
+return ocr(_that.language,_that.outputFormat,_that.psm,_that.tableCount,_that.tableCols,_that.tableRows);case FormatMetadataPdf():
+return pdf(_that.height,_that.isEncrypted,_that.pageCount,_that.pdfVersion,_that.producer,_that.width);case FormatMetadataPptx():
 return pptx(_that.slideCount,_that.slideNames,_that.imageCount,_that.tableCount);case FormatMetadataPst():
 return pst(_that.messageCount);case FormatMetadataText():
 return text(_that.characterCount,_that.lineCount,_that.wordCount,_that.codeBlocks,_that.headers,_that.links);case FormatMetadataXml():
@@ -266,16 +356,26 @@ return xml(_that.elementCount,_that.uniqueElements);}
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>({TResult? Function(@JsonKey(name: 'file_count')  int fileCount, @JsonKey(name: 'file_list')  List<String> fileList,  String format, @JsonKey(name: 'total_size')  int totalSize, @JsonKey(name: 'compressed_size')  int? compressedSize)?  archive,TResult? Function(@JsonKey(name: 'column_count')  int columnCount, @JsonKey(name: 'has_header')  bool hasHeader, @JsonKey(name: 'row_count')  int rowCount, @JsonKey(name: 'column_types')  List<String>? columnTypes,  String? delimiter)?  csv,TResult? Function( List<String> attachments, @JsonKey(name: 'bcc_emails')  List<String> bccEmails, @JsonKey(name: 'cc_emails')  List<String> ccEmails, @JsonKey(name: 'to_emails')  List<String> toEmails, @JsonKey(name: 'from_email')  String? fromEmail, @JsonKey(name: 'from_name')  String? fromName, @JsonKey(name: 'message_id')  String? messageId)?  email,TResult? Function(@JsonKey(name: 'sheet_count')  int? sheetCount, @JsonKey(name: 'sheet_names')  List<String>? sheetNames)?  excel,TResult? Function( String? author, @JsonKey(name: 'base_href')  String? baseHref, @JsonKey(name: 'canonical_url')  String? canonicalUrl,  String? description,  List<HeaderMetadata>? headers,  List<ImageMetadataType>? images,  List<String>? keywords,  String? language,  List<LinkMetadata>? links, @JsonKey(name: 'meta_tags')  Map<String, String>? metaTags, @JsonKey(name: 'open_graph')  Map<String, String>? openGraph, @JsonKey(name: 'structured_data')  List<StructuredData>? structuredData, @JsonKey(name: 'text_direction')  TextDirection? textDirection,  String? title, @JsonKey(name: 'twitter_card')  Map<String, String>? twitterCard)?  html,TResult? Function( Map<String, String> exif,  String format,  int height,  int width)?  image,TResult? Function( String language, @JsonKey(name: 'output_format')  String outputFormat,  int psm, @JsonKey(name: 'table_count')  int tableCount, @JsonKey(name: 'table_cols')  int? tableCols, @JsonKey(name: 'table_rows')  int? tableRows)?  ocr,TResult? Function(@JsonKey(name: 'slide_count')  int slideCount, @JsonKey(name: 'slide_names')  List<String> slideNames, @JsonKey(name: 'image_count')  int? imageCount, @JsonKey(name: 'table_count')  int? tableCount)?  pptx,TResult? Function(@JsonKey(name: 'message_count')  int messageCount)?  pst,TResult? Function(@JsonKey(name: 'character_count')  int characterCount, @JsonKey(name: 'line_count')  int lineCount, @JsonKey(name: 'word_count')  int wordCount, @JsonKey(name: 'code_blocks')  List<List<String>>? codeBlocks,  List<String>? headers,  List<List<String>>? links)?  text,TResult? Function(@JsonKey(name: 'element_count')  int elementCount, @JsonKey(name: 'unique_elements')  List<String> uniqueElements)?  xml,}) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>({TResult? Function(@JsonKey(name: 'file_count')  int fileCount, @JsonKey(name: 'file_list')  List<String> fileList,  String format, @JsonKey(name: 'total_size')  int totalSize, @JsonKey(name: 'compressed_size')  int? compressedSize)?  archive,TResult? Function( int? bitrate,  int? channels,  String? codec,  String? container, @JsonKey(name: 'duration_ms')  int? durationMs, @JsonKey(name: 'sample_rate_hz')  int? sampleRateHz)?  audio,TResult? Function(@JsonKey(name: 'entry_count')  int entryCount,  List<String>? authors, @JsonKey(name: 'citation_keys')  List<String>? citationKeys, @JsonKey(name: 'entry_types')  Map<String, int>? entryTypes, @JsonKey(name: 'year_range')  YearRange? yearRange)?  bibtex,TResult? Function(@JsonKey(name: 'citation_count')  int citationCount,  List<String>? authors,  List<String>? dois,  String? format,  List<String>? keywords, @JsonKey(name: 'year_range')  YearRange? yearRange)?  citation,TResult? Function( List<CodeChunkInfo> chunks)?  code,TResult? Function(@JsonKey(name: 'column_count')  int columnCount, @JsonKey(name: 'has_header')  bool hasHeader, @JsonKey(name: 'row_count')  int rowCount, @JsonKey(name: 'column_types')  List<String>? columnTypes,  String? delimiter)?  csv,TResult? Function(@JsonKey(name: 'field_count')  int fieldCount, @JsonKey(name: 'record_count')  int recordCount,  List<DbfFieldInfo>? fields)?  dbf,TResult? Function(@JsonKey(name: 'app_properties')  dynamic appProperties, @JsonKey(name: 'core_properties')  dynamic coreProperties, @JsonKey(name: 'custom_properties')  Map<String, dynamic>? customProperties)?  docx,TResult? Function( List<String> attachments, @JsonKey(name: 'bcc_emails')  List<String> bccEmails, @JsonKey(name: 'cc_emails')  List<String> ccEmails, @JsonKey(name: 'to_emails')  List<String> toEmails, @JsonKey(name: 'from_email')  String? fromEmail, @JsonKey(name: 'from_name')  String? fromName, @JsonKey(name: 'message_id')  String? messageId)?  email,TResult? Function(@JsonKey(name: 'cover_image')  String? coverImage,  String? coverage, @JsonKey(name: 'dc_format')  String? dcFormat, @JsonKey(name: 'dc_type')  String? dcType,  String? relation,  String? source)?  epub,TResult? Function(@JsonKey(name: 'sheet_count')  int? sheetCount, @JsonKey(name: 'sheet_names')  List<String>? sheetNames)?  excel,TResult? Function( String? annotation,  List<String>? genres,  List<String>? sequences)?  fictionBook,TResult? Function( String? author, @JsonKey(name: 'base_href')  String? baseHref, @JsonKey(name: 'canonical_url')  String? canonicalUrl,  String? description,  List<HeaderMetadata>? headers,  List<ImageMetadataType>? images,  List<String>? keywords,  String? language,  List<LinkMetadata>? links, @JsonKey(name: 'meta_tags')  Map<String, String>? metaTags, @JsonKey(name: 'open_graph')  Map<String, String>? openGraph, @JsonKey(name: 'structured_data')  List<StructuredData>? structuredData, @JsonKey(name: 'text_direction')  TextDirection? textDirection,  String? title, @JsonKey(name: 'twitter_card')  Map<String, String>? twitterCard)?  html,TResult? Function( Map<String, String> exif,  String format,  int height,  int width)?  image,TResult? Function(@JsonKey(name: 'contributor_roles')  List<ContributorRole>? contributorRoles,  String? copyright, @JsonKey(name: 'history_dates')  Map<String, String>? historyDates,  String? license)?  jats,TResult? Function( String language, @JsonKey(name: 'output_format')  String outputFormat,  int psm, @JsonKey(name: 'table_count')  int tableCount, @JsonKey(name: 'table_cols')  int? tableCols, @JsonKey(name: 'table_rows')  int? tableRows)?  ocr,TResult? Function( int? height, @JsonKey(name: 'is_encrypted')  bool? isEncrypted, @JsonKey(name: 'page_count')  int? pageCount, @JsonKey(name: 'pdf_version')  String? pdfVersion,  String? producer,  int? width)?  pdf,TResult? Function(@JsonKey(name: 'slide_count')  int slideCount, @JsonKey(name: 'slide_names')  List<String> slideNames, @JsonKey(name: 'image_count')  int? imageCount, @JsonKey(name: 'table_count')  int? tableCount)?  pptx,TResult? Function(@JsonKey(name: 'message_count')  int messageCount)?  pst,TResult? Function(@JsonKey(name: 'character_count')  int characterCount, @JsonKey(name: 'line_count')  int lineCount, @JsonKey(name: 'word_count')  int wordCount, @JsonKey(name: 'code_blocks')  List<List<String>>? codeBlocks,  List<String>? headers,  List<List<String>>? links)?  text,TResult? Function(@JsonKey(name: 'element_count')  int elementCount, @JsonKey(name: 'unique_elements')  List<String> uniqueElements)?  xml,}) {final _that = this;
 switch (_that) {
 case FormatMetadataArchive() when archive != null:
-return archive(_that.fileCount,_that.fileList,_that.format,_that.totalSize,_that.compressedSize);case FormatMetadataCsv() when csv != null:
-return csv(_that.columnCount,_that.hasHeader,_that.rowCount,_that.columnTypes,_that.delimiter);case FormatMetadataEmail() when email != null:
-return email(_that.attachments,_that.bccEmails,_that.ccEmails,_that.toEmails,_that.fromEmail,_that.fromName,_that.messageId);case FormatMetadataExcel() when excel != null:
-return excel(_that.sheetCount,_that.sheetNames);case FormatMetadataHtml() when html != null:
+return archive(_that.fileCount,_that.fileList,_that.format,_that.totalSize,_that.compressedSize);case FormatMetadataAudio() when audio != null:
+return audio(_that.bitrate,_that.channels,_that.codec,_that.container,_that.durationMs,_that.sampleRateHz);case FormatMetadataBibtex() when bibtex != null:
+return bibtex(_that.entryCount,_that.authors,_that.citationKeys,_that.entryTypes,_that.yearRange);case FormatMetadataCitation() when citation != null:
+return citation(_that.citationCount,_that.authors,_that.dois,_that.format,_that.keywords,_that.yearRange);case FormatMetadataCode() when code != null:
+return code(_that.chunks);case FormatMetadataCsv() when csv != null:
+return csv(_that.columnCount,_that.hasHeader,_that.rowCount,_that.columnTypes,_that.delimiter);case FormatMetadataDbf() when dbf != null:
+return dbf(_that.fieldCount,_that.recordCount,_that.fields);case FormatMetadataDocx() when docx != null:
+return docx(_that.appProperties,_that.coreProperties,_that.customProperties);case FormatMetadataEmail() when email != null:
+return email(_that.attachments,_that.bccEmails,_that.ccEmails,_that.toEmails,_that.fromEmail,_that.fromName,_that.messageId);case FormatMetadataEpub() when epub != null:
+return epub(_that.coverImage,_that.coverage,_that.dcFormat,_that.dcType,_that.relation,_that.source);case FormatMetadataExcel() when excel != null:
+return excel(_that.sheetCount,_that.sheetNames);case FormatMetadataFictionBook() when fictionBook != null:
+return fictionBook(_that.annotation,_that.genres,_that.sequences);case FormatMetadataHtml() when html != null:
 return html(_that.author,_that.baseHref,_that.canonicalUrl,_that.description,_that.headers,_that.images,_that.keywords,_that.language,_that.links,_that.metaTags,_that.openGraph,_that.structuredData,_that.textDirection,_that.title,_that.twitterCard);case FormatMetadataImage() when image != null:
-return image(_that.exif,_that.format,_that.height,_that.width);case FormatMetadataOcr() when ocr != null:
-return ocr(_that.language,_that.outputFormat,_that.psm,_that.tableCount,_that.tableCols,_that.tableRows);case FormatMetadataPptx() when pptx != null:
+return image(_that.exif,_that.format,_that.height,_that.width);case FormatMetadataJats() when jats != null:
+return jats(_that.contributorRoles,_that.copyright,_that.historyDates,_that.license);case FormatMetadataOcr() when ocr != null:
+return ocr(_that.language,_that.outputFormat,_that.psm,_that.tableCount,_that.tableCols,_that.tableRows);case FormatMetadataPdf() when pdf != null:
+return pdf(_that.height,_that.isEncrypted,_that.pageCount,_that.pdfVersion,_that.producer,_that.width);case FormatMetadataPptx() when pptx != null:
 return pptx(_that.slideCount,_that.slideNames,_that.imageCount,_that.tableCount);case FormatMetadataPst() when pst != null:
 return pst(_that.messageCount);case FormatMetadataText() when text != null:
 return text(_that.characterCount,_that.lineCount,_that.wordCount,_that.codeBlocks,_that.headers,_that.links);case FormatMetadataXml() when xml != null:
@@ -383,14 +483,442 @@ as int?,
 /// @nodoc
 @JsonSerializable()
 
+class FormatMetadataAudio implements FormatMetadata {
+  const FormatMetadataAudio({this.bitrate, this.channels, this.codec, this.container, @JsonKey(name: 'duration_ms') this.durationMs, @JsonKey(name: 'sample_rate_hz') this.sampleRateHz, final  String? $type}): $type = $type ?? 'audio';
+  factory FormatMetadataAudio.fromJson(Map<String, dynamic> json) => _$FormatMetadataAudioFromJson(json);
+
+/// Audio bitrate in kbps from the source file tags/properties.
+ final  int? bitrate;
+/// Number of audio channels (1 = mono, 2 = stereo).
+ final  int? channels;
+/// Audio codec (e.g. "mp3", "aac", "opus", "flac").
+ final  String? codec;
+/// Container format (e.g. "mpeg", "mp4", "ogg", "wav").
+ final  String? container;
+/// Duration in milliseconds derived from the decoded audio stream.
+@JsonKey(name: 'duration_ms') final  int? durationMs;
+/// Sample rate in Hz after decode (always 16000 when resampled for Whisper).
+@JsonKey(name: 'sample_rate_hz') final  int? sampleRateHz;
+
+@JsonKey(name: 'format_type')
+final String $type;
+
+
+/// Create a copy of FormatMetadata
+/// with the given fields replaced by the non-null parameter values.
+@JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+$FormatMetadataAudioCopyWith<FormatMetadataAudio> get copyWith => _$FormatMetadataAudioCopyWithImpl<FormatMetadataAudio>(this, _$identity);
+
+@override
+Map<String, dynamic> toJson() {
+  return _$FormatMetadataAudioToJson(this, );
+}
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is FormatMetadataAudio&&(identical(other.bitrate, bitrate) || other.bitrate == bitrate)&&(identical(other.channels, channels) || other.channels == channels)&&(identical(other.codec, codec) || other.codec == codec)&&(identical(other.container, container) || other.container == container)&&(identical(other.durationMs, durationMs) || other.durationMs == durationMs)&&(identical(other.sampleRateHz, sampleRateHz) || other.sampleRateHz == sampleRateHz));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hash(runtimeType,bitrate,channels,codec,container,durationMs,sampleRateHz);
+
+@override
+String toString() {
+  return 'FormatMetadata.audio(bitrate: $bitrate, channels: $channels, codec: $codec, container: $container, durationMs: $durationMs, sampleRateHz: $sampleRateHz)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class $FormatMetadataAudioCopyWith<$Res> implements $FormatMetadataCopyWith<$Res> {
+  factory $FormatMetadataAudioCopyWith(FormatMetadataAudio value, $Res Function(FormatMetadataAudio) _then) = _$FormatMetadataAudioCopyWithImpl;
+@useResult
+$Res call({
+ int? bitrate, int? channels, String? codec, String? container,@JsonKey(name: 'duration_ms') int? durationMs,@JsonKey(name: 'sample_rate_hz') int? sampleRateHz
+});
+
+
+
+
+}
+/// @nodoc
+class _$FormatMetadataAudioCopyWithImpl<$Res>
+    implements $FormatMetadataAudioCopyWith<$Res> {
+  _$FormatMetadataAudioCopyWithImpl(this._self, this._then);
+
+  final FormatMetadataAudio _self;
+  final $Res Function(FormatMetadataAudio) _then;
+
+/// Create a copy of FormatMetadata
+/// with the given fields replaced by the non-null parameter values.
+@pragma('vm:prefer-inline') $Res call({Object? bitrate = freezed,Object? channels = freezed,Object? codec = freezed,Object? container = freezed,Object? durationMs = freezed,Object? sampleRateHz = freezed,}) {
+  return _then(FormatMetadataAudio(
+bitrate: freezed == bitrate ? _self.bitrate : bitrate // ignore: cast_nullable_to_non_nullable
+as int?,channels: freezed == channels ? _self.channels : channels // ignore: cast_nullable_to_non_nullable
+as int?,codec: freezed == codec ? _self.codec : codec // ignore: cast_nullable_to_non_nullable
+as String?,container: freezed == container ? _self.container : container // ignore: cast_nullable_to_non_nullable
+as String?,durationMs: freezed == durationMs ? _self.durationMs : durationMs // ignore: cast_nullable_to_non_nullable
+as int?,sampleRateHz: freezed == sampleRateHz ? _self.sampleRateHz : sampleRateHz // ignore: cast_nullable_to_non_nullable
+as int?,
+  ));
+}
+
+
+}
+
+/// @nodoc
+@JsonSerializable()
+
+class FormatMetadataBibtex implements FormatMetadata {
+  const FormatMetadataBibtex({@JsonKey(name: 'entry_count') required this.entryCount, final  List<String>? authors, @JsonKey(name: 'citation_keys') final  List<String>? citationKeys, @JsonKey(name: 'entry_types') final  Map<String, int>? entryTypes, @JsonKey(name: 'year_range') this.yearRange, final  String? $type}): _authors = authors,_citationKeys = citationKeys,_entryTypes = entryTypes,$type = $type ?? 'bibtex';
+  factory FormatMetadataBibtex.fromJson(Map<String, dynamic> json) => _$FormatMetadataBibtexFromJson(json);
+
+/// Number of entries in the bibliography.
+@JsonKey(name: 'entry_count') final  int entryCount;
+/// Author names collected across all bibliography entries.
+ final  List<String>? _authors;
+/// Author names collected across all bibliography entries.
+ List<String>? get authors {
+  final value = _authors;
+  if (value == null) return null;
+  if (_authors is EqualUnmodifiableListView) return _authors;
+  // ignore: implicit_dynamic_type
+  return EqualUnmodifiableListView(value);
+}
+
+/// BibTeX citation keys (e.g. `"knuth1984"`) for all entries.
+ final  List<String>? _citationKeys;
+/// BibTeX citation keys (e.g. `"knuth1984"`) for all entries.
+@JsonKey(name: 'citation_keys') List<String>? get citationKeys {
+  final value = _citationKeys;
+  if (value == null) return null;
+  if (_citationKeys is EqualUnmodifiableListView) return _citationKeys;
+  // ignore: implicit_dynamic_type
+  return EqualUnmodifiableListView(value);
+}
+
+/// Count of entries grouped by BibTeX entry type (e.g. `"article"` → 5).
+ final  Map<String, int>? _entryTypes;
+/// Count of entries grouped by BibTeX entry type (e.g. `"article"` → 5).
+@JsonKey(name: 'entry_types') Map<String, int>? get entryTypes {
+  final value = _entryTypes;
+  if (value == null) return null;
+  if (_entryTypes is EqualUnmodifiableMapView) return _entryTypes;
+  // ignore: implicit_dynamic_type
+  return EqualUnmodifiableMapView(value);
+}
+
+/// Earliest and latest publication years found in the bibliography.
+@JsonKey(name: 'year_range') final  YearRange? yearRange;
+
+@JsonKey(name: 'format_type')
+final String $type;
+
+
+/// Create a copy of FormatMetadata
+/// with the given fields replaced by the non-null parameter values.
+@JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+$FormatMetadataBibtexCopyWith<FormatMetadataBibtex> get copyWith => _$FormatMetadataBibtexCopyWithImpl<FormatMetadataBibtex>(this, _$identity);
+
+@override
+Map<String, dynamic> toJson() {
+  return _$FormatMetadataBibtexToJson(this, );
+}
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is FormatMetadataBibtex&&(identical(other.entryCount, entryCount) || other.entryCount == entryCount)&&const DeepCollectionEquality().equals(other._authors, _authors)&&const DeepCollectionEquality().equals(other._citationKeys, _citationKeys)&&const DeepCollectionEquality().equals(other._entryTypes, _entryTypes)&&(identical(other.yearRange, yearRange) || other.yearRange == yearRange));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hash(runtimeType,entryCount,const DeepCollectionEquality().hash(_authors),const DeepCollectionEquality().hash(_citationKeys),const DeepCollectionEquality().hash(_entryTypes),yearRange);
+
+@override
+String toString() {
+  return 'FormatMetadata.bibtex(entryCount: $entryCount, authors: $authors, citationKeys: $citationKeys, entryTypes: $entryTypes, yearRange: $yearRange)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class $FormatMetadataBibtexCopyWith<$Res> implements $FormatMetadataCopyWith<$Res> {
+  factory $FormatMetadataBibtexCopyWith(FormatMetadataBibtex value, $Res Function(FormatMetadataBibtex) _then) = _$FormatMetadataBibtexCopyWithImpl;
+@useResult
+$Res call({
+@JsonKey(name: 'entry_count') int entryCount, List<String>? authors,@JsonKey(name: 'citation_keys') List<String>? citationKeys,@JsonKey(name: 'entry_types') Map<String, int>? entryTypes,@JsonKey(name: 'year_range') YearRange? yearRange
+});
+
+
+$YearRangeCopyWith<$Res>? get yearRange;
+
+}
+/// @nodoc
+class _$FormatMetadataBibtexCopyWithImpl<$Res>
+    implements $FormatMetadataBibtexCopyWith<$Res> {
+  _$FormatMetadataBibtexCopyWithImpl(this._self, this._then);
+
+  final FormatMetadataBibtex _self;
+  final $Res Function(FormatMetadataBibtex) _then;
+
+/// Create a copy of FormatMetadata
+/// with the given fields replaced by the non-null parameter values.
+@pragma('vm:prefer-inline') $Res call({Object? entryCount = null,Object? authors = freezed,Object? citationKeys = freezed,Object? entryTypes = freezed,Object? yearRange = freezed,}) {
+  return _then(FormatMetadataBibtex(
+entryCount: null == entryCount ? _self.entryCount : entryCount // ignore: cast_nullable_to_non_nullable
+as int,authors: freezed == authors ? _self._authors : authors // ignore: cast_nullable_to_non_nullable
+as List<String>?,citationKeys: freezed == citationKeys ? _self._citationKeys : citationKeys // ignore: cast_nullable_to_non_nullable
+as List<String>?,entryTypes: freezed == entryTypes ? _self._entryTypes : entryTypes // ignore: cast_nullable_to_non_nullable
+as Map<String, int>?,yearRange: freezed == yearRange ? _self.yearRange : yearRange // ignore: cast_nullable_to_non_nullable
+as YearRange?,
+  ));
+}
+
+/// Create a copy of FormatMetadata
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
+$YearRangeCopyWith<$Res>? get yearRange {
+    if (_self.yearRange == null) {
+    return null;
+  }
+
+  return $YearRangeCopyWith<$Res>(_self.yearRange!, (value) {
+    return _then(_self.copyWith(yearRange: value));
+  });
+}
+}
+
+/// @nodoc
+@JsonSerializable()
+
+class FormatMetadataCitation implements FormatMetadata {
+  const FormatMetadataCitation({@JsonKey(name: 'citation_count') required this.citationCount, final  List<String>? authors, final  List<String>? dois, this.format, final  List<String>? keywords, @JsonKey(name: 'year_range') this.yearRange, final  String? $type}): _authors = authors,_dois = dois,_keywords = keywords,$type = $type ?? 'citation';
+  factory FormatMetadataCitation.fromJson(Map<String, dynamic> json) => _$FormatMetadataCitationFromJson(json);
+
+/// Total number of citation records in the file.
+@JsonKey(name: 'citation_count') final  int citationCount;
+/// Author names collected across all citation records.
+ final  List<String>? _authors;
+/// Author names collected across all citation records.
+ List<String>? get authors {
+  final value = _authors;
+  if (value == null) return null;
+  if (_authors is EqualUnmodifiableListView) return _authors;
+  // ignore: implicit_dynamic_type
+  return EqualUnmodifiableListView(value);
+}
+
+/// DOI identifiers found in the citation records.
+ final  List<String>? _dois;
+/// DOI identifiers found in the citation records.
+ List<String>? get dois {
+  final value = _dois;
+  if (value == null) return null;
+  if (_dois is EqualUnmodifiableListView) return _dois;
+  // ignore: implicit_dynamic_type
+  return EqualUnmodifiableListView(value);
+}
+
+/// Detected citation file format (e.g. `"ris"`, `"pubmed"`, `"endnote"`).
+ final  String? format;
+/// Keywords collected from all citation records.
+ final  List<String>? _keywords;
+/// Keywords collected from all citation records.
+ List<String>? get keywords {
+  final value = _keywords;
+  if (value == null) return null;
+  if (_keywords is EqualUnmodifiableListView) return _keywords;
+  // ignore: implicit_dynamic_type
+  return EqualUnmodifiableListView(value);
+}
+
+/// Earliest and latest publication years found in the file.
+@JsonKey(name: 'year_range') final  YearRange? yearRange;
+
+@JsonKey(name: 'format_type')
+final String $type;
+
+
+/// Create a copy of FormatMetadata
+/// with the given fields replaced by the non-null parameter values.
+@JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+$FormatMetadataCitationCopyWith<FormatMetadataCitation> get copyWith => _$FormatMetadataCitationCopyWithImpl<FormatMetadataCitation>(this, _$identity);
+
+@override
+Map<String, dynamic> toJson() {
+  return _$FormatMetadataCitationToJson(this, );
+}
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is FormatMetadataCitation&&(identical(other.citationCount, citationCount) || other.citationCount == citationCount)&&const DeepCollectionEquality().equals(other._authors, _authors)&&const DeepCollectionEquality().equals(other._dois, _dois)&&(identical(other.format, format) || other.format == format)&&const DeepCollectionEquality().equals(other._keywords, _keywords)&&(identical(other.yearRange, yearRange) || other.yearRange == yearRange));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hash(runtimeType,citationCount,const DeepCollectionEquality().hash(_authors),const DeepCollectionEquality().hash(_dois),format,const DeepCollectionEquality().hash(_keywords),yearRange);
+
+@override
+String toString() {
+  return 'FormatMetadata.citation(citationCount: $citationCount, authors: $authors, dois: $dois, format: $format, keywords: $keywords, yearRange: $yearRange)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class $FormatMetadataCitationCopyWith<$Res> implements $FormatMetadataCopyWith<$Res> {
+  factory $FormatMetadataCitationCopyWith(FormatMetadataCitation value, $Res Function(FormatMetadataCitation) _then) = _$FormatMetadataCitationCopyWithImpl;
+@useResult
+$Res call({
+@JsonKey(name: 'citation_count') int citationCount, List<String>? authors, List<String>? dois, String? format, List<String>? keywords,@JsonKey(name: 'year_range') YearRange? yearRange
+});
+
+
+$YearRangeCopyWith<$Res>? get yearRange;
+
+}
+/// @nodoc
+class _$FormatMetadataCitationCopyWithImpl<$Res>
+    implements $FormatMetadataCitationCopyWith<$Res> {
+  _$FormatMetadataCitationCopyWithImpl(this._self, this._then);
+
+  final FormatMetadataCitation _self;
+  final $Res Function(FormatMetadataCitation) _then;
+
+/// Create a copy of FormatMetadata
+/// with the given fields replaced by the non-null parameter values.
+@pragma('vm:prefer-inline') $Res call({Object? citationCount = null,Object? authors = freezed,Object? dois = freezed,Object? format = freezed,Object? keywords = freezed,Object? yearRange = freezed,}) {
+  return _then(FormatMetadataCitation(
+citationCount: null == citationCount ? _self.citationCount : citationCount // ignore: cast_nullable_to_non_nullable
+as int,authors: freezed == authors ? _self._authors : authors // ignore: cast_nullable_to_non_nullable
+as List<String>?,dois: freezed == dois ? _self._dois : dois // ignore: cast_nullable_to_non_nullable
+as List<String>?,format: freezed == format ? _self.format : format // ignore: cast_nullable_to_non_nullable
+as String?,keywords: freezed == keywords ? _self._keywords : keywords // ignore: cast_nullable_to_non_nullable
+as List<String>?,yearRange: freezed == yearRange ? _self.yearRange : yearRange // ignore: cast_nullable_to_non_nullable
+as YearRange?,
+  ));
+}
+
+/// Create a copy of FormatMetadata
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
+$YearRangeCopyWith<$Res>? get yearRange {
+    if (_self.yearRange == null) {
+    return null;
+  }
+
+  return $YearRangeCopyWith<$Res>(_self.yearRange!, (value) {
+    return _then(_self.copyWith(yearRange: value));
+  });
+}
+}
+
+/// @nodoc
+@JsonSerializable()
+
+class FormatMetadataCode implements FormatMetadata {
+  const FormatMetadataCode({required final  List<CodeChunkInfo> chunks, final  String? $type}): _chunks = chunks,$type = $type ?? 'code';
+  factory FormatMetadataCode.fromJson(Map<String, dynamic> json) => _$FormatMetadataCodeFromJson(json);
+
+/// Structural code chunks (function/class/module boundaries).
+ final  List<CodeChunkInfo> _chunks;
+/// Structural code chunks (function/class/module boundaries).
+ List<CodeChunkInfo> get chunks {
+  if (_chunks is EqualUnmodifiableListView) return _chunks;
+  // ignore: implicit_dynamic_type
+  return EqualUnmodifiableListView(_chunks);
+}
+
+
+@JsonKey(name: 'format_type')
+final String $type;
+
+
+/// Create a copy of FormatMetadata
+/// with the given fields replaced by the non-null parameter values.
+@JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+$FormatMetadataCodeCopyWith<FormatMetadataCode> get copyWith => _$FormatMetadataCodeCopyWithImpl<FormatMetadataCode>(this, _$identity);
+
+@override
+Map<String, dynamic> toJson() {
+  return _$FormatMetadataCodeToJson(this, );
+}
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is FormatMetadataCode&&const DeepCollectionEquality().equals(other._chunks, _chunks));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(_chunks));
+
+@override
+String toString() {
+  return 'FormatMetadata.code(chunks: $chunks)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class $FormatMetadataCodeCopyWith<$Res> implements $FormatMetadataCopyWith<$Res> {
+  factory $FormatMetadataCodeCopyWith(FormatMetadataCode value, $Res Function(FormatMetadataCode) _then) = _$FormatMetadataCodeCopyWithImpl;
+@useResult
+$Res call({
+ List<CodeChunkInfo> chunks
+});
+
+
+
+
+}
+/// @nodoc
+class _$FormatMetadataCodeCopyWithImpl<$Res>
+    implements $FormatMetadataCodeCopyWith<$Res> {
+  _$FormatMetadataCodeCopyWithImpl(this._self, this._then);
+
+  final FormatMetadataCode _self;
+  final $Res Function(FormatMetadataCode) _then;
+
+/// Create a copy of FormatMetadata
+/// with the given fields replaced by the non-null parameter values.
+@pragma('vm:prefer-inline') $Res call({Object? chunks = null,}) {
+  return _then(FormatMetadataCode(
+chunks: null == chunks ? _self._chunks : chunks // ignore: cast_nullable_to_non_nullable
+as List<CodeChunkInfo>,
+  ));
+}
+
+
+}
+
+/// @nodoc
+@JsonSerializable()
+
 class FormatMetadataCsv implements FormatMetadata {
   const FormatMetadataCsv({@JsonKey(name: 'column_count') required this.columnCount, @JsonKey(name: 'has_header') required this.hasHeader, @JsonKey(name: 'row_count') required this.rowCount, @JsonKey(name: 'column_types') final  List<String>? columnTypes, this.delimiter, final  String? $type}): _columnTypes = columnTypes,$type = $type ?? 'csv';
   factory FormatMetadataCsv.fromJson(Map<String, dynamic> json) => _$FormatMetadataCsvFromJson(json);
 
+/// Number of columns detected.
 @JsonKey(name: 'column_count') final  int columnCount;
+/// Whether the first row was treated as a header.
 @JsonKey(name: 'has_header') final  bool hasHeader;
+/// Total number of data rows (excluding the header row if present).
 @JsonKey(name: 'row_count') final  int rowCount;
+/// Inferred data type for each column (e.g. `"string"`, `"integer"`, `"float"`).
  final  List<String>? _columnTypes;
+/// Inferred data type for each column (e.g. `"string"`, `"integer"`, `"float"`).
 @JsonKey(name: 'column_types') List<String>? get columnTypes {
   final value = _columnTypes;
   if (value == null) return null;
@@ -399,6 +927,7 @@ class FormatMetadataCsv implements FormatMetadata {
   return EqualUnmodifiableListView(value);
 }
 
+/// Field delimiter character (e.g. `","` or `"\t"`).
  final  String? delimiter;
 
 @JsonKey(name: 'format_type')
@@ -463,6 +992,196 @@ as bool,rowCount: null == rowCount ? _self.rowCount : rowCount // ignore: cast_n
 as int,columnTypes: freezed == columnTypes ? _self._columnTypes : columnTypes // ignore: cast_nullable_to_non_nullable
 as List<String>?,delimiter: freezed == delimiter ? _self.delimiter : delimiter // ignore: cast_nullable_to_non_nullable
 as String?,
+  ));
+}
+
+
+}
+
+/// @nodoc
+@JsonSerializable()
+
+class FormatMetadataDbf implements FormatMetadata {
+  const FormatMetadataDbf({@JsonKey(name: 'field_count') required this.fieldCount, @JsonKey(name: 'record_count') required this.recordCount, final  List<DbfFieldInfo>? fields, final  String? $type}): _fields = fields,$type = $type ?? 'dbf';
+  factory FormatMetadataDbf.fromJson(Map<String, dynamic> json) => _$FormatMetadataDbfFromJson(json);
+
+/// Number of field (column) definitions.
+@JsonKey(name: 'field_count') final  int fieldCount;
+/// Total number of data records in the DBF file.
+@JsonKey(name: 'record_count') final  int recordCount;
+/// Descriptor for each field in the table schema.
+ final  List<DbfFieldInfo>? _fields;
+/// Descriptor for each field in the table schema.
+ List<DbfFieldInfo>? get fields {
+  final value = _fields;
+  if (value == null) return null;
+  if (_fields is EqualUnmodifiableListView) return _fields;
+  // ignore: implicit_dynamic_type
+  return EqualUnmodifiableListView(value);
+}
+
+
+@JsonKey(name: 'format_type')
+final String $type;
+
+
+/// Create a copy of FormatMetadata
+/// with the given fields replaced by the non-null parameter values.
+@JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+$FormatMetadataDbfCopyWith<FormatMetadataDbf> get copyWith => _$FormatMetadataDbfCopyWithImpl<FormatMetadataDbf>(this, _$identity);
+
+@override
+Map<String, dynamic> toJson() {
+  return _$FormatMetadataDbfToJson(this, );
+}
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is FormatMetadataDbf&&(identical(other.fieldCount, fieldCount) || other.fieldCount == fieldCount)&&(identical(other.recordCount, recordCount) || other.recordCount == recordCount)&&const DeepCollectionEquality().equals(other._fields, _fields));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hash(runtimeType,fieldCount,recordCount,const DeepCollectionEquality().hash(_fields));
+
+@override
+String toString() {
+  return 'FormatMetadata.dbf(fieldCount: $fieldCount, recordCount: $recordCount, fields: $fields)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class $FormatMetadataDbfCopyWith<$Res> implements $FormatMetadataCopyWith<$Res> {
+  factory $FormatMetadataDbfCopyWith(FormatMetadataDbf value, $Res Function(FormatMetadataDbf) _then) = _$FormatMetadataDbfCopyWithImpl;
+@useResult
+$Res call({
+@JsonKey(name: 'field_count') int fieldCount,@JsonKey(name: 'record_count') int recordCount, List<DbfFieldInfo>? fields
+});
+
+
+
+
+}
+/// @nodoc
+class _$FormatMetadataDbfCopyWithImpl<$Res>
+    implements $FormatMetadataDbfCopyWith<$Res> {
+  _$FormatMetadataDbfCopyWithImpl(this._self, this._then);
+
+  final FormatMetadataDbf _self;
+  final $Res Function(FormatMetadataDbf) _then;
+
+/// Create a copy of FormatMetadata
+/// with the given fields replaced by the non-null parameter values.
+@pragma('vm:prefer-inline') $Res call({Object? fieldCount = null,Object? recordCount = null,Object? fields = freezed,}) {
+  return _then(FormatMetadataDbf(
+fieldCount: null == fieldCount ? _self.fieldCount : fieldCount // ignore: cast_nullable_to_non_nullable
+as int,recordCount: null == recordCount ? _self.recordCount : recordCount // ignore: cast_nullable_to_non_nullable
+as int,fields: freezed == fields ? _self._fields : fields // ignore: cast_nullable_to_non_nullable
+as List<DbfFieldInfo>?,
+  ));
+}
+
+
+}
+
+/// @nodoc
+@JsonSerializable()
+
+class FormatMetadataDocx implements FormatMetadata {
+  const FormatMetadataDocx({@JsonKey(name: 'app_properties') this.appProperties, @JsonKey(name: 'core_properties') this.coreProperties, @JsonKey(name: 'custom_properties') final  Map<String, dynamic>? customProperties, final  String? $type}): _customProperties = customProperties,$type = $type ?? 'docx';
+  factory FormatMetadataDocx.fromJson(Map<String, dynamic> json) => _$FormatMetadataDocxFromJson(json);
+
+/// Application properties from docProps/app.xml (Word-specific statistics).
+///
+/// Contains word count, page count, paragraph count, editing time, etc.
+/// DOCX-specific variant of Office application properties.
+@JsonKey(name: 'app_properties') final  dynamic appProperties;
+/// Core properties from docProps/core.xml (Dublin Core metadata).
+///
+/// Contains title, creator, subject, keywords, dates, etc.
+/// Shared format across DOCX/PPTX/XLSX documents.
+@JsonKey(name: 'core_properties') final  dynamic coreProperties;
+/// Custom properties from docProps/custom.xml (user-defined properties).
+///
+/// Contains key-value pairs defined by users or applications.
+/// Values can be strings, numbers, booleans, or dates.
+ final  Map<String, dynamic>? _customProperties;
+/// Custom properties from docProps/custom.xml (user-defined properties).
+///
+/// Contains key-value pairs defined by users or applications.
+/// Values can be strings, numbers, booleans, or dates.
+@JsonKey(name: 'custom_properties') Map<String, dynamic>? get customProperties {
+  final value = _customProperties;
+  if (value == null) return null;
+  if (_customProperties is EqualUnmodifiableMapView) return _customProperties;
+  // ignore: implicit_dynamic_type
+  return EqualUnmodifiableMapView(value);
+}
+
+
+@JsonKey(name: 'format_type')
+final String $type;
+
+
+/// Create a copy of FormatMetadata
+/// with the given fields replaced by the non-null parameter values.
+@JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+$FormatMetadataDocxCopyWith<FormatMetadataDocx> get copyWith => _$FormatMetadataDocxCopyWithImpl<FormatMetadataDocx>(this, _$identity);
+
+@override
+Map<String, dynamic> toJson() {
+  return _$FormatMetadataDocxToJson(this, );
+}
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is FormatMetadataDocx&&const DeepCollectionEquality().equals(other.appProperties, appProperties)&&const DeepCollectionEquality().equals(other.coreProperties, coreProperties)&&const DeepCollectionEquality().equals(other._customProperties, _customProperties));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(appProperties),const DeepCollectionEquality().hash(coreProperties),const DeepCollectionEquality().hash(_customProperties));
+
+@override
+String toString() {
+  return 'FormatMetadata.docx(appProperties: $appProperties, coreProperties: $coreProperties, customProperties: $customProperties)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class $FormatMetadataDocxCopyWith<$Res> implements $FormatMetadataCopyWith<$Res> {
+  factory $FormatMetadataDocxCopyWith(FormatMetadataDocx value, $Res Function(FormatMetadataDocx) _then) = _$FormatMetadataDocxCopyWithImpl;
+@useResult
+$Res call({
+@JsonKey(name: 'app_properties') dynamic appProperties,@JsonKey(name: 'core_properties') dynamic coreProperties,@JsonKey(name: 'custom_properties') Map<String, dynamic>? customProperties
+});
+
+
+
+
+}
+/// @nodoc
+class _$FormatMetadataDocxCopyWithImpl<$Res>
+    implements $FormatMetadataDocxCopyWith<$Res> {
+  _$FormatMetadataDocxCopyWithImpl(this._self, this._then);
+
+  final FormatMetadataDocx _self;
+  final $Res Function(FormatMetadataDocx) _then;
+
+/// Create a copy of FormatMetadata
+/// with the given fields replaced by the non-null parameter values.
+@pragma('vm:prefer-inline') $Res call({Object? appProperties = freezed,Object? coreProperties = freezed,Object? customProperties = freezed,}) {
+  return _then(FormatMetadataDocx(
+appProperties: freezed == appProperties ? _self.appProperties : appProperties // ignore: cast_nullable_to_non_nullable
+as dynamic,coreProperties: freezed == coreProperties ? _self.coreProperties : coreProperties // ignore: cast_nullable_to_non_nullable
+as dynamic,customProperties: freezed == customProperties ? _self._customProperties : customProperties // ignore: cast_nullable_to_non_nullable
+as Map<String, dynamic>?,
   ));
 }
 
@@ -592,6 +1311,95 @@ as String?,
 /// @nodoc
 @JsonSerializable()
 
+class FormatMetadataEpub implements FormatMetadata {
+  const FormatMetadataEpub({@JsonKey(name: 'cover_image') this.coverImage, this.coverage, @JsonKey(name: 'dc_format') this.dcFormat, @JsonKey(name: 'dc_type') this.dcType, this.relation, this.source, final  String? $type}): $type = $type ?? 'epub';
+  factory FormatMetadataEpub.fromJson(Map<String, dynamic> json) => _$FormatMetadataEpubFromJson(json);
+
+/// Path or identifier of the cover image within the EPUB container.
+@JsonKey(name: 'cover_image') final  String? coverImage;
+/// Dublin Core `coverage` field (geographic or temporal scope).
+ final  String? coverage;
+/// Dublin Core `format` field (media type of the resource).
+@JsonKey(name: 'dc_format') final  String? dcFormat;
+/// Dublin Core `type` field (nature or genre of the resource).
+@JsonKey(name: 'dc_type') final  String? dcType;
+/// Dublin Core `relation` field (related resource identifier).
+ final  String? relation;
+/// Dublin Core `source` field (origin resource identifier).
+ final  String? source;
+
+@JsonKey(name: 'format_type')
+final String $type;
+
+
+/// Create a copy of FormatMetadata
+/// with the given fields replaced by the non-null parameter values.
+@JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+$FormatMetadataEpubCopyWith<FormatMetadataEpub> get copyWith => _$FormatMetadataEpubCopyWithImpl<FormatMetadataEpub>(this, _$identity);
+
+@override
+Map<String, dynamic> toJson() {
+  return _$FormatMetadataEpubToJson(this, );
+}
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is FormatMetadataEpub&&(identical(other.coverImage, coverImage) || other.coverImage == coverImage)&&(identical(other.coverage, coverage) || other.coverage == coverage)&&(identical(other.dcFormat, dcFormat) || other.dcFormat == dcFormat)&&(identical(other.dcType, dcType) || other.dcType == dcType)&&(identical(other.relation, relation) || other.relation == relation)&&(identical(other.source, source) || other.source == source));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hash(runtimeType,coverImage,coverage,dcFormat,dcType,relation,source);
+
+@override
+String toString() {
+  return 'FormatMetadata.epub(coverImage: $coverImage, coverage: $coverage, dcFormat: $dcFormat, dcType: $dcType, relation: $relation, source: $source)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class $FormatMetadataEpubCopyWith<$Res> implements $FormatMetadataCopyWith<$Res> {
+  factory $FormatMetadataEpubCopyWith(FormatMetadataEpub value, $Res Function(FormatMetadataEpub) _then) = _$FormatMetadataEpubCopyWithImpl;
+@useResult
+$Res call({
+@JsonKey(name: 'cover_image') String? coverImage, String? coverage,@JsonKey(name: 'dc_format') String? dcFormat,@JsonKey(name: 'dc_type') String? dcType, String? relation, String? source
+});
+
+
+
+
+}
+/// @nodoc
+class _$FormatMetadataEpubCopyWithImpl<$Res>
+    implements $FormatMetadataEpubCopyWith<$Res> {
+  _$FormatMetadataEpubCopyWithImpl(this._self, this._then);
+
+  final FormatMetadataEpub _self;
+  final $Res Function(FormatMetadataEpub) _then;
+
+/// Create a copy of FormatMetadata
+/// with the given fields replaced by the non-null parameter values.
+@pragma('vm:prefer-inline') $Res call({Object? coverImage = freezed,Object? coverage = freezed,Object? dcFormat = freezed,Object? dcType = freezed,Object? relation = freezed,Object? source = freezed,}) {
+  return _then(FormatMetadataEpub(
+coverImage: freezed == coverImage ? _self.coverImage : coverImage // ignore: cast_nullable_to_non_nullable
+as String?,coverage: freezed == coverage ? _self.coverage : coverage // ignore: cast_nullable_to_non_nullable
+as String?,dcFormat: freezed == dcFormat ? _self.dcFormat : dcFormat // ignore: cast_nullable_to_non_nullable
+as String?,dcType: freezed == dcType ? _self.dcType : dcType // ignore: cast_nullable_to_non_nullable
+as String?,relation: freezed == relation ? _self.relation : relation // ignore: cast_nullable_to_non_nullable
+as String?,source: freezed == source ? _self.source : source // ignore: cast_nullable_to_non_nullable
+as String?,
+  ));
+}
+
+
+}
+
+/// @nodoc
+@JsonSerializable()
+
 class FormatMetadataExcel implements FormatMetadata {
   const FormatMetadataExcel({@JsonKey(name: 'sheet_count') this.sheetCount, @JsonKey(name: 'sheet_names') final  List<String>? sheetNames, final  String? $type}): _sheetNames = sheetNames,$type = $type ?? 'excel';
   factory FormatMetadataExcel.fromJson(Map<String, dynamic> json) => _$FormatMetadataExcelFromJson(json);
@@ -668,6 +1476,104 @@ class _$FormatMetadataExcelCopyWithImpl<$Res>
   return _then(FormatMetadataExcel(
 sheetCount: freezed == sheetCount ? _self.sheetCount : sheetCount // ignore: cast_nullable_to_non_nullable
 as int?,sheetNames: freezed == sheetNames ? _self._sheetNames : sheetNames // ignore: cast_nullable_to_non_nullable
+as List<String>?,
+  ));
+}
+
+
+}
+
+/// @nodoc
+@JsonSerializable()
+
+class FormatMetadataFictionBook implements FormatMetadata {
+  const FormatMetadataFictionBook({this.annotation, final  List<String>? genres, final  List<String>? sequences, final  String? $type}): _genres = genres,_sequences = sequences,$type = $type ?? 'fiction_book';
+  factory FormatMetadataFictionBook.fromJson(Map<String, dynamic> json) => _$FormatMetadataFictionBookFromJson(json);
+
+/// Short annotation / summary from the FB2 `<annotation>` element.
+ final  String? annotation;
+/// Genre tags as declared in the FB2 `<genre>` elements.
+ final  List<String>? _genres;
+/// Genre tags as declared in the FB2 `<genre>` elements.
+ List<String>? get genres {
+  final value = _genres;
+  if (value == null) return null;
+  if (_genres is EqualUnmodifiableListView) return _genres;
+  // ignore: implicit_dynamic_type
+  return EqualUnmodifiableListView(value);
+}
+
+/// Book series (sequence) names, if any.
+ final  List<String>? _sequences;
+/// Book series (sequence) names, if any.
+ List<String>? get sequences {
+  final value = _sequences;
+  if (value == null) return null;
+  if (_sequences is EqualUnmodifiableListView) return _sequences;
+  // ignore: implicit_dynamic_type
+  return EqualUnmodifiableListView(value);
+}
+
+
+@JsonKey(name: 'format_type')
+final String $type;
+
+
+/// Create a copy of FormatMetadata
+/// with the given fields replaced by the non-null parameter values.
+@JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+$FormatMetadataFictionBookCopyWith<FormatMetadataFictionBook> get copyWith => _$FormatMetadataFictionBookCopyWithImpl<FormatMetadataFictionBook>(this, _$identity);
+
+@override
+Map<String, dynamic> toJson() {
+  return _$FormatMetadataFictionBookToJson(this, );
+}
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is FormatMetadataFictionBook&&(identical(other.annotation, annotation) || other.annotation == annotation)&&const DeepCollectionEquality().equals(other._genres, _genres)&&const DeepCollectionEquality().equals(other._sequences, _sequences));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hash(runtimeType,annotation,const DeepCollectionEquality().hash(_genres),const DeepCollectionEquality().hash(_sequences));
+
+@override
+String toString() {
+  return 'FormatMetadata.fictionBook(annotation: $annotation, genres: $genres, sequences: $sequences)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class $FormatMetadataFictionBookCopyWith<$Res> implements $FormatMetadataCopyWith<$Res> {
+  factory $FormatMetadataFictionBookCopyWith(FormatMetadataFictionBook value, $Res Function(FormatMetadataFictionBook) _then) = _$FormatMetadataFictionBookCopyWithImpl;
+@useResult
+$Res call({
+ String? annotation, List<String>? genres, List<String>? sequences
+});
+
+
+
+
+}
+/// @nodoc
+class _$FormatMetadataFictionBookCopyWithImpl<$Res>
+    implements $FormatMetadataFictionBookCopyWith<$Res> {
+  _$FormatMetadataFictionBookCopyWithImpl(this._self, this._then);
+
+  final FormatMetadataFictionBook _self;
+  final $Res Function(FormatMetadataFictionBook) _then;
+
+/// Create a copy of FormatMetadata
+/// with the given fields replaced by the non-null parameter values.
+@pragma('vm:prefer-inline') $Res call({Object? annotation = freezed,Object? genres = freezed,Object? sequences = freezed,}) {
+  return _then(FormatMetadataFictionBook(
+annotation: freezed == annotation ? _self.annotation : annotation // ignore: cast_nullable_to_non_nullable
+as String?,genres: freezed == genres ? _self._genres : genres // ignore: cast_nullable_to_non_nullable
+as List<String>?,sequences: freezed == sequences ? _self._sequences : sequences // ignore: cast_nullable_to_non_nullable
 as List<String>?,
   ));
 }
@@ -962,6 +1868,107 @@ as int,
 /// @nodoc
 @JsonSerializable()
 
+class FormatMetadataJats implements FormatMetadata {
+  const FormatMetadataJats({@JsonKey(name: 'contributor_roles') final  List<ContributorRole>? contributorRoles, this.copyright, @JsonKey(name: 'history_dates') final  Map<String, String>? historyDates, this.license, final  String? $type}): _contributorRoles = contributorRoles,_historyDates = historyDates,$type = $type ?? 'jats';
+  factory FormatMetadataJats.fromJson(Map<String, dynamic> json) => _$FormatMetadataJatsFromJson(json);
+
+/// Authors and contributors with their stated roles.
+ final  List<ContributorRole>? _contributorRoles;
+/// Authors and contributors with their stated roles.
+@JsonKey(name: 'contributor_roles') List<ContributorRole>? get contributorRoles {
+  final value = _contributorRoles;
+  if (value == null) return null;
+  if (_contributorRoles is EqualUnmodifiableListView) return _contributorRoles;
+  // ignore: implicit_dynamic_type
+  return EqualUnmodifiableListView(value);
+}
+
+/// Copyright statement from the article's `<permissions>` element.
+ final  String? copyright;
+/// Publication history dates keyed by event type (e.g. `"received"`, `"accepted"`).
+ final  Map<String, String>? _historyDates;
+/// Publication history dates keyed by event type (e.g. `"received"`, `"accepted"`).
+@JsonKey(name: 'history_dates') Map<String, String>? get historyDates {
+  final value = _historyDates;
+  if (value == null) return null;
+  if (_historyDates is EqualUnmodifiableMapView) return _historyDates;
+  // ignore: implicit_dynamic_type
+  return EqualUnmodifiableMapView(value);
+}
+
+/// Open-access license URI from the article's `<license>` element.
+ final  String? license;
+
+@JsonKey(name: 'format_type')
+final String $type;
+
+
+/// Create a copy of FormatMetadata
+/// with the given fields replaced by the non-null parameter values.
+@JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+$FormatMetadataJatsCopyWith<FormatMetadataJats> get copyWith => _$FormatMetadataJatsCopyWithImpl<FormatMetadataJats>(this, _$identity);
+
+@override
+Map<String, dynamic> toJson() {
+  return _$FormatMetadataJatsToJson(this, );
+}
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is FormatMetadataJats&&const DeepCollectionEquality().equals(other._contributorRoles, _contributorRoles)&&(identical(other.copyright, copyright) || other.copyright == copyright)&&const DeepCollectionEquality().equals(other._historyDates, _historyDates)&&(identical(other.license, license) || other.license == license));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(_contributorRoles),copyright,const DeepCollectionEquality().hash(_historyDates),license);
+
+@override
+String toString() {
+  return 'FormatMetadata.jats(contributorRoles: $contributorRoles, copyright: $copyright, historyDates: $historyDates, license: $license)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class $FormatMetadataJatsCopyWith<$Res> implements $FormatMetadataCopyWith<$Res> {
+  factory $FormatMetadataJatsCopyWith(FormatMetadataJats value, $Res Function(FormatMetadataJats) _then) = _$FormatMetadataJatsCopyWithImpl;
+@useResult
+$Res call({
+@JsonKey(name: 'contributor_roles') List<ContributorRole>? contributorRoles, String? copyright,@JsonKey(name: 'history_dates') Map<String, String>? historyDates, String? license
+});
+
+
+
+
+}
+/// @nodoc
+class _$FormatMetadataJatsCopyWithImpl<$Res>
+    implements $FormatMetadataJatsCopyWith<$Res> {
+  _$FormatMetadataJatsCopyWithImpl(this._self, this._then);
+
+  final FormatMetadataJats _self;
+  final $Res Function(FormatMetadataJats) _then;
+
+/// Create a copy of FormatMetadata
+/// with the given fields replaced by the non-null parameter values.
+@pragma('vm:prefer-inline') $Res call({Object? contributorRoles = freezed,Object? copyright = freezed,Object? historyDates = freezed,Object? license = freezed,}) {
+  return _then(FormatMetadataJats(
+contributorRoles: freezed == contributorRoles ? _self._contributorRoles : contributorRoles // ignore: cast_nullable_to_non_nullable
+as List<ContributorRole>?,copyright: freezed == copyright ? _self.copyright : copyright // ignore: cast_nullable_to_non_nullable
+as String?,historyDates: freezed == historyDates ? _self._historyDates : historyDates // ignore: cast_nullable_to_non_nullable
+as Map<String, String>?,license: freezed == license ? _self.license : license // ignore: cast_nullable_to_non_nullable
+as String?,
+  ));
+}
+
+
+}
+
+/// @nodoc
+@JsonSerializable()
+
 class FormatMetadataOcr implements FormatMetadata {
   const FormatMetadataOcr({required this.language, @JsonKey(name: 'output_format') required this.outputFormat, required this.psm, @JsonKey(name: 'table_count') required this.tableCount, @JsonKey(name: 'table_cols') this.tableCols, @JsonKey(name: 'table_rows') this.tableRows, final  String? $type}): $type = $type ?? 'ocr';
   factory FormatMetadataOcr.fromJson(Map<String, dynamic> json) => _$FormatMetadataOcrFromJson(json);
@@ -974,7 +1981,9 @@ class FormatMetadataOcr implements FormatMetadata {
  final  int psm;
 /// Number of tables detected
 @JsonKey(name: 'table_count') final  int tableCount;
+/// Number of columns in the detected table (if a single table was found).
 @JsonKey(name: 'table_cols') final  int? tableCols;
+/// Number of rows in the detected table (if a single table was found).
 @JsonKey(name: 'table_rows') final  int? tableRows;
 
 @JsonKey(name: 'format_type')
@@ -1039,6 +2048,95 @@ as String,psm: null == psm ? _self.psm : psm // ignore: cast_nullable_to_non_nul
 as int,tableCount: null == tableCount ? _self.tableCount : tableCount // ignore: cast_nullable_to_non_nullable
 as int,tableCols: freezed == tableCols ? _self.tableCols : tableCols // ignore: cast_nullable_to_non_nullable
 as int?,tableRows: freezed == tableRows ? _self.tableRows : tableRows // ignore: cast_nullable_to_non_nullable
+as int?,
+  ));
+}
+
+
+}
+
+/// @nodoc
+@JsonSerializable()
+
+class FormatMetadataPdf implements FormatMetadata {
+  const FormatMetadataPdf({this.height, @JsonKey(name: 'is_encrypted') this.isEncrypted, @JsonKey(name: 'page_count') this.pageCount, @JsonKey(name: 'pdf_version') this.pdfVersion, this.producer, this.width, final  String? $type}): $type = $type ?? 'pdf';
+  factory FormatMetadataPdf.fromJson(Map<String, dynamic> json) => _$FormatMetadataPdfFromJson(json);
+
+/// First page height in points (1/72 inch)
+ final  int? height;
+/// Whether the PDF is encrypted/password-protected
+@JsonKey(name: 'is_encrypted') final  bool? isEncrypted;
+/// Total number of pages in the PDF document
+@JsonKey(name: 'page_count') final  int? pageCount;
+/// PDF version (e.g., "1.7", "2.0")
+@JsonKey(name: 'pdf_version') final  String? pdfVersion;
+/// PDF producer (application that created the PDF)
+ final  String? producer;
+/// First page width in points (1/72 inch)
+ final  int? width;
+
+@JsonKey(name: 'format_type')
+final String $type;
+
+
+/// Create a copy of FormatMetadata
+/// with the given fields replaced by the non-null parameter values.
+@JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+$FormatMetadataPdfCopyWith<FormatMetadataPdf> get copyWith => _$FormatMetadataPdfCopyWithImpl<FormatMetadataPdf>(this, _$identity);
+
+@override
+Map<String, dynamic> toJson() {
+  return _$FormatMetadataPdfToJson(this, );
+}
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is FormatMetadataPdf&&(identical(other.height, height) || other.height == height)&&(identical(other.isEncrypted, isEncrypted) || other.isEncrypted == isEncrypted)&&(identical(other.pageCount, pageCount) || other.pageCount == pageCount)&&(identical(other.pdfVersion, pdfVersion) || other.pdfVersion == pdfVersion)&&(identical(other.producer, producer) || other.producer == producer)&&(identical(other.width, width) || other.width == width));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hash(runtimeType,height,isEncrypted,pageCount,pdfVersion,producer,width);
+
+@override
+String toString() {
+  return 'FormatMetadata.pdf(height: $height, isEncrypted: $isEncrypted, pageCount: $pageCount, pdfVersion: $pdfVersion, producer: $producer, width: $width)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class $FormatMetadataPdfCopyWith<$Res> implements $FormatMetadataCopyWith<$Res> {
+  factory $FormatMetadataPdfCopyWith(FormatMetadataPdf value, $Res Function(FormatMetadataPdf) _then) = _$FormatMetadataPdfCopyWithImpl;
+@useResult
+$Res call({
+ int? height,@JsonKey(name: 'is_encrypted') bool? isEncrypted,@JsonKey(name: 'page_count') int? pageCount,@JsonKey(name: 'pdf_version') String? pdfVersion, String? producer, int? width
+});
+
+
+
+
+}
+/// @nodoc
+class _$FormatMetadataPdfCopyWithImpl<$Res>
+    implements $FormatMetadataPdfCopyWith<$Res> {
+  _$FormatMetadataPdfCopyWithImpl(this._self, this._then);
+
+  final FormatMetadataPdf _self;
+  final $Res Function(FormatMetadataPdf) _then;
+
+/// Create a copy of FormatMetadata
+/// with the given fields replaced by the non-null parameter values.
+@pragma('vm:prefer-inline') $Res call({Object? height = freezed,Object? isEncrypted = freezed,Object? pageCount = freezed,Object? pdfVersion = freezed,Object? producer = freezed,Object? width = freezed,}) {
+  return _then(FormatMetadataPdf(
+height: freezed == height ? _self.height : height // ignore: cast_nullable_to_non_nullable
+as int?,isEncrypted: freezed == isEncrypted ? _self.isEncrypted : isEncrypted // ignore: cast_nullable_to_non_nullable
+as bool?,pageCount: freezed == pageCount ? _self.pageCount : pageCount // ignore: cast_nullable_to_non_nullable
+as int?,pdfVersion: freezed == pdfVersion ? _self.pdfVersion : pdfVersion // ignore: cast_nullable_to_non_nullable
+as String?,producer: freezed == producer ? _self.producer : producer // ignore: cast_nullable_to_non_nullable
+as String?,width: freezed == width ? _self.width : width // ignore: cast_nullable_to_non_nullable
 as int?,
   ));
 }
@@ -1143,6 +2241,7 @@ class FormatMetadataPst implements FormatMetadata {
   const FormatMetadataPst({@JsonKey(name: 'message_count') required this.messageCount, final  String? $type}): $type = $type ?? 'pst';
   factory FormatMetadataPst.fromJson(Map<String, dynamic> json) => _$FormatMetadataPstFromJson(json);
 
+/// Total number of email messages found in the PST archive.
 @JsonKey(name: 'message_count') final  int messageCount;
 
 @JsonKey(name: 'format_type')

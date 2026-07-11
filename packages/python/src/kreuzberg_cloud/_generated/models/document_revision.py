@@ -28,7 +28,7 @@ class DocumentRevision:
 
     Populated by per-format extractors that understand change-tracking metadata
     (DOCX `w:ins`/`w:del`/`w:rPrChange`, ODT `text:change-*`, …). Every
-    extractor defaults to `ExtractionResult.revisions = None` until a
+    extractor defaults to `ExtractedDocument.revisions = None` until a
     format-specific implementation is added.
 
     Attributes:
@@ -36,7 +36,7 @@ class DocumentRevision:
 
                 For insertions and deletions the `content` field carries the added/removed
                 lines as `DiffLine::Added` / `DiffLine::Removed` entries. For format
-                changes, `content` is empty — the property diff is left as a TODO for a
+                changes, `content` is empty — ~keep TODO: add the property diff in a
                 later enrichment pass.
             kind (RevisionKind): Semantic classification of a tracked change.
             revision_id (str): Format-specific revision identifier.

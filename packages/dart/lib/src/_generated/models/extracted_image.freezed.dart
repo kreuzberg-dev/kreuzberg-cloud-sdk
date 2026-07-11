@@ -23,10 +23,18 @@ mixin _$ExtractedImage {
 @JsonKey(name: 'image_index') int get imageIndex;/// Bits per color component (e.g., 8, 16)
 @JsonKey(name: 'bits_per_component') int? get bitsPerComponent;/// Bounding box of the image on the page (PDF coordinates: x0=left, y0=bottom, x1=right, y1=top).
 /// Only populated for PDF-extracted images when position data is available from the PDF extractor.
-@JsonKey(name: 'bounding_box') BoundingBox? get boundingBox;/// Identifier shared across images that form a single logical figure.
+@JsonKey(name: 'bounding_box') BoundingBox? get boundingBox;/// VLM-generated caption describing the image, when captioning is configured.
+///
+/// Populated by the captioning post-processor.
+/// (`crates/xberg/src/plugins/processor/builtin/captioning.rs`), which routes.
+/// each image through `crate::llm::region_extractor::extract_region_with_vlm` in.
+/// caption mode. `None` when captioning is disabled or the VLM declined to caption.
+ String? get caption;/// Identifier shared across images that form a single logical figure.
 /// (e.g. all raster tiles of one technical drawing). `None` for singletons.
 @JsonKey(name: 'cluster_id') int? get clusterId;/// Colorspace information (e.g., "RGB", "CMYK", "Gray")
- String? get colorspace;/// Optional description of the image
+ String? get colorspace;/// Base64-encoded copy of `data`; populated when `ImageExtractionConfig::include_data_base64`.
+/// is `true`. Omitted from JSON by default; use instead of `data` in JSON-only clients.
+@JsonKey(name: 'data_base64') String? get dataBase64;/// Optional description of the image
  String? get description;/// Image height in pixels
  int? get height;/// Heuristic classification of what this image likely depicts.
 /// `None` if classification was disabled or inconclusive.
@@ -36,8 +44,13 @@ mixin _$ExtractedImage {
 ///
 /// When OCR is performed on this image, the result is embedded here.
 /// rather than in a separate collection, making the relationship explicit.
-@JsonKey(name: 'ocr_result') ExtractionResult? get ocrResult;/// Page/slide number where image was found (1-indexed)
-@JsonKey(name: 'page_number') int? get pageNumber;/// Original source path of the image within the document archive (e.g., "media/image1.png" in DOCX).
+@JsonKey(name: 'ocr_result') ExtractedDocument? get ocrResult;/// Page/slide number where image was found (1-indexed)
+@JsonKey(name: 'page_number') int? get pageNumber;/// QR codes decoded from this image, when QR detection is enabled.
+///
+/// Populated by the QR post-processor (`crates/xberg/src/extractors/qr.rs`) via.
+/// the pure-Rust `rqrr` decoder. `None` when QR detection is disabled; an empty.
+/// `Some(vec![])` when detection ran but found nothing.
+@JsonKey(name: 'qr_codes') List<QrCode>? get qrCodes;/// Original source path of the image within the document archive (e.g., "media/image1.png" in DOCX).
 /// Used for rendering image references when the binary data is not extracted.
 @JsonKey(name: 'source_path') String? get sourcePath;/// Image width in pixels
  int? get width;
@@ -53,16 +66,16 @@ $ExtractedImageCopyWith<ExtractedImage> get copyWith => _$ExtractedImageCopyWith
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is ExtractedImage&&const DeepCollectionEquality().equals(other.data, data)&&(identical(other.format, format) || other.format == format)&&(identical(other.imageIndex, imageIndex) || other.imageIndex == imageIndex)&&(identical(other.bitsPerComponent, bitsPerComponent) || other.bitsPerComponent == bitsPerComponent)&&(identical(other.boundingBox, boundingBox) || other.boundingBox == boundingBox)&&(identical(other.clusterId, clusterId) || other.clusterId == clusterId)&&(identical(other.colorspace, colorspace) || other.colorspace == colorspace)&&(identical(other.description, description) || other.description == description)&&(identical(other.height, height) || other.height == height)&&(identical(other.imageKind, imageKind) || other.imageKind == imageKind)&&(identical(other.isMask, isMask) || other.isMask == isMask)&&(identical(other.kindConfidence, kindConfidence) || other.kindConfidence == kindConfidence)&&(identical(other.ocrResult, ocrResult) || other.ocrResult == ocrResult)&&(identical(other.pageNumber, pageNumber) || other.pageNumber == pageNumber)&&(identical(other.sourcePath, sourcePath) || other.sourcePath == sourcePath)&&(identical(other.width, width) || other.width == width));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is ExtractedImage&&const DeepCollectionEquality().equals(other.data, data)&&(identical(other.format, format) || other.format == format)&&(identical(other.imageIndex, imageIndex) || other.imageIndex == imageIndex)&&(identical(other.bitsPerComponent, bitsPerComponent) || other.bitsPerComponent == bitsPerComponent)&&(identical(other.boundingBox, boundingBox) || other.boundingBox == boundingBox)&&(identical(other.caption, caption) || other.caption == caption)&&(identical(other.clusterId, clusterId) || other.clusterId == clusterId)&&(identical(other.colorspace, colorspace) || other.colorspace == colorspace)&&(identical(other.dataBase64, dataBase64) || other.dataBase64 == dataBase64)&&(identical(other.description, description) || other.description == description)&&(identical(other.height, height) || other.height == height)&&(identical(other.imageKind, imageKind) || other.imageKind == imageKind)&&(identical(other.isMask, isMask) || other.isMask == isMask)&&(identical(other.kindConfidence, kindConfidence) || other.kindConfidence == kindConfidence)&&(identical(other.ocrResult, ocrResult) || other.ocrResult == ocrResult)&&(identical(other.pageNumber, pageNumber) || other.pageNumber == pageNumber)&&const DeepCollectionEquality().equals(other.qrCodes, qrCodes)&&(identical(other.sourcePath, sourcePath) || other.sourcePath == sourcePath)&&(identical(other.width, width) || other.width == width));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(data),format,imageIndex,bitsPerComponent,boundingBox,clusterId,colorspace,description,height,imageKind,isMask,kindConfidence,ocrResult,pageNumber,sourcePath,width);
+int get hashCode => Object.hashAll([runtimeType,const DeepCollectionEquality().hash(data),format,imageIndex,bitsPerComponent,boundingBox,caption,clusterId,colorspace,dataBase64,description,height,imageKind,isMask,kindConfidence,ocrResult,pageNumber,const DeepCollectionEquality().hash(qrCodes),sourcePath,width]);
 
 @override
 String toString() {
-  return 'ExtractedImage(data: $data, format: $format, imageIndex: $imageIndex, bitsPerComponent: $bitsPerComponent, boundingBox: $boundingBox, clusterId: $clusterId, colorspace: $colorspace, description: $description, height: $height, imageKind: $imageKind, isMask: $isMask, kindConfidence: $kindConfidence, ocrResult: $ocrResult, pageNumber: $pageNumber, sourcePath: $sourcePath, width: $width)';
+  return 'ExtractedImage(data: $data, format: $format, imageIndex: $imageIndex, bitsPerComponent: $bitsPerComponent, boundingBox: $boundingBox, caption: $caption, clusterId: $clusterId, colorspace: $colorspace, dataBase64: $dataBase64, description: $description, height: $height, imageKind: $imageKind, isMask: $isMask, kindConfidence: $kindConfidence, ocrResult: $ocrResult, pageNumber: $pageNumber, qrCodes: $qrCodes, sourcePath: $sourcePath, width: $width)';
 }
 
 
@@ -73,11 +86,11 @@ abstract mixin class $ExtractedImageCopyWith<$Res>  {
   factory $ExtractedImageCopyWith(ExtractedImage value, $Res Function(ExtractedImage) _then) = _$ExtractedImageCopyWithImpl;
 @useResult
 $Res call({
- List<int> data, String format,@JsonKey(name: 'image_index') int imageIndex,@JsonKey(name: 'bits_per_component') int? bitsPerComponent,@JsonKey(name: 'bounding_box') BoundingBox? boundingBox,@JsonKey(name: 'cluster_id') int? clusterId, String? colorspace, String? description, int? height,@JsonKey(name: 'image_kind') ImageKind? imageKind,@JsonKey(name: 'is_mask') bool? isMask,@JsonKey(name: 'kind_confidence') double? kindConfidence,@JsonKey(name: 'ocr_result') ExtractionResult? ocrResult,@JsonKey(name: 'page_number') int? pageNumber,@JsonKey(name: 'source_path') String? sourcePath, int? width
+ List<int> data, String format,@JsonKey(name: 'image_index') int imageIndex,@JsonKey(name: 'bits_per_component') int? bitsPerComponent,@JsonKey(name: 'bounding_box') BoundingBox? boundingBox, String? caption,@JsonKey(name: 'cluster_id') int? clusterId, String? colorspace,@JsonKey(name: 'data_base64') String? dataBase64, String? description, int? height,@JsonKey(name: 'image_kind') ImageKind? imageKind,@JsonKey(name: 'is_mask') bool? isMask,@JsonKey(name: 'kind_confidence') double? kindConfidence,@JsonKey(name: 'ocr_result') ExtractedDocument? ocrResult,@JsonKey(name: 'page_number') int? pageNumber,@JsonKey(name: 'qr_codes') List<QrCode>? qrCodes,@JsonKey(name: 'source_path') String? sourcePath, int? width
 });
 
 
-$BoundingBoxCopyWith<$Res>? get boundingBox;$ExtractionResultCopyWith<$Res>? get ocrResult;
+$BoundingBoxCopyWith<$Res>? get boundingBox;$ExtractedDocumentCopyWith<$Res>? get ocrResult;
 
 }
 /// @nodoc
@@ -90,23 +103,26 @@ class _$ExtractedImageCopyWithImpl<$Res>
 
 /// Create a copy of ExtractedImage
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? data = null,Object? format = null,Object? imageIndex = null,Object? bitsPerComponent = freezed,Object? boundingBox = freezed,Object? clusterId = freezed,Object? colorspace = freezed,Object? description = freezed,Object? height = freezed,Object? imageKind = freezed,Object? isMask = freezed,Object? kindConfidence = freezed,Object? ocrResult = freezed,Object? pageNumber = freezed,Object? sourcePath = freezed,Object? width = freezed,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? data = null,Object? format = null,Object? imageIndex = null,Object? bitsPerComponent = freezed,Object? boundingBox = freezed,Object? caption = freezed,Object? clusterId = freezed,Object? colorspace = freezed,Object? dataBase64 = freezed,Object? description = freezed,Object? height = freezed,Object? imageKind = freezed,Object? isMask = freezed,Object? kindConfidence = freezed,Object? ocrResult = freezed,Object? pageNumber = freezed,Object? qrCodes = freezed,Object? sourcePath = freezed,Object? width = freezed,}) {
   return _then(_self.copyWith(
 data: null == data ? _self.data : data // ignore: cast_nullable_to_non_nullable
 as List<int>,format: null == format ? _self.format : format // ignore: cast_nullable_to_non_nullable
 as String,imageIndex: null == imageIndex ? _self.imageIndex : imageIndex // ignore: cast_nullable_to_non_nullable
 as int,bitsPerComponent: freezed == bitsPerComponent ? _self.bitsPerComponent : bitsPerComponent // ignore: cast_nullable_to_non_nullable
 as int?,boundingBox: freezed == boundingBox ? _self.boundingBox : boundingBox // ignore: cast_nullable_to_non_nullable
-as BoundingBox?,clusterId: freezed == clusterId ? _self.clusterId : clusterId // ignore: cast_nullable_to_non_nullable
+as BoundingBox?,caption: freezed == caption ? _self.caption : caption // ignore: cast_nullable_to_non_nullable
+as String?,clusterId: freezed == clusterId ? _self.clusterId : clusterId // ignore: cast_nullable_to_non_nullable
 as int?,colorspace: freezed == colorspace ? _self.colorspace : colorspace // ignore: cast_nullable_to_non_nullable
+as String?,dataBase64: freezed == dataBase64 ? _self.dataBase64 : dataBase64 // ignore: cast_nullable_to_non_nullable
 as String?,description: freezed == description ? _self.description : description // ignore: cast_nullable_to_non_nullable
 as String?,height: freezed == height ? _self.height : height // ignore: cast_nullable_to_non_nullable
 as int?,imageKind: freezed == imageKind ? _self.imageKind : imageKind // ignore: cast_nullable_to_non_nullable
 as ImageKind?,isMask: freezed == isMask ? _self.isMask : isMask // ignore: cast_nullable_to_non_nullable
 as bool?,kindConfidence: freezed == kindConfidence ? _self.kindConfidence : kindConfidence // ignore: cast_nullable_to_non_nullable
 as double?,ocrResult: freezed == ocrResult ? _self.ocrResult : ocrResult // ignore: cast_nullable_to_non_nullable
-as ExtractionResult?,pageNumber: freezed == pageNumber ? _self.pageNumber : pageNumber // ignore: cast_nullable_to_non_nullable
-as int?,sourcePath: freezed == sourcePath ? _self.sourcePath : sourcePath // ignore: cast_nullable_to_non_nullable
+as ExtractedDocument?,pageNumber: freezed == pageNumber ? _self.pageNumber : pageNumber // ignore: cast_nullable_to_non_nullable
+as int?,qrCodes: freezed == qrCodes ? _self.qrCodes : qrCodes // ignore: cast_nullable_to_non_nullable
+as List<QrCode>?,sourcePath: freezed == sourcePath ? _self.sourcePath : sourcePath // ignore: cast_nullable_to_non_nullable
 as String?,width: freezed == width ? _self.width : width // ignore: cast_nullable_to_non_nullable
 as int?,
   ));
@@ -127,12 +143,12 @@ $BoundingBoxCopyWith<$Res>? get boundingBox {
 /// with the given fields replaced by the non-null parameter values.
 @override
 @pragma('vm:prefer-inline')
-$ExtractionResultCopyWith<$Res>? get ocrResult {
+$ExtractedDocumentCopyWith<$Res>? get ocrResult {
     if (_self.ocrResult == null) {
     return null;
   }
 
-  return $ExtractionResultCopyWith<$Res>(_self.ocrResult!, (value) {
+  return $ExtractedDocumentCopyWith<$Res>(_self.ocrResult!, (value) {
     return _then(_self.copyWith(ocrResult: value));
   });
 }
@@ -217,10 +233,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( List<int> data,  String format, @JsonKey(name: 'image_index')  int imageIndex, @JsonKey(name: 'bits_per_component')  int? bitsPerComponent, @JsonKey(name: 'bounding_box')  BoundingBox? boundingBox, @JsonKey(name: 'cluster_id')  int? clusterId,  String? colorspace,  String? description,  int? height, @JsonKey(name: 'image_kind')  ImageKind? imageKind, @JsonKey(name: 'is_mask')  bool? isMask, @JsonKey(name: 'kind_confidence')  double? kindConfidence, @JsonKey(name: 'ocr_result')  ExtractionResult? ocrResult, @JsonKey(name: 'page_number')  int? pageNumber, @JsonKey(name: 'source_path')  String? sourcePath,  int? width)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( List<int> data,  String format, @JsonKey(name: 'image_index')  int imageIndex, @JsonKey(name: 'bits_per_component')  int? bitsPerComponent, @JsonKey(name: 'bounding_box')  BoundingBox? boundingBox,  String? caption, @JsonKey(name: 'cluster_id')  int? clusterId,  String? colorspace, @JsonKey(name: 'data_base64')  String? dataBase64,  String? description,  int? height, @JsonKey(name: 'image_kind')  ImageKind? imageKind, @JsonKey(name: 'is_mask')  bool? isMask, @JsonKey(name: 'kind_confidence')  double? kindConfidence, @JsonKey(name: 'ocr_result')  ExtractedDocument? ocrResult, @JsonKey(name: 'page_number')  int? pageNumber, @JsonKey(name: 'qr_codes')  List<QrCode>? qrCodes, @JsonKey(name: 'source_path')  String? sourcePath,  int? width)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _ExtractedImage() when $default != null:
-return $default(_that.data,_that.format,_that.imageIndex,_that.bitsPerComponent,_that.boundingBox,_that.clusterId,_that.colorspace,_that.description,_that.height,_that.imageKind,_that.isMask,_that.kindConfidence,_that.ocrResult,_that.pageNumber,_that.sourcePath,_that.width);case _:
+return $default(_that.data,_that.format,_that.imageIndex,_that.bitsPerComponent,_that.boundingBox,_that.caption,_that.clusterId,_that.colorspace,_that.dataBase64,_that.description,_that.height,_that.imageKind,_that.isMask,_that.kindConfidence,_that.ocrResult,_that.pageNumber,_that.qrCodes,_that.sourcePath,_that.width);case _:
   return orElse();
 
 }
@@ -238,10 +254,10 @@ return $default(_that.data,_that.format,_that.imageIndex,_that.bitsPerComponent,
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( List<int> data,  String format, @JsonKey(name: 'image_index')  int imageIndex, @JsonKey(name: 'bits_per_component')  int? bitsPerComponent, @JsonKey(name: 'bounding_box')  BoundingBox? boundingBox, @JsonKey(name: 'cluster_id')  int? clusterId,  String? colorspace,  String? description,  int? height, @JsonKey(name: 'image_kind')  ImageKind? imageKind, @JsonKey(name: 'is_mask')  bool? isMask, @JsonKey(name: 'kind_confidence')  double? kindConfidence, @JsonKey(name: 'ocr_result')  ExtractionResult? ocrResult, @JsonKey(name: 'page_number')  int? pageNumber, @JsonKey(name: 'source_path')  String? sourcePath,  int? width)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( List<int> data,  String format, @JsonKey(name: 'image_index')  int imageIndex, @JsonKey(name: 'bits_per_component')  int? bitsPerComponent, @JsonKey(name: 'bounding_box')  BoundingBox? boundingBox,  String? caption, @JsonKey(name: 'cluster_id')  int? clusterId,  String? colorspace, @JsonKey(name: 'data_base64')  String? dataBase64,  String? description,  int? height, @JsonKey(name: 'image_kind')  ImageKind? imageKind, @JsonKey(name: 'is_mask')  bool? isMask, @JsonKey(name: 'kind_confidence')  double? kindConfidence, @JsonKey(name: 'ocr_result')  ExtractedDocument? ocrResult, @JsonKey(name: 'page_number')  int? pageNumber, @JsonKey(name: 'qr_codes')  List<QrCode>? qrCodes, @JsonKey(name: 'source_path')  String? sourcePath,  int? width)  $default,) {final _that = this;
 switch (_that) {
 case _ExtractedImage():
-return $default(_that.data,_that.format,_that.imageIndex,_that.bitsPerComponent,_that.boundingBox,_that.clusterId,_that.colorspace,_that.description,_that.height,_that.imageKind,_that.isMask,_that.kindConfidence,_that.ocrResult,_that.pageNumber,_that.sourcePath,_that.width);case _:
+return $default(_that.data,_that.format,_that.imageIndex,_that.bitsPerComponent,_that.boundingBox,_that.caption,_that.clusterId,_that.colorspace,_that.dataBase64,_that.description,_that.height,_that.imageKind,_that.isMask,_that.kindConfidence,_that.ocrResult,_that.pageNumber,_that.qrCodes,_that.sourcePath,_that.width);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -258,10 +274,10 @@ return $default(_that.data,_that.format,_that.imageIndex,_that.bitsPerComponent,
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( List<int> data,  String format, @JsonKey(name: 'image_index')  int imageIndex, @JsonKey(name: 'bits_per_component')  int? bitsPerComponent, @JsonKey(name: 'bounding_box')  BoundingBox? boundingBox, @JsonKey(name: 'cluster_id')  int? clusterId,  String? colorspace,  String? description,  int? height, @JsonKey(name: 'image_kind')  ImageKind? imageKind, @JsonKey(name: 'is_mask')  bool? isMask, @JsonKey(name: 'kind_confidence')  double? kindConfidence, @JsonKey(name: 'ocr_result')  ExtractionResult? ocrResult, @JsonKey(name: 'page_number')  int? pageNumber, @JsonKey(name: 'source_path')  String? sourcePath,  int? width)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( List<int> data,  String format, @JsonKey(name: 'image_index')  int imageIndex, @JsonKey(name: 'bits_per_component')  int? bitsPerComponent, @JsonKey(name: 'bounding_box')  BoundingBox? boundingBox,  String? caption, @JsonKey(name: 'cluster_id')  int? clusterId,  String? colorspace, @JsonKey(name: 'data_base64')  String? dataBase64,  String? description,  int? height, @JsonKey(name: 'image_kind')  ImageKind? imageKind, @JsonKey(name: 'is_mask')  bool? isMask, @JsonKey(name: 'kind_confidence')  double? kindConfidence, @JsonKey(name: 'ocr_result')  ExtractedDocument? ocrResult, @JsonKey(name: 'page_number')  int? pageNumber, @JsonKey(name: 'qr_codes')  List<QrCode>? qrCodes, @JsonKey(name: 'source_path')  String? sourcePath,  int? width)?  $default,) {final _that = this;
 switch (_that) {
 case _ExtractedImage() when $default != null:
-return $default(_that.data,_that.format,_that.imageIndex,_that.bitsPerComponent,_that.boundingBox,_that.clusterId,_that.colorspace,_that.description,_that.height,_that.imageKind,_that.isMask,_that.kindConfidence,_that.ocrResult,_that.pageNumber,_that.sourcePath,_that.width);case _:
+return $default(_that.data,_that.format,_that.imageIndex,_that.bitsPerComponent,_that.boundingBox,_that.caption,_that.clusterId,_that.colorspace,_that.dataBase64,_that.description,_that.height,_that.imageKind,_that.isMask,_that.kindConfidence,_that.ocrResult,_that.pageNumber,_that.qrCodes,_that.sourcePath,_that.width);case _:
   return null;
 
 }
@@ -273,7 +289,7 @@ return $default(_that.data,_that.format,_that.imageIndex,_that.bitsPerComponent,
 @JsonSerializable()
 
 class _ExtractedImage implements ExtractedImage {
-  const _ExtractedImage({required final  List<int> data, required this.format, @JsonKey(name: 'image_index') required this.imageIndex, @JsonKey(name: 'bits_per_component') this.bitsPerComponent, @JsonKey(name: 'bounding_box') this.boundingBox, @JsonKey(name: 'cluster_id') this.clusterId, this.colorspace, this.description, this.height, @JsonKey(name: 'image_kind') this.imageKind, @JsonKey(name: 'is_mask') this.isMask, @JsonKey(name: 'kind_confidence') this.kindConfidence, @JsonKey(name: 'ocr_result') this.ocrResult, @JsonKey(name: 'page_number') this.pageNumber, @JsonKey(name: 'source_path') this.sourcePath, this.width}): _data = data;
+  const _ExtractedImage({required final  List<int> data, required this.format, @JsonKey(name: 'image_index') required this.imageIndex, @JsonKey(name: 'bits_per_component') this.bitsPerComponent, @JsonKey(name: 'bounding_box') this.boundingBox, this.caption, @JsonKey(name: 'cluster_id') this.clusterId, this.colorspace, @JsonKey(name: 'data_base64') this.dataBase64, this.description, this.height, @JsonKey(name: 'image_kind') this.imageKind, @JsonKey(name: 'is_mask') this.isMask, @JsonKey(name: 'kind_confidence') this.kindConfidence, @JsonKey(name: 'ocr_result') this.ocrResult, @JsonKey(name: 'page_number') this.pageNumber, @JsonKey(name: 'qr_codes') final  List<QrCode>? qrCodes, @JsonKey(name: 'source_path') this.sourcePath, this.width}): _data = data,_qrCodes = qrCodes;
   factory _ExtractedImage.fromJson(Map<String, dynamic> json) => _$ExtractedImageFromJson(json);
 
 /// Raw image data (PNG, JPEG, WebP, etc. bytes).
@@ -297,11 +313,21 @@ class _ExtractedImage implements ExtractedImage {
 /// Bounding box of the image on the page (PDF coordinates: x0=left, y0=bottom, x1=right, y1=top).
 /// Only populated for PDF-extracted images when position data is available from the PDF extractor.
 @override@JsonKey(name: 'bounding_box') final  BoundingBox? boundingBox;
+/// VLM-generated caption describing the image, when captioning is configured.
+///
+/// Populated by the captioning post-processor.
+/// (`crates/xberg/src/plugins/processor/builtin/captioning.rs`), which routes.
+/// each image through `crate::llm::region_extractor::extract_region_with_vlm` in.
+/// caption mode. `None` when captioning is disabled or the VLM declined to caption.
+@override final  String? caption;
 /// Identifier shared across images that form a single logical figure.
 /// (e.g. all raster tiles of one technical drawing). `None` for singletons.
 @override@JsonKey(name: 'cluster_id') final  int? clusterId;
 /// Colorspace information (e.g., "RGB", "CMYK", "Gray")
 @override final  String? colorspace;
+/// Base64-encoded copy of `data`; populated when `ImageExtractionConfig::include_data_base64`.
+/// is `true`. Omitted from JSON by default; use instead of `data` in JSON-only clients.
+@override@JsonKey(name: 'data_base64') final  String? dataBase64;
 /// Optional description of the image
 @override final  String? description;
 /// Image height in pixels
@@ -317,9 +343,28 @@ class _ExtractedImage implements ExtractedImage {
 ///
 /// When OCR is performed on this image, the result is embedded here.
 /// rather than in a separate collection, making the relationship explicit.
-@override@JsonKey(name: 'ocr_result') final  ExtractionResult? ocrResult;
+@override@JsonKey(name: 'ocr_result') final  ExtractedDocument? ocrResult;
 /// Page/slide number where image was found (1-indexed)
 @override@JsonKey(name: 'page_number') final  int? pageNumber;
+/// QR codes decoded from this image, when QR detection is enabled.
+///
+/// Populated by the QR post-processor (`crates/xberg/src/extractors/qr.rs`) via.
+/// the pure-Rust `rqrr` decoder. `None` when QR detection is disabled; an empty.
+/// `Some(vec![])` when detection ran but found nothing.
+ final  List<QrCode>? _qrCodes;
+/// QR codes decoded from this image, when QR detection is enabled.
+///
+/// Populated by the QR post-processor (`crates/xberg/src/extractors/qr.rs`) via.
+/// the pure-Rust `rqrr` decoder. `None` when QR detection is disabled; an empty.
+/// `Some(vec![])` when detection ran but found nothing.
+@override@JsonKey(name: 'qr_codes') List<QrCode>? get qrCodes {
+  final value = _qrCodes;
+  if (value == null) return null;
+  if (_qrCodes is EqualUnmodifiableListView) return _qrCodes;
+  // ignore: implicit_dynamic_type
+  return EqualUnmodifiableListView(value);
+}
+
 /// Original source path of the image within the document archive (e.g., "media/image1.png" in DOCX).
 /// Used for rendering image references when the binary data is not extracted.
 @override@JsonKey(name: 'source_path') final  String? sourcePath;
@@ -339,16 +384,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _ExtractedImage&&const DeepCollectionEquality().equals(other._data, _data)&&(identical(other.format, format) || other.format == format)&&(identical(other.imageIndex, imageIndex) || other.imageIndex == imageIndex)&&(identical(other.bitsPerComponent, bitsPerComponent) || other.bitsPerComponent == bitsPerComponent)&&(identical(other.boundingBox, boundingBox) || other.boundingBox == boundingBox)&&(identical(other.clusterId, clusterId) || other.clusterId == clusterId)&&(identical(other.colorspace, colorspace) || other.colorspace == colorspace)&&(identical(other.description, description) || other.description == description)&&(identical(other.height, height) || other.height == height)&&(identical(other.imageKind, imageKind) || other.imageKind == imageKind)&&(identical(other.isMask, isMask) || other.isMask == isMask)&&(identical(other.kindConfidence, kindConfidence) || other.kindConfidence == kindConfidence)&&(identical(other.ocrResult, ocrResult) || other.ocrResult == ocrResult)&&(identical(other.pageNumber, pageNumber) || other.pageNumber == pageNumber)&&(identical(other.sourcePath, sourcePath) || other.sourcePath == sourcePath)&&(identical(other.width, width) || other.width == width));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _ExtractedImage&&const DeepCollectionEquality().equals(other._data, _data)&&(identical(other.format, format) || other.format == format)&&(identical(other.imageIndex, imageIndex) || other.imageIndex == imageIndex)&&(identical(other.bitsPerComponent, bitsPerComponent) || other.bitsPerComponent == bitsPerComponent)&&(identical(other.boundingBox, boundingBox) || other.boundingBox == boundingBox)&&(identical(other.caption, caption) || other.caption == caption)&&(identical(other.clusterId, clusterId) || other.clusterId == clusterId)&&(identical(other.colorspace, colorspace) || other.colorspace == colorspace)&&(identical(other.dataBase64, dataBase64) || other.dataBase64 == dataBase64)&&(identical(other.description, description) || other.description == description)&&(identical(other.height, height) || other.height == height)&&(identical(other.imageKind, imageKind) || other.imageKind == imageKind)&&(identical(other.isMask, isMask) || other.isMask == isMask)&&(identical(other.kindConfidence, kindConfidence) || other.kindConfidence == kindConfidence)&&(identical(other.ocrResult, ocrResult) || other.ocrResult == ocrResult)&&(identical(other.pageNumber, pageNumber) || other.pageNumber == pageNumber)&&const DeepCollectionEquality().equals(other._qrCodes, _qrCodes)&&(identical(other.sourcePath, sourcePath) || other.sourcePath == sourcePath)&&(identical(other.width, width) || other.width == width));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(_data),format,imageIndex,bitsPerComponent,boundingBox,clusterId,colorspace,description,height,imageKind,isMask,kindConfidence,ocrResult,pageNumber,sourcePath,width);
+int get hashCode => Object.hashAll([runtimeType,const DeepCollectionEquality().hash(_data),format,imageIndex,bitsPerComponent,boundingBox,caption,clusterId,colorspace,dataBase64,description,height,imageKind,isMask,kindConfidence,ocrResult,pageNumber,const DeepCollectionEquality().hash(_qrCodes),sourcePath,width]);
 
 @override
 String toString() {
-  return 'ExtractedImage(data: $data, format: $format, imageIndex: $imageIndex, bitsPerComponent: $bitsPerComponent, boundingBox: $boundingBox, clusterId: $clusterId, colorspace: $colorspace, description: $description, height: $height, imageKind: $imageKind, isMask: $isMask, kindConfidence: $kindConfidence, ocrResult: $ocrResult, pageNumber: $pageNumber, sourcePath: $sourcePath, width: $width)';
+  return 'ExtractedImage(data: $data, format: $format, imageIndex: $imageIndex, bitsPerComponent: $bitsPerComponent, boundingBox: $boundingBox, caption: $caption, clusterId: $clusterId, colorspace: $colorspace, dataBase64: $dataBase64, description: $description, height: $height, imageKind: $imageKind, isMask: $isMask, kindConfidence: $kindConfidence, ocrResult: $ocrResult, pageNumber: $pageNumber, qrCodes: $qrCodes, sourcePath: $sourcePath, width: $width)';
 }
 
 
@@ -359,11 +404,11 @@ abstract mixin class _$ExtractedImageCopyWith<$Res> implements $ExtractedImageCo
   factory _$ExtractedImageCopyWith(_ExtractedImage value, $Res Function(_ExtractedImage) _then) = __$ExtractedImageCopyWithImpl;
 @override @useResult
 $Res call({
- List<int> data, String format,@JsonKey(name: 'image_index') int imageIndex,@JsonKey(name: 'bits_per_component') int? bitsPerComponent,@JsonKey(name: 'bounding_box') BoundingBox? boundingBox,@JsonKey(name: 'cluster_id') int? clusterId, String? colorspace, String? description, int? height,@JsonKey(name: 'image_kind') ImageKind? imageKind,@JsonKey(name: 'is_mask') bool? isMask,@JsonKey(name: 'kind_confidence') double? kindConfidence,@JsonKey(name: 'ocr_result') ExtractionResult? ocrResult,@JsonKey(name: 'page_number') int? pageNumber,@JsonKey(name: 'source_path') String? sourcePath, int? width
+ List<int> data, String format,@JsonKey(name: 'image_index') int imageIndex,@JsonKey(name: 'bits_per_component') int? bitsPerComponent,@JsonKey(name: 'bounding_box') BoundingBox? boundingBox, String? caption,@JsonKey(name: 'cluster_id') int? clusterId, String? colorspace,@JsonKey(name: 'data_base64') String? dataBase64, String? description, int? height,@JsonKey(name: 'image_kind') ImageKind? imageKind,@JsonKey(name: 'is_mask') bool? isMask,@JsonKey(name: 'kind_confidence') double? kindConfidence,@JsonKey(name: 'ocr_result') ExtractedDocument? ocrResult,@JsonKey(name: 'page_number') int? pageNumber,@JsonKey(name: 'qr_codes') List<QrCode>? qrCodes,@JsonKey(name: 'source_path') String? sourcePath, int? width
 });
 
 
-@override $BoundingBoxCopyWith<$Res>? get boundingBox;@override $ExtractionResultCopyWith<$Res>? get ocrResult;
+@override $BoundingBoxCopyWith<$Res>? get boundingBox;@override $ExtractedDocumentCopyWith<$Res>? get ocrResult;
 
 }
 /// @nodoc
@@ -376,23 +421,26 @@ class __$ExtractedImageCopyWithImpl<$Res>
 
 /// Create a copy of ExtractedImage
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? data = null,Object? format = null,Object? imageIndex = null,Object? bitsPerComponent = freezed,Object? boundingBox = freezed,Object? clusterId = freezed,Object? colorspace = freezed,Object? description = freezed,Object? height = freezed,Object? imageKind = freezed,Object? isMask = freezed,Object? kindConfidence = freezed,Object? ocrResult = freezed,Object? pageNumber = freezed,Object? sourcePath = freezed,Object? width = freezed,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? data = null,Object? format = null,Object? imageIndex = null,Object? bitsPerComponent = freezed,Object? boundingBox = freezed,Object? caption = freezed,Object? clusterId = freezed,Object? colorspace = freezed,Object? dataBase64 = freezed,Object? description = freezed,Object? height = freezed,Object? imageKind = freezed,Object? isMask = freezed,Object? kindConfidence = freezed,Object? ocrResult = freezed,Object? pageNumber = freezed,Object? qrCodes = freezed,Object? sourcePath = freezed,Object? width = freezed,}) {
   return _then(_ExtractedImage(
 data: null == data ? _self._data : data // ignore: cast_nullable_to_non_nullable
 as List<int>,format: null == format ? _self.format : format // ignore: cast_nullable_to_non_nullable
 as String,imageIndex: null == imageIndex ? _self.imageIndex : imageIndex // ignore: cast_nullable_to_non_nullable
 as int,bitsPerComponent: freezed == bitsPerComponent ? _self.bitsPerComponent : bitsPerComponent // ignore: cast_nullable_to_non_nullable
 as int?,boundingBox: freezed == boundingBox ? _self.boundingBox : boundingBox // ignore: cast_nullable_to_non_nullable
-as BoundingBox?,clusterId: freezed == clusterId ? _self.clusterId : clusterId // ignore: cast_nullable_to_non_nullable
+as BoundingBox?,caption: freezed == caption ? _self.caption : caption // ignore: cast_nullable_to_non_nullable
+as String?,clusterId: freezed == clusterId ? _self.clusterId : clusterId // ignore: cast_nullable_to_non_nullable
 as int?,colorspace: freezed == colorspace ? _self.colorspace : colorspace // ignore: cast_nullable_to_non_nullable
+as String?,dataBase64: freezed == dataBase64 ? _self.dataBase64 : dataBase64 // ignore: cast_nullable_to_non_nullable
 as String?,description: freezed == description ? _self.description : description // ignore: cast_nullable_to_non_nullable
 as String?,height: freezed == height ? _self.height : height // ignore: cast_nullable_to_non_nullable
 as int?,imageKind: freezed == imageKind ? _self.imageKind : imageKind // ignore: cast_nullable_to_non_nullable
 as ImageKind?,isMask: freezed == isMask ? _self.isMask : isMask // ignore: cast_nullable_to_non_nullable
 as bool?,kindConfidence: freezed == kindConfidence ? _self.kindConfidence : kindConfidence // ignore: cast_nullable_to_non_nullable
 as double?,ocrResult: freezed == ocrResult ? _self.ocrResult : ocrResult // ignore: cast_nullable_to_non_nullable
-as ExtractionResult?,pageNumber: freezed == pageNumber ? _self.pageNumber : pageNumber // ignore: cast_nullable_to_non_nullable
-as int?,sourcePath: freezed == sourcePath ? _self.sourcePath : sourcePath // ignore: cast_nullable_to_non_nullable
+as ExtractedDocument?,pageNumber: freezed == pageNumber ? _self.pageNumber : pageNumber // ignore: cast_nullable_to_non_nullable
+as int?,qrCodes: freezed == qrCodes ? _self._qrCodes : qrCodes // ignore: cast_nullable_to_non_nullable
+as List<QrCode>?,sourcePath: freezed == sourcePath ? _self.sourcePath : sourcePath // ignore: cast_nullable_to_non_nullable
 as String?,width: freezed == width ? _self.width : width // ignore: cast_nullable_to_non_nullable
 as int?,
   ));
@@ -414,12 +462,12 @@ $BoundingBoxCopyWith<$Res>? get boundingBox {
 /// with the given fields replaced by the non-null parameter values.
 @override
 @pragma('vm:prefer-inline')
-$ExtractionResultCopyWith<$Res>? get ocrResult {
+$ExtractedDocumentCopyWith<$Res>? get ocrResult {
     if (_self.ocrResult == null) {
     return null;
   }
 
-  return $ExtractionResultCopyWith<$Res>(_self.ocrResult!, (value) {
+  return $ExtractedDocumentCopyWith<$Res>(_self.ocrResult!, (value) {
     return _then(_self.copyWith(ocrResult: value));
   });
 }

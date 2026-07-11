@@ -21,12 +21,12 @@ class DiffResponse:
         computed_at (datetime.datetime): Timestamp when the diff was computed.
         diff (Any): The computed diff between the two extraction results.
 
-            Serialized to the wire as the full `kreuzberg::diff::ExtractionDiff`
+            Serialized to the wire as the full `xberg::diff::ExtractionDiff`
             shape. The OpenAPI schema declares this as an opaque object because
             the underlying type recurses through `EmbeddedDiff -> Box<ExtractionDiff>`
             and utoipa's schema collector goes into a stack-overflow on inlined
             recursion. SDKs that want a typed surface here should decode the
-            JSON manually against kreuzberg's published schema.
+            JSON manually against xberg's published schema.
         document_id (UUID): Document ID being diffed.
         from_job_id (UUID): Job ID of the "from" (older) version.
         from_version (int): Version sequence number of the "from" version.

@@ -15,8 +15,8 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$ErrorResponse {
 
-/// Error message
- String get error;
+/// The nested error body with code, message, and optional details.
+ ErrorBody get error;
 /// Create a copy of ErrorResponse
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -49,11 +49,11 @@ abstract mixin class $ErrorResponseCopyWith<$Res>  {
   factory $ErrorResponseCopyWith(ErrorResponse value, $Res Function(ErrorResponse) _then) = _$ErrorResponseCopyWithImpl;
 @useResult
 $Res call({
- String error
+ ErrorBody error
 });
 
 
-
+$ErrorBodyCopyWith<$Res> get error;
 
 }
 /// @nodoc
@@ -69,10 +69,19 @@ class _$ErrorResponseCopyWithImpl<$Res>
 @pragma('vm:prefer-inline') @override $Res call({Object? error = null,}) {
   return _then(_self.copyWith(
 error: null == error ? _self.error : error // ignore: cast_nullable_to_non_nullable
-as String,
+as ErrorBody,
   ));
 }
+/// Create a copy of ErrorResponse
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
+$ErrorBodyCopyWith<$Res> get error {
 
+  return $ErrorBodyCopyWith<$Res>(_self.error, (value) {
+    return _then(_self.copyWith(error: value));
+  });
+}
 }
 
 
@@ -154,7 +163,7 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String error)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( ErrorBody error)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _ErrorResponse() when $default != null:
 return $default(_that.error);case _:
@@ -175,7 +184,7 @@ return $default(_that.error);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String error)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( ErrorBody error)  $default,) {final _that = this;
 switch (_that) {
 case _ErrorResponse():
 return $default(_that.error);case _:
@@ -195,7 +204,7 @@ return $default(_that.error);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String error)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( ErrorBody error)?  $default,) {final _that = this;
 switch (_that) {
 case _ErrorResponse() when $default != null:
 return $default(_that.error);case _:
@@ -213,8 +222,8 @@ class _ErrorResponse implements ErrorResponse {
   const _ErrorResponse({required this.error});
   factory _ErrorResponse.fromJson(Map<String, dynamic> json) => _$ErrorResponseFromJson(json);
 
-/// Error message
-@override final  String error;
+/// The nested error body with code, message, and optional details.
+@override final  ErrorBody error;
 
 /// Create a copy of ErrorResponse
 /// with the given fields replaced by the non-null parameter values.
@@ -249,11 +258,11 @@ abstract mixin class _$ErrorResponseCopyWith<$Res> implements $ErrorResponseCopy
   factory _$ErrorResponseCopyWith(_ErrorResponse value, $Res Function(_ErrorResponse) _then) = __$ErrorResponseCopyWithImpl;
 @override @useResult
 $Res call({
- String error
+ ErrorBody error
 });
 
 
-
+@override $ErrorBodyCopyWith<$Res> get error;
 
 }
 /// @nodoc
@@ -269,11 +278,20 @@ class __$ErrorResponseCopyWithImpl<$Res>
 @override @pragma('vm:prefer-inline') $Res call({Object? error = null,}) {
   return _then(_ErrorResponse(
 error: null == error ? _self.error : error // ignore: cast_nullable_to_non_nullable
-as String,
+as ErrorBody,
   ));
 }
 
+/// Create a copy of ErrorResponse
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
+$ErrorBodyCopyWith<$Res> get error {
 
+  return $ErrorBodyCopyWith<$Res>(_self.error, (value) {
+    return _then(_self.copyWith(error: value));
+  });
+}
 }
 
 // dart format on

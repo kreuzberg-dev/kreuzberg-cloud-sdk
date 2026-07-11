@@ -14,7 +14,7 @@ from ..models.job_status import JobStatus, check_job_status
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
-    from ..models.extraction_result import ExtractionResult
+    from ..models.extracted_document import ExtractedDocument
 
 
 T = TypeVar("T", bound="JobResponse")
@@ -29,21 +29,24 @@ class JobResponse:
         filename (str): Original filename Example: invoice.pdf.
         id (UUID): Unique job identifier (UUID) Example: 550e8400-e29b-41d4-a716-446655440000.
         status (JobStatus): Job status enumeration (1:1 with domain).
+        child_job_ids (list[str] | Unset): Child job IDs created from multi-document splitting (empty if not split or
+            parent job)
         processing_time_ms (int | None | Unset): Server-side processing duration in milliseconds (only present when
             completed) Example: 1234.
-        result (ExtractionResult | None | Unset):
+        result (ExtractedDocument | None | Unset):
     """
 
     created_at: datetime.datetime
     filename: str
     id: UUID
     status: JobStatus
+    child_job_ids: list[str] | Unset = UNSET
     processing_time_ms: int | None | Unset = UNSET
-    result: ExtractionResult | None | Unset = UNSET
+    result: ExtractedDocument | None | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        from ..models.extraction_result import ExtractionResult
+        from ..models.extracted_document import ExtractedDocument
 
         created_at = self.created_at.isoformat()
 
@@ -52,6 +55,10 @@ class JobResponse:
         id = str(self.id)
 
         status: str = self.status
+
+        child_job_ids: list[str] | Unset = UNSET
+        if not isinstance(self.child_job_ids, Unset):
+            child_job_ids = self.child_job_ids
 
         processing_time_ms: int | None | Unset
         if isinstance(self.processing_time_ms, Unset):
@@ -62,7 +69,7 @@ class JobResponse:
         result: dict[str, Any] | None | Unset
         if isinstance(self.result, Unset):
             result = UNSET
-        elif isinstance(self.result, ExtractionResult):
+        elif isinstance(self.result, ExtractedDocument):
             result = self.result.to_dict()
         else:
             result = self.result
@@ -77,6 +84,8 @@ class JobResponse:
                 "status": status,
             }
         )
+        if child_job_ids is not UNSET:
+            field_dict["child_job_ids"] = child_job_ids
         if processing_time_ms is not UNSET:
             field_dict["processing_time_ms"] = processing_time_ms
         if result is not UNSET:
@@ -86,7 +95,7 @@ class JobResponse:
 
     @classmethod
     def from_dict(cls, src_dict: Mapping[str, Any]) -> Self:
-        from ..models.extraction_result import ExtractionResult
+        from ..models.extracted_document import ExtractedDocument
 
         d = dict(src_dict)
         created_at = isoparse(d.pop("created_at"))
@@ -97,6 +106,8 @@ class JobResponse:
 
         status = check_job_status(d.pop("status"))
 
+        child_job_ids = cast("list[str]", d.pop("child_job_ids", UNSET))
+
         def _parse_processing_time_ms(data: object) -> int | None | Unset:
             if data is None:
                 return data
@@ -106,7 +117,7 @@ class JobResponse:
 
         processing_time_ms = _parse_processing_time_ms(d.pop("processing_time_ms", UNSET))
 
-        def _parse_result(data: object) -> ExtractionResult | None | Unset:
+        def _parse_result(data: object) -> ExtractedDocument | None | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -114,12 +125,12 @@ class JobResponse:
             try:
                 if not isinstance(data, dict):
                     raise TypeError
-                result_type_1 = ExtractionResult.from_dict(data)
+                result_type_1 = ExtractedDocument.from_dict(data)
 
                 return result_type_1
             except (TypeError, ValueError, AttributeError, KeyError):
                 pass
-            return cast("ExtractionResult | None | Unset", data)
+            return cast("ExtractedDocument | None | Unset", data)
 
         result = _parse_result(d.pop("result", UNSET))
 
@@ -128,6 +139,7 @@ class JobResponse:
             filename=filename,
             id=id,
             status=status,
+            child_job_ids=child_job_ids,
             processing_time_ms=processing_time_ms,
             result=result,
         )

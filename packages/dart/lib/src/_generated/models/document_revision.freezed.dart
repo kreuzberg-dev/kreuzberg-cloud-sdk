@@ -100,7 +100,7 @@ as String?,
 @override
 @pragma('vm:prefer-inline')
 $RevisionDeltaCopyWith<$Res> get delta {
-  
+
   return $RevisionDeltaCopyWith<$Res>(_self.delta, (value) {
     return _then(_self.copyWith(delta: value));
   });
@@ -350,7 +350,7 @@ as String?,
 @override
 @pragma('vm:prefer-inline')
 $RevisionDeltaCopyWith<$Res> get delta {
-  
+
   return $RevisionDeltaCopyWith<$Res>(_self.delta, (value) {
     return _then(_self.copyWith(delta: value));
   });

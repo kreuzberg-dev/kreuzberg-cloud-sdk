@@ -18,7 +18,7 @@ class NodeContentType4:
 
     Attributes:
         node_type (NodeContentType4NodeType):
-        text (str):
+        text (str): The list item text content.
     """
 
     node_type: NodeContentType4NodeType

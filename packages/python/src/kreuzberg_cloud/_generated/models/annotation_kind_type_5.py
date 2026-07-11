@@ -17,7 +17,8 @@ T = TypeVar("T", bound="AnnotationKindType5")
 
 @_attrs_define
 class AnnotationKindType5:
-    """
+    """Subscript text.
+
     Attributes:
         annotation_type (AnnotationKindType5AnnotationType):
     """

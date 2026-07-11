@@ -17,7 +17,8 @@ T = TypeVar("T", bound="AnnotationKindType4")
 
 @_attrs_define
 class AnnotationKindType4:
-    """
+    """Inline code span.
+
     Attributes:
         annotation_type (AnnotationKindType4AnnotationType):
     """

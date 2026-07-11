@@ -13,6 +13,7 @@ part 'pst_metadata.g.dart';
 @Freezed()
 abstract class PstMetadata with _$PstMetadata {
   const factory PstMetadata({
+    /// Total number of email messages found in the PST archive.
     @JsonKey(name: 'message_count') required int messageCount,
   }) = _PstMetadata;
 

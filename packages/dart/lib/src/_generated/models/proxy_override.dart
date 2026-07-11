@@ -9,7 +9,7 @@ part 'proxy_override.g.dart';
 
 /// Per-request proxy override. When set on a crawl request, this proxy is.
 /// used instead of the worker's process-wide `CRAWL_PROXY_URLS` pool.
-/// Maps 1:1 onto `kreuzcrawl::ProxyConfig`.
+/// Maps 1:1 onto `crawlberg::ProxyConfig`.
 @Freezed()
 abstract class ProxyOverride with _$ProxyOverride {
   const factory ProxyOverride({

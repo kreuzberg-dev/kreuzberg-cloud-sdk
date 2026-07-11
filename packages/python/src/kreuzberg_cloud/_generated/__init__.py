@@ -1,4 +1,4 @@
-"""A client library for accessing Kreuzberg Cloud API"""
+"""A client library for accessing Xberg Enterprise API"""
 
 from .client import AuthenticatedClient, Client
 

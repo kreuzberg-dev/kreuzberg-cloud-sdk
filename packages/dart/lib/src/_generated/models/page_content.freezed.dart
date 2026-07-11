@@ -20,7 +20,7 @@ mixin _$PageContent {
 @JsonKey(name: 'page_number') int get pageNumber;/// Hierarchy information for the page (when hierarchy extraction is enabled).
 ///
 /// Contains text hierarchy levels (H1-H6) extracted from the page content.
- PageHierarchy? get hierarchy;/// Indices into `ExtractionResult.images` for images found on this page.
+ PageHierarchy? get hierarchy;/// Indices into `ExtractedDocument.images` for images found on this page.
 ///
 /// Each value is a zero-based index into the top-level `images` collection.
 /// Only populated when `extract_images = true` in the extraction config.
@@ -49,7 +49,7 @@ mixin _$PageContent {
 /// Only populated when the source is a PPTX file and notes are present.
 @JsonKey(name: 'speaker_notes') String? get speakerNotes;/// Tables found on this page (uses Arc for memory efficiency).
 ///
-/// Serializes as Vec<Table> for JSON compatibility while maintaining.
+/// Serializes as `Vec<Table>` for JSON compatibility while maintaining.
 /// Arc semantics in-memory for zero-copy sharing.
  List<Table>? get tables;
 /// Create a copy of PageContent
@@ -277,12 +277,12 @@ class _PageContent implements PageContent {
 ///
 /// Contains text hierarchy levels (H1-H6) extracted from the page content.
 @override final  PageHierarchy? hierarchy;
-/// Indices into `ExtractionResult.images` for images found on this page.
+/// Indices into `ExtractedDocument.images` for images found on this page.
 ///
 /// Each value is a zero-based index into the top-level `images` collection.
 /// Only populated when `extract_images = true` in the extraction config.
  final  List<int>? _imageIndices;
-/// Indices into `ExtractionResult.images` for images found on this page.
+/// Indices into `ExtractedDocument.images` for images found on this page.
 ///
 /// Each value is a zero-based index into the top-level `images` collection.
 /// Only populated when `extract_images = true` in the extraction config.
@@ -336,12 +336,12 @@ class _PageContent implements PageContent {
 @override@JsonKey(name: 'speaker_notes') final  String? speakerNotes;
 /// Tables found on this page (uses Arc for memory efficiency).
 ///
-/// Serializes as Vec<Table> for JSON compatibility while maintaining.
+/// Serializes as `Vec<Table>` for JSON compatibility while maintaining.
 /// Arc semantics in-memory for zero-copy sharing.
  final  List<Table>? _tables;
 /// Tables found on this page (uses Arc for memory efficiency).
 ///
-/// Serializes as Vec<Table> for JSON compatibility while maintaining.
+/// Serializes as `Vec<Table>` for JSON compatibility while maintaining.
 /// Arc semantics in-memory for zero-copy sharing.
 @override List<Table>? get tables {
   final value = _tables;

@@ -91,7 +91,7 @@ as dynamic,
 @override
 @pragma('vm:prefer-inline')
 $MetadataCopyWith<$Res> get metadata {
-  
+
   return $MetadataCopyWith<$Res>(_self.metadata, (value) {
     return _then(_self.copyWith(metadata: value));
   });
@@ -357,7 +357,7 @@ as dynamic,
 @override
 @pragma('vm:prefer-inline')
 $MetadataCopyWith<$Res> get metadata {
-  
+
   return $MetadataCopyWith<$Res>(_self.metadata, (value) {
     return _then(_self.copyWith(metadata: value));
   });

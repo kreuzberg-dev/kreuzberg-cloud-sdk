@@ -14,14 +14,15 @@ T = TypeVar("T", bound="CsvMetadata")
 
 @_attrs_define
 class CsvMetadata:
-    """CSV/TSV file metadata.
+    r"""CSV/TSV file metadata.
 
     Attributes:
-        column_count (int):
-        has_header (bool):
-        row_count (int):
-        column_types (list[str] | None | Unset):
-        delimiter (None | str | Unset):
+        column_count (int): Number of columns detected.
+        has_header (bool): Whether the first row was treated as a header.
+        row_count (int): Total number of data rows (excluding the header row if present).
+        column_types (list[str] | None | Unset): Inferred data type for each column (e.g. `"string"`, `"integer"`,
+            `"float"`).
+        delimiter (None | str | Unset): Field delimiter character (e.g. `","` or `"\t"`).
     """
 
     column_count: int

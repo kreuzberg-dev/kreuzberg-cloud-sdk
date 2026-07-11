@@ -18,11 +18,12 @@ T = TypeVar("T", bound="AnnotationKindType7")
 
 @_attrs_define
 class AnnotationKindType7:
-    """
+    """Hyperlink annotation.
+
     Attributes:
         annotation_type (AnnotationKindType7AnnotationType):
-        url (str):
-        title (None | str | Unset):
+        url (str): Hyperlink target URL.
+        title (None | str | Unset): Optional link title attribute.
     """
 
     annotation_type: AnnotationKindType7AnnotationType

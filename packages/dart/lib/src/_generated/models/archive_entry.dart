@@ -4,7 +4,7 @@
 
 import 'package:freezed_annotation/freezed_annotation.dart';
 
-import 'extraction_result.dart';
+import 'extracted_document.dart';
 
 part 'archive_entry.freezed.dart';
 part 'archive_entry.g.dart';
@@ -12,7 +12,7 @@ part 'archive_entry.g.dart';
 /// A single file extracted from an archive.
 ///
 /// When archives (ZIP, TAR, 7Z, GZIP) are extracted with recursive extraction.
-/// enabled, each processable file produces its own full `ExtractionResult`.
+/// enabled, each processable file produces its own full `ExtractedDocument`.
 @Freezed()
 abstract class ArchiveEntry with _$ArchiveEntry {
   const factory ArchiveEntry({
@@ -23,7 +23,7 @@ abstract class ArchiveEntry with _$ArchiveEntry {
     required String path,
 
     /// Full extraction result for this file.
-    required ExtractionResult result,
+    required ExtractedDocument result,
   }) = _ArchiveEntry;
 
   factory ArchiveEntry.fromJson(Map<String, Object?> json) =>

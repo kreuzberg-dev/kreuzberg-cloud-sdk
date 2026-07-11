@@ -20,14 +20,32 @@ class _ExtractClient implements ExtractClient {
   final ParseErrorLogger? errorLogger;
 
   @override
-  Future<ExtractResponse> extract({required ExtractJsonRequest body}) async {
+  Future<ExtractResponse> extract({
+    required List<int> file,
+    ExtractionOptions? options,
+    WebhookConfig? webhook,
+  }) async {
     final _extra = <String, dynamic>{};
     final queryParameters = <String, dynamic>{};
+    queryParameters.removeWhere((k, v) => v == null);
     final _headers = <String, dynamic>{};
-    final _data = <String, dynamic>{};
-    _data.addAll(body.toJson());
+    final _data = FormData();
+    _data.files.add(
+      MapEntry('file', MultipartFile.fromBytes(file, filename: null)),
+    );
+    _data.fields.add(
+      MapEntry('options', jsonEncode(options ?? <String, dynamic>{})),
+    );
+    _data.fields.add(
+      MapEntry('webhook', jsonEncode(webhook ?? <String, dynamic>{})),
+    );
     final _options = _setStreamType<ExtractResponse>(
-      Options(method: 'POST', headers: _headers, extra: _extra)
+      Options(
+            method: 'POST',
+            headers: _headers,
+            extra: _extra,
+            contentType: 'multipart/form-data',
+          )
           .compose(
             _dio.options,
             '/v1/extract',

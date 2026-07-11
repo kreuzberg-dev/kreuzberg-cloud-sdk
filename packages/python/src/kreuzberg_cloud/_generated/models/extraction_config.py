@@ -13,12 +13,15 @@ if TYPE_CHECKING:
     from ..models.chunking_config import ChunkingConfig
     from ..models.content_filter_config import ContentFilterConfig
     from ..models.image_extraction_config import ImageExtractionConfig
+    from ..models.keyword_config import KeywordConfig
     from ..models.language_detection_config import LanguageDetectionConfig
     from ..models.layout_detection_config import LayoutDetectionConfig
     from ..models.ocr_config import OcrConfig
     from ..models.page_config import PageConfig
     from ..models.pdf_config import PdfConfig
     from ..models.post_processor_config import PostProcessorConfig
+    from ..models.security_limits import SecurityLimits
+    from ..models.structured_extraction_config import StructuredExtractionConfig
     from ..models.token_reduction_config import TokenReductionConfig
 
 
@@ -27,7 +30,7 @@ T = TypeVar("T", bound="ExtractionConfig")
 
 @_attrs_define
 class ExtractionConfig:
-    """Top-level extraction configuration — mirrors kreuzberg::ExtractionConfig.
+    """Top-level extraction configuration — mirrors xberg::ExtractionConfig.
 
     Attributes:
         cache_namespace (None | str | Unset): Cache namespace for tenant isolation
@@ -42,11 +45,13 @@ class ExtractionConfig:
         html_options (Any | Unset): HTML extraction options (flexible JSON)
         images (ImageExtractionConfig | None | Unset):
         include_document_structure (bool | None | Unset): Include structured document tree in output
-        keywords (Any | Unset): Keyword extraction configuration (flexible JSON)
+        keywords (KeywordConfig | None | Unset):
         language_detection (LanguageDetectionConfig | None | Unset):
         layout (LayoutDetectionConfig | None | Unset):
         max_archive_depth (int | None | Unset): Maximum recursion depth for archive extraction
         max_concurrent_extractions (int | None | Unset): Maximum concurrent extractions
+        max_embedded_file_bytes (int | None | Unset): Maximum size in bytes for embedded/attached files during recursive
+            extraction
         ocr (None | OcrConfig | Unset):
         output_format (None | str | Unset): Output text format: "plain", "markdown", "html", "djot", "structured",
             "json"
@@ -54,7 +59,8 @@ class ExtractionConfig:
         pdf_options (None | PdfConfig | Unset):
         postprocessor (None | PostProcessorConfig | Unset):
         result_format (None | str | Unset): Result format: "unified" or "element_based"
-        security_limits (Any | Unset): Security limits (flexible JSON)
+        security_limits (None | SecurityLimits | Unset):
+        structured_extraction (None | StructuredExtractionConfig | Unset):
         token_reduction (None | TokenReductionConfig | Unset):
         use_cache (bool | None | Unset): Enable extraction result caching
     """
@@ -71,18 +77,20 @@ class ExtractionConfig:
     html_options: Any | Unset = UNSET
     images: ImageExtractionConfig | None | Unset = UNSET
     include_document_structure: bool | None | Unset = UNSET
-    keywords: Any | Unset = UNSET
+    keywords: KeywordConfig | None | Unset = UNSET
     language_detection: LanguageDetectionConfig | None | Unset = UNSET
     layout: LayoutDetectionConfig | None | Unset = UNSET
     max_archive_depth: int | None | Unset = UNSET
     max_concurrent_extractions: int | None | Unset = UNSET
+    max_embedded_file_bytes: int | None | Unset = UNSET
     ocr: None | OcrConfig | Unset = UNSET
     output_format: None | str | Unset = UNSET
     pages: None | PageConfig | Unset = UNSET
     pdf_options: None | PdfConfig | Unset = UNSET
     postprocessor: None | PostProcessorConfig | Unset = UNSET
     result_format: None | str | Unset = UNSET
-    security_limits: Any | Unset = UNSET
+    security_limits: None | SecurityLimits | Unset = UNSET
+    structured_extraction: None | StructuredExtractionConfig | Unset = UNSET
     token_reduction: None | TokenReductionConfig | Unset = UNSET
     use_cache: bool | None | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
@@ -91,12 +99,15 @@ class ExtractionConfig:
         from ..models.chunking_config import ChunkingConfig
         from ..models.content_filter_config import ContentFilterConfig
         from ..models.image_extraction_config import ImageExtractionConfig
+        from ..models.keyword_config import KeywordConfig
         from ..models.language_detection_config import LanguageDetectionConfig
         from ..models.layout_detection_config import LayoutDetectionConfig
         from ..models.ocr_config import OcrConfig
         from ..models.page_config import PageConfig
         from ..models.pdf_config import PdfConfig
         from ..models.post_processor_config import PostProcessorConfig
+        from ..models.security_limits import SecurityLimits
+        from ..models.structured_extraction_config import StructuredExtractionConfig
         from ..models.token_reduction_config import TokenReductionConfig
 
         cache_namespace: None | str | Unset
@@ -176,7 +187,13 @@ class ExtractionConfig:
         else:
             include_document_structure = self.include_document_structure
 
-        keywords = self.keywords
+        keywords: dict[str, Any] | None | Unset
+        if isinstance(self.keywords, Unset):
+            keywords = UNSET
+        elif isinstance(self.keywords, KeywordConfig):
+            keywords = self.keywords.to_dict()
+        else:
+            keywords = self.keywords
 
         language_detection: dict[str, Any] | None | Unset
         if isinstance(self.language_detection, Unset):
@@ -205,6 +222,12 @@ class ExtractionConfig:
             max_concurrent_extractions = UNSET
         else:
             max_concurrent_extractions = self.max_concurrent_extractions
+
+        max_embedded_file_bytes: int | None | Unset
+        if isinstance(self.max_embedded_file_bytes, Unset):
+            max_embedded_file_bytes = UNSET
+        else:
+            max_embedded_file_bytes = self.max_embedded_file_bytes
 
         ocr: dict[str, Any] | None | Unset
         if isinstance(self.ocr, Unset):
@@ -250,7 +273,21 @@ class ExtractionConfig:
         else:
             result_format = self.result_format
 
-        security_limits = self.security_limits
+        security_limits: dict[str, Any] | None | Unset
+        if isinstance(self.security_limits, Unset):
+            security_limits = UNSET
+        elif isinstance(self.security_limits, SecurityLimits):
+            security_limits = self.security_limits.to_dict()
+        else:
+            security_limits = self.security_limits
+
+        structured_extraction: dict[str, Any] | None | Unset
+        if isinstance(self.structured_extraction, Unset):
+            structured_extraction = UNSET
+        elif isinstance(self.structured_extraction, StructuredExtractionConfig):
+            structured_extraction = self.structured_extraction.to_dict()
+        else:
+            structured_extraction = self.structured_extraction
 
         token_reduction: dict[str, Any] | None | Unset
         if isinstance(self.token_reduction, Unset):
@@ -303,6 +340,8 @@ class ExtractionConfig:
             field_dict["max_archive_depth"] = max_archive_depth
         if max_concurrent_extractions is not UNSET:
             field_dict["max_concurrent_extractions"] = max_concurrent_extractions
+        if max_embedded_file_bytes is not UNSET:
+            field_dict["max_embedded_file_bytes"] = max_embedded_file_bytes
         if ocr is not UNSET:
             field_dict["ocr"] = ocr
         if output_format is not UNSET:
@@ -317,6 +356,8 @@ class ExtractionConfig:
             field_dict["result_format"] = result_format
         if security_limits is not UNSET:
             field_dict["security_limits"] = security_limits
+        if structured_extraction is not UNSET:
+            field_dict["structured_extraction"] = structured_extraction
         if token_reduction is not UNSET:
             field_dict["token_reduction"] = token_reduction
         if use_cache is not UNSET:
@@ -329,12 +370,15 @@ class ExtractionConfig:
         from ..models.chunking_config import ChunkingConfig
         from ..models.content_filter_config import ContentFilterConfig
         from ..models.image_extraction_config import ImageExtractionConfig
+        from ..models.keyword_config import KeywordConfig
         from ..models.language_detection_config import LanguageDetectionConfig
         from ..models.layout_detection_config import LayoutDetectionConfig
         from ..models.ocr_config import OcrConfig
         from ..models.page_config import PageConfig
         from ..models.pdf_config import PdfConfig
         from ..models.post_processor_config import PostProcessorConfig
+        from ..models.security_limits import SecurityLimits
+        from ..models.structured_extraction_config import StructuredExtractionConfig
         from ..models.token_reduction_config import TokenReductionConfig
 
         d = dict(src_dict)
@@ -472,7 +516,22 @@ class ExtractionConfig:
 
         include_document_structure = _parse_include_document_structure(d.pop("include_document_structure", UNSET))
 
-        keywords = d.pop("keywords", UNSET)
+        def _parse_keywords(data: object) -> KeywordConfig | None | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError
+                keywords_type_1 = KeywordConfig.from_dict(data)
+
+                return keywords_type_1
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            return cast("KeywordConfig | None | Unset", data)
+
+        keywords = _parse_keywords(d.pop("keywords", UNSET))
 
         def _parse_language_detection(data: object) -> LanguageDetectionConfig | None | Unset:
             if data is None:
@@ -525,6 +584,15 @@ class ExtractionConfig:
             return cast("int | None | Unset", data)
 
         max_concurrent_extractions = _parse_max_concurrent_extractions(d.pop("max_concurrent_extractions", UNSET))
+
+        def _parse_max_embedded_file_bytes(data: object) -> int | None | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast("int | None | Unset", data)
+
+        max_embedded_file_bytes = _parse_max_embedded_file_bytes(d.pop("max_embedded_file_bytes", UNSET))
 
         def _parse_ocr(data: object) -> None | OcrConfig | Unset:
             if data is None:
@@ -612,7 +680,39 @@ class ExtractionConfig:
 
         result_format = _parse_result_format(d.pop("result_format", UNSET))
 
-        security_limits = d.pop("security_limits", UNSET)
+        def _parse_security_limits(data: object) -> None | SecurityLimits | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError
+                security_limits_type_1 = SecurityLimits.from_dict(data)
+
+                return security_limits_type_1
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            return cast("None | SecurityLimits | Unset", data)
+
+        security_limits = _parse_security_limits(d.pop("security_limits", UNSET))
+
+        def _parse_structured_extraction(data: object) -> None | StructuredExtractionConfig | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError
+                structured_extraction_type_1 = StructuredExtractionConfig.from_dict(data)
+
+                return structured_extraction_type_1
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            return cast("None | StructuredExtractionConfig | Unset", data)
+
+        structured_extraction = _parse_structured_extraction(d.pop("structured_extraction", UNSET))
 
         def _parse_token_reduction(data: object) -> None | TokenReductionConfig | Unset:
             if data is None:
@@ -658,6 +758,7 @@ class ExtractionConfig:
             layout=layout,
             max_archive_depth=max_archive_depth,
             max_concurrent_extractions=max_concurrent_extractions,
+            max_embedded_file_bytes=max_embedded_file_bytes,
             ocr=ocr,
             output_format=output_format,
             pages=pages,
@@ -665,6 +766,7 @@ class ExtractionConfig:
             postprocessor=postprocessor,
             result_format=result_format,
             security_limits=security_limits,
+            structured_extraction=structured_extraction,
             token_reduction=token_reduction,
             use_cache=use_cache,
         )

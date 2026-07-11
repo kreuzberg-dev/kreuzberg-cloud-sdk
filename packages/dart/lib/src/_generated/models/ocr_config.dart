@@ -7,6 +7,8 @@ import 'package:freezed_annotation/freezed_annotation.dart';
 import 'ocr_element_config.dart';
 import 'ocr_pipeline_config.dart';
 import 'ocr_quality_thresholds.dart';
+import 'tesseract_config.dart';
+import 'vlm_fallback_policy.dart';
 
 part 'ocr_config.freezed.dart';
 part 'ocr_config.g.dart';
@@ -37,11 +39,14 @@ abstract class OcrConfig with _$OcrConfig {
     @JsonKey(name: 'quality_thresholds')
     OcrQualityThresholds? qualityThresholds,
 
-    /// Tesseract-specific configuration (flexible JSON with 20+ fields)
-    @JsonKey(name: 'tesseract_config') dynamic tesseractConfig,
+    /// Tesseract-specific configuration
+    @JsonKey(name: 'tesseract_config') TesseractConfig? tesseractConfig,
 
     /// VLM (Vision Language Model) configuration
     @JsonKey(name: 'vlm_config') dynamic vlmConfig,
+
+    /// VLM fallback policy for OCR operations
+    @JsonKey(name: 'vlm_fallback') VlmFallbackPolicy? vlmFallback,
 
     /// Custom Jinja2 prompt template for VLM OCR
     @JsonKey(name: 'vlm_prompt') String? vlmPrompt,

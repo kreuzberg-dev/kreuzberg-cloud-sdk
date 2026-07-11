@@ -8,9 +8,6 @@ part of 'page_info.dart';
 
 _PageInfo _$PageInfoFromJson(Map<String, dynamic> json) => _PageInfo(
   number: (json['number'] as num).toInt(),
-  dimensions: (json['dimensions'] as List<dynamic>?)
-      ?.map((e) => (e as num).toDouble())
-      .toList(),
   hasVectorGraphics: json['has_vector_graphics'] as bool?,
   hidden: json['hidden'] as bool?,
   imageCount: (json['image_count'] as num?)?.toInt(),
@@ -21,7 +18,6 @@ _PageInfo _$PageInfoFromJson(Map<String, dynamic> json) => _PageInfo(
 
 Map<String, dynamic> _$PageInfoToJson(_PageInfo instance) => <String, dynamic>{
   'number': instance.number,
-  'dimensions': instance.dimensions,
   'has_vector_graphics': instance.hasVectorGraphics,
   'hidden': instance.hidden,
   'image_count': instance.imageCount,

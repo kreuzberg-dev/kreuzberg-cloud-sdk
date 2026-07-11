@@ -15,6 +15,7 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$PstMetadata {
 
+/// Total number of email messages found in the PST archive.
 @JsonKey(name: 'message_count') int get messageCount;
 /// Create a copy of PstMetadata
 /// with the given fields replaced by the non-null parameter values.
@@ -212,6 +213,7 @@ class _PstMetadata implements PstMetadata {
   const _PstMetadata({@JsonKey(name: 'message_count') required this.messageCount});
   factory _PstMetadata.fromJson(Map<String, dynamic> json) => _$PstMetadataFromJson(json);
 
+/// Total number of email messages found in the PST archive.
 @override@JsonKey(name: 'message_count') final  int messageCount;
 
 /// Create a copy of PstMetadata

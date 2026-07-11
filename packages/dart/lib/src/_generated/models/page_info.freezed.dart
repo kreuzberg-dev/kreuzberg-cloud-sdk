@@ -16,12 +16,11 @@ T _$identity<T>(T value) => value;
 mixin _$PageInfo {
 
 /// Page number (1-indexed)
- int get number;/// Dimensions in points (PDF) or pixels (images): (width, height)
- List<double>? get dimensions;/// Whether this page contains non-trivial vector graphics (paths, shapes, curves).
+ int get number;/// Whether this page contains non-trivial vector graphics (paths, shapes, curves).
 ///
 /// Indicates the presence of vector-drawn content such as charts, diagrams,.
 /// or geometric shapes (e.g., from Adobe InDesign, LaTeX TikZ). These are.
-/// invisible to `ExtractionResult.images` since they are not embedded as raster.
+/// invisible to `ExtractedDocument.images` since they are not embedded as raster.
 /// XObjects. Set to `true` when path count exceeds a heuristic threshold,.
 /// signaling that downstream consumers may want to rasterize the page to.
 /// capture this content.
@@ -49,16 +48,16 @@ $PageInfoCopyWith<PageInfo> get copyWith => _$PageInfoCopyWithImpl<PageInfo>(thi
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is PageInfo&&(identical(other.number, number) || other.number == number)&&const DeepCollectionEquality().equals(other.dimensions, dimensions)&&(identical(other.hasVectorGraphics, hasVectorGraphics) || other.hasVectorGraphics == hasVectorGraphics)&&(identical(other.hidden, hidden) || other.hidden == hidden)&&(identical(other.imageCount, imageCount) || other.imageCount == imageCount)&&(identical(other.isBlank, isBlank) || other.isBlank == isBlank)&&(identical(other.tableCount, tableCount) || other.tableCount == tableCount)&&(identical(other.title, title) || other.title == title));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is PageInfo&&(identical(other.number, number) || other.number == number)&&(identical(other.hasVectorGraphics, hasVectorGraphics) || other.hasVectorGraphics == hasVectorGraphics)&&(identical(other.hidden, hidden) || other.hidden == hidden)&&(identical(other.imageCount, imageCount) || other.imageCount == imageCount)&&(identical(other.isBlank, isBlank) || other.isBlank == isBlank)&&(identical(other.tableCount, tableCount) || other.tableCount == tableCount)&&(identical(other.title, title) || other.title == title));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,number,const DeepCollectionEquality().hash(dimensions),hasVectorGraphics,hidden,imageCount,isBlank,tableCount,title);
+int get hashCode => Object.hash(runtimeType,number,hasVectorGraphics,hidden,imageCount,isBlank,tableCount,title);
 
 @override
 String toString() {
-  return 'PageInfo(number: $number, dimensions: $dimensions, hasVectorGraphics: $hasVectorGraphics, hidden: $hidden, imageCount: $imageCount, isBlank: $isBlank, tableCount: $tableCount, title: $title)';
+  return 'PageInfo(number: $number, hasVectorGraphics: $hasVectorGraphics, hidden: $hidden, imageCount: $imageCount, isBlank: $isBlank, tableCount: $tableCount, title: $title)';
 }
 
 
@@ -69,7 +68,7 @@ abstract mixin class $PageInfoCopyWith<$Res>  {
   factory $PageInfoCopyWith(PageInfo value, $Res Function(PageInfo) _then) = _$PageInfoCopyWithImpl;
 @useResult
 $Res call({
- int number, List<double>? dimensions,@JsonKey(name: 'has_vector_graphics') bool? hasVectorGraphics, bool? hidden,@JsonKey(name: 'image_count') int? imageCount,@JsonKey(name: 'is_blank') bool? isBlank,@JsonKey(name: 'table_count') int? tableCount, String? title
+ int number,@JsonKey(name: 'has_vector_graphics') bool? hasVectorGraphics, bool? hidden,@JsonKey(name: 'image_count') int? imageCount,@JsonKey(name: 'is_blank') bool? isBlank,@JsonKey(name: 'table_count') int? tableCount, String? title
 });
 
 
@@ -86,11 +85,10 @@ class _$PageInfoCopyWithImpl<$Res>
 
 /// Create a copy of PageInfo
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? number = null,Object? dimensions = freezed,Object? hasVectorGraphics = freezed,Object? hidden = freezed,Object? imageCount = freezed,Object? isBlank = freezed,Object? tableCount = freezed,Object? title = freezed,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? number = null,Object? hasVectorGraphics = freezed,Object? hidden = freezed,Object? imageCount = freezed,Object? isBlank = freezed,Object? tableCount = freezed,Object? title = freezed,}) {
   return _then(_self.copyWith(
 number: null == number ? _self.number : number // ignore: cast_nullable_to_non_nullable
-as int,dimensions: freezed == dimensions ? _self.dimensions : dimensions // ignore: cast_nullable_to_non_nullable
-as List<double>?,hasVectorGraphics: freezed == hasVectorGraphics ? _self.hasVectorGraphics : hasVectorGraphics // ignore: cast_nullable_to_non_nullable
+as int,hasVectorGraphics: freezed == hasVectorGraphics ? _self.hasVectorGraphics : hasVectorGraphics // ignore: cast_nullable_to_non_nullable
 as bool?,hidden: freezed == hidden ? _self.hidden : hidden // ignore: cast_nullable_to_non_nullable
 as bool?,imageCount: freezed == imageCount ? _self.imageCount : imageCount // ignore: cast_nullable_to_non_nullable
 as int?,isBlank: freezed == isBlank ? _self.isBlank : isBlank // ignore: cast_nullable_to_non_nullable
@@ -181,10 +179,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( int number,  List<double>? dimensions, @JsonKey(name: 'has_vector_graphics')  bool? hasVectorGraphics,  bool? hidden, @JsonKey(name: 'image_count')  int? imageCount, @JsonKey(name: 'is_blank')  bool? isBlank, @JsonKey(name: 'table_count')  int? tableCount,  String? title)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( int number, @JsonKey(name: 'has_vector_graphics')  bool? hasVectorGraphics,  bool? hidden, @JsonKey(name: 'image_count')  int? imageCount, @JsonKey(name: 'is_blank')  bool? isBlank, @JsonKey(name: 'table_count')  int? tableCount,  String? title)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _PageInfo() when $default != null:
-return $default(_that.number,_that.dimensions,_that.hasVectorGraphics,_that.hidden,_that.imageCount,_that.isBlank,_that.tableCount,_that.title);case _:
+return $default(_that.number,_that.hasVectorGraphics,_that.hidden,_that.imageCount,_that.isBlank,_that.tableCount,_that.title);case _:
   return orElse();
 
 }
@@ -202,10 +200,10 @@ return $default(_that.number,_that.dimensions,_that.hasVectorGraphics,_that.hidd
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( int number,  List<double>? dimensions, @JsonKey(name: 'has_vector_graphics')  bool? hasVectorGraphics,  bool? hidden, @JsonKey(name: 'image_count')  int? imageCount, @JsonKey(name: 'is_blank')  bool? isBlank, @JsonKey(name: 'table_count')  int? tableCount,  String? title)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( int number, @JsonKey(name: 'has_vector_graphics')  bool? hasVectorGraphics,  bool? hidden, @JsonKey(name: 'image_count')  int? imageCount, @JsonKey(name: 'is_blank')  bool? isBlank, @JsonKey(name: 'table_count')  int? tableCount,  String? title)  $default,) {final _that = this;
 switch (_that) {
 case _PageInfo():
-return $default(_that.number,_that.dimensions,_that.hasVectorGraphics,_that.hidden,_that.imageCount,_that.isBlank,_that.tableCount,_that.title);case _:
+return $default(_that.number,_that.hasVectorGraphics,_that.hidden,_that.imageCount,_that.isBlank,_that.tableCount,_that.title);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -222,10 +220,10 @@ return $default(_that.number,_that.dimensions,_that.hasVectorGraphics,_that.hidd
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( int number,  List<double>? dimensions, @JsonKey(name: 'has_vector_graphics')  bool? hasVectorGraphics,  bool? hidden, @JsonKey(name: 'image_count')  int? imageCount, @JsonKey(name: 'is_blank')  bool? isBlank, @JsonKey(name: 'table_count')  int? tableCount,  String? title)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( int number, @JsonKey(name: 'has_vector_graphics')  bool? hasVectorGraphics,  bool? hidden, @JsonKey(name: 'image_count')  int? imageCount, @JsonKey(name: 'is_blank')  bool? isBlank, @JsonKey(name: 'table_count')  int? tableCount,  String? title)?  $default,) {final _that = this;
 switch (_that) {
 case _PageInfo() when $default != null:
-return $default(_that.number,_that.dimensions,_that.hasVectorGraphics,_that.hidden,_that.imageCount,_that.isBlank,_that.tableCount,_that.title);case _:
+return $default(_that.number,_that.hasVectorGraphics,_that.hidden,_that.imageCount,_that.isBlank,_that.tableCount,_that.title);case _:
   return null;
 
 }
@@ -237,27 +235,16 @@ return $default(_that.number,_that.dimensions,_that.hasVectorGraphics,_that.hidd
 @JsonSerializable()
 
 class _PageInfo implements PageInfo {
-  const _PageInfo({required this.number, final  List<double>? dimensions, @JsonKey(name: 'has_vector_graphics') this.hasVectorGraphics, this.hidden, @JsonKey(name: 'image_count') this.imageCount, @JsonKey(name: 'is_blank') this.isBlank, @JsonKey(name: 'table_count') this.tableCount, this.title}): _dimensions = dimensions;
+  const _PageInfo({required this.number, @JsonKey(name: 'has_vector_graphics') this.hasVectorGraphics, this.hidden, @JsonKey(name: 'image_count') this.imageCount, @JsonKey(name: 'is_blank') this.isBlank, @JsonKey(name: 'table_count') this.tableCount, this.title});
   factory _PageInfo.fromJson(Map<String, dynamic> json) => _$PageInfoFromJson(json);
 
 /// Page number (1-indexed)
 @override final  int number;
-/// Dimensions in points (PDF) or pixels (images): (width, height)
- final  List<double>? _dimensions;
-/// Dimensions in points (PDF) or pixels (images): (width, height)
-@override List<double>? get dimensions {
-  final value = _dimensions;
-  if (value == null) return null;
-  if (_dimensions is EqualUnmodifiableListView) return _dimensions;
-  // ignore: implicit_dynamic_type
-  return EqualUnmodifiableListView(value);
-}
-
 /// Whether this page contains non-trivial vector graphics (paths, shapes, curves).
 ///
 /// Indicates the presence of vector-drawn content such as charts, diagrams,.
 /// or geometric shapes (e.g., from Adobe InDesign, LaTeX TikZ). These are.
-/// invisible to `ExtractionResult.images` since they are not embedded as raster.
+/// invisible to `ExtractedDocument.images` since they are not embedded as raster.
 /// XObjects. Set to `true` when path count exceeds a heuristic threshold,.
 /// signaling that downstream consumers may want to rasterize the page to.
 /// capture this content.
@@ -292,16 +279,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _PageInfo&&(identical(other.number, number) || other.number == number)&&const DeepCollectionEquality().equals(other._dimensions, _dimensions)&&(identical(other.hasVectorGraphics, hasVectorGraphics) || other.hasVectorGraphics == hasVectorGraphics)&&(identical(other.hidden, hidden) || other.hidden == hidden)&&(identical(other.imageCount, imageCount) || other.imageCount == imageCount)&&(identical(other.isBlank, isBlank) || other.isBlank == isBlank)&&(identical(other.tableCount, tableCount) || other.tableCount == tableCount)&&(identical(other.title, title) || other.title == title));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _PageInfo&&(identical(other.number, number) || other.number == number)&&(identical(other.hasVectorGraphics, hasVectorGraphics) || other.hasVectorGraphics == hasVectorGraphics)&&(identical(other.hidden, hidden) || other.hidden == hidden)&&(identical(other.imageCount, imageCount) || other.imageCount == imageCount)&&(identical(other.isBlank, isBlank) || other.isBlank == isBlank)&&(identical(other.tableCount, tableCount) || other.tableCount == tableCount)&&(identical(other.title, title) || other.title == title));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,number,const DeepCollectionEquality().hash(_dimensions),hasVectorGraphics,hidden,imageCount,isBlank,tableCount,title);
+int get hashCode => Object.hash(runtimeType,number,hasVectorGraphics,hidden,imageCount,isBlank,tableCount,title);
 
 @override
 String toString() {
-  return 'PageInfo(number: $number, dimensions: $dimensions, hasVectorGraphics: $hasVectorGraphics, hidden: $hidden, imageCount: $imageCount, isBlank: $isBlank, tableCount: $tableCount, title: $title)';
+  return 'PageInfo(number: $number, hasVectorGraphics: $hasVectorGraphics, hidden: $hidden, imageCount: $imageCount, isBlank: $isBlank, tableCount: $tableCount, title: $title)';
 }
 
 
@@ -312,7 +299,7 @@ abstract mixin class _$PageInfoCopyWith<$Res> implements $PageInfoCopyWith<$Res>
   factory _$PageInfoCopyWith(_PageInfo value, $Res Function(_PageInfo) _then) = __$PageInfoCopyWithImpl;
 @override @useResult
 $Res call({
- int number, List<double>? dimensions,@JsonKey(name: 'has_vector_graphics') bool? hasVectorGraphics, bool? hidden,@JsonKey(name: 'image_count') int? imageCount,@JsonKey(name: 'is_blank') bool? isBlank,@JsonKey(name: 'table_count') int? tableCount, String? title
+ int number,@JsonKey(name: 'has_vector_graphics') bool? hasVectorGraphics, bool? hidden,@JsonKey(name: 'image_count') int? imageCount,@JsonKey(name: 'is_blank') bool? isBlank,@JsonKey(name: 'table_count') int? tableCount, String? title
 });
 
 
@@ -329,11 +316,10 @@ class __$PageInfoCopyWithImpl<$Res>
 
 /// Create a copy of PageInfo
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? number = null,Object? dimensions = freezed,Object? hasVectorGraphics = freezed,Object? hidden = freezed,Object? imageCount = freezed,Object? isBlank = freezed,Object? tableCount = freezed,Object? title = freezed,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? number = null,Object? hasVectorGraphics = freezed,Object? hidden = freezed,Object? imageCount = freezed,Object? isBlank = freezed,Object? tableCount = freezed,Object? title = freezed,}) {
   return _then(_PageInfo(
 number: null == number ? _self.number : number // ignore: cast_nullable_to_non_nullable
-as int,dimensions: freezed == dimensions ? _self._dimensions : dimensions // ignore: cast_nullable_to_non_nullable
-as List<double>?,hasVectorGraphics: freezed == hasVectorGraphics ? _self.hasVectorGraphics : hasVectorGraphics // ignore: cast_nullable_to_non_nullable
+as int,hasVectorGraphics: freezed == hasVectorGraphics ? _self.hasVectorGraphics : hasVectorGraphics // ignore: cast_nullable_to_non_nullable
 as bool?,hidden: freezed == hidden ? _self.hidden : hidden // ignore: cast_nullable_to_non_nullable
 as bool?,imageCount: freezed == imageCount ? _self.imageCount : imageCount // ignore: cast_nullable_to_non_nullable
 as int?,isBlank: freezed == isBlank ? _self.isBlank : isBlank // ignore: cast_nullable_to_non_nullable

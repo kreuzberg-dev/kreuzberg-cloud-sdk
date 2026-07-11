@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
+from kreuzberg_cloud._generated.models.extracted_document import ExtractedDocument
 from kreuzberg_cloud._generated.models.extraction_options import ExtractionOptions
-from kreuzberg_cloud._generated.models.extraction_result import ExtractionResult
 from kreuzberg_cloud._generated.models.job_response import JobResponse
 from kreuzberg_cloud._generated.models.job_status import JobStatus
 from kreuzberg_cloud.client import AsyncKreuzbergCloud, KreuzbergCloud
@@ -18,12 +18,14 @@ from kreuzberg_cloud.errors import (
 )
 from kreuzberg_cloud.models import SandboxKey
 
+ExtractionResult = ExtractedDocument
 Job = JobResponse
 JobResult = ExtractionResult
 
 __all__ = [
     "AsyncKreuzbergCloud",
     "AuthError",
+    "ExtractedDocument",
     "ExtractionOptions",
     "ExtractionResult",
     "Job",

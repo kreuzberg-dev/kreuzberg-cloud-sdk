@@ -18,7 +18,7 @@ class NodeContentType3:
 
     Attributes:
         node_type (NodeContentType3NodeType):
-        ordered (bool):
+        ordered (bool): `true` for ordered (numbered) lists; `false` for unordered (bullet) lists.
     """
 
     node_type: NodeContentType3NodeType

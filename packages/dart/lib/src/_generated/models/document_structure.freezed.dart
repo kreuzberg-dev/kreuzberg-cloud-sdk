@@ -21,7 +21,7 @@ mixin _$DocumentStructure {
 /// Each value is the snake_case `node_type` tag of the corresponding.
 /// [`NodeContent`] variant (e.g. `"paragraph"`, `"heading"`, `"table"`, …).
 ///
-/// Computed from [`nodes`] via [`DocumentStructure::finalize_node_types`].
+/// Computed from `nodes` via [`DocumentStructure::finalize_node_types`].
 /// Empty until that method is called (internal construction paths call it.
 /// at the end of derivation).
 @JsonKey(name: 'node_types') List<String>? get nodeTypes;/// Resolved relationships between nodes (footnote refs, citations, anchor links, etc.).
@@ -246,7 +246,7 @@ class _DocumentStructure implements DocumentStructure {
 /// Each value is the snake_case `node_type` tag of the corresponding.
 /// [`NodeContent`] variant (e.g. `"paragraph"`, `"heading"`, `"table"`, …).
 ///
-/// Computed from [`nodes`] via [`DocumentStructure::finalize_node_types`].
+/// Computed from `nodes` via [`DocumentStructure::finalize_node_types`].
 /// Empty until that method is called (internal construction paths call it.
 /// at the end of derivation).
  final  List<String>? _nodeTypes;
@@ -255,7 +255,7 @@ class _DocumentStructure implements DocumentStructure {
 /// Each value is the snake_case `node_type` tag of the corresponding.
 /// [`NodeContent`] variant (e.g. `"paragraph"`, `"heading"`, `"table"`, …).
 ///
-/// Computed from [`nodes`] via [`DocumentStructure::finalize_node_types`].
+/// Computed from `nodes` via [`DocumentStructure::finalize_node_types`].
 /// Empty until that method is called (internal construction paths call it.
 /// at the end of derivation).
 @override@JsonKey(name: 'node_types') List<String>? get nodeTypes {

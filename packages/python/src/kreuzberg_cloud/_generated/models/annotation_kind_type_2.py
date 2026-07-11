@@ -17,7 +17,8 @@ T = TypeVar("T", bound="AnnotationKindType2")
 
 @_attrs_define
 class AnnotationKindType2:
-    """
+    """Underlined text.
+
     Attributes:
         annotation_type (AnnotationKindType2AnnotationType):
     """

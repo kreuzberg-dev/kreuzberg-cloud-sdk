@@ -30,6 +30,100 @@ Map<String, dynamic> _$FormatMetadataArchiveToJson(
   'format_type': instance.$type,
 };
 
+FormatMetadataAudio _$FormatMetadataAudioFromJson(Map<String, dynamic> json) =>
+    FormatMetadataAudio(
+      bitrate: (json['bitrate'] as num?)?.toInt(),
+      channels: (json['channels'] as num?)?.toInt(),
+      codec: json['codec'] as String?,
+      container: json['container'] as String?,
+      durationMs: (json['duration_ms'] as num?)?.toInt(),
+      sampleRateHz: (json['sample_rate_hz'] as num?)?.toInt(),
+      $type: json['format_type'] as String?,
+    );
+
+Map<String, dynamic> _$FormatMetadataAudioToJson(
+  FormatMetadataAudio instance,
+) => <String, dynamic>{
+  'bitrate': instance.bitrate,
+  'channels': instance.channels,
+  'codec': instance.codec,
+  'container': instance.container,
+  'duration_ms': instance.durationMs,
+  'sample_rate_hz': instance.sampleRateHz,
+  'format_type': instance.$type,
+};
+
+FormatMetadataBibtex _$FormatMetadataBibtexFromJson(
+  Map<String, dynamic> json,
+) => FormatMetadataBibtex(
+  entryCount: (json['entry_count'] as num).toInt(),
+  authors: (json['authors'] as List<dynamic>?)
+      ?.map((e) => e as String)
+      .toList(),
+  citationKeys: (json['citation_keys'] as List<dynamic>?)
+      ?.map((e) => e as String)
+      .toList(),
+  entryTypes: (json['entry_types'] as Map<String, dynamic>?)?.map(
+    (k, e) => MapEntry(k, (e as num).toInt()),
+  ),
+  yearRange: json['year_range'] == null
+      ? null
+      : YearRange.fromJson(json['year_range'] as Map<String, dynamic>),
+  $type: json['format_type'] as String?,
+);
+
+Map<String, dynamic> _$FormatMetadataBibtexToJson(
+  FormatMetadataBibtex instance,
+) => <String, dynamic>{
+  'entry_count': instance.entryCount,
+  'authors': instance.authors,
+  'citation_keys': instance.citationKeys,
+  'entry_types': instance.entryTypes,
+  'year_range': instance.yearRange,
+  'format_type': instance.$type,
+};
+
+FormatMetadataCitation _$FormatMetadataCitationFromJson(
+  Map<String, dynamic> json,
+) => FormatMetadataCitation(
+  citationCount: (json['citation_count'] as num).toInt(),
+  authors: (json['authors'] as List<dynamic>?)
+      ?.map((e) => e as String)
+      .toList(),
+  dois: (json['dois'] as List<dynamic>?)?.map((e) => e as String).toList(),
+  format: json['format'] as String?,
+  keywords: (json['keywords'] as List<dynamic>?)
+      ?.map((e) => e as String)
+      .toList(),
+  yearRange: json['year_range'] == null
+      ? null
+      : YearRange.fromJson(json['year_range'] as Map<String, dynamic>),
+  $type: json['format_type'] as String?,
+);
+
+Map<String, dynamic> _$FormatMetadataCitationToJson(
+  FormatMetadataCitation instance,
+) => <String, dynamic>{
+  'citation_count': instance.citationCount,
+  'authors': instance.authors,
+  'dois': instance.dois,
+  'format': instance.format,
+  'keywords': instance.keywords,
+  'year_range': instance.yearRange,
+  'format_type': instance.$type,
+};
+
+FormatMetadataCode _$FormatMetadataCodeFromJson(Map<String, dynamic> json) =>
+    FormatMetadataCode(
+      chunks: (json['chunks'] as List<dynamic>)
+          .map((e) => CodeChunkInfo.fromJson(e as Map<String, dynamic>))
+          .toList(),
+      $type: json['format_type'] as String?,
+    );
+
+Map<String, dynamic> _$FormatMetadataCodeToJson(FormatMetadataCode instance) =>
+    <String, dynamic>{'chunks': instance.chunks, 'format_type': instance.$type};
+
 FormatMetadataCsv _$FormatMetadataCsvFromJson(Map<String, dynamic> json) =>
     FormatMetadataCsv(
       columnCount: (json['column_count'] as num).toInt(),
@@ -49,6 +143,40 @@ Map<String, dynamic> _$FormatMetadataCsvToJson(FormatMetadataCsv instance) =>
       'row_count': instance.rowCount,
       'column_types': instance.columnTypes,
       'delimiter': instance.delimiter,
+      'format_type': instance.$type,
+    };
+
+FormatMetadataDbf _$FormatMetadataDbfFromJson(Map<String, dynamic> json) =>
+    FormatMetadataDbf(
+      fieldCount: (json['field_count'] as num).toInt(),
+      recordCount: (json['record_count'] as num).toInt(),
+      fields: (json['fields'] as List<dynamic>?)
+          ?.map((e) => DbfFieldInfo.fromJson(e as Map<String, dynamic>))
+          .toList(),
+      $type: json['format_type'] as String?,
+    );
+
+Map<String, dynamic> _$FormatMetadataDbfToJson(FormatMetadataDbf instance) =>
+    <String, dynamic>{
+      'field_count': instance.fieldCount,
+      'record_count': instance.recordCount,
+      'fields': instance.fields,
+      'format_type': instance.$type,
+    };
+
+FormatMetadataDocx _$FormatMetadataDocxFromJson(Map<String, dynamic> json) =>
+    FormatMetadataDocx(
+      appProperties: json['app_properties'],
+      coreProperties: json['core_properties'],
+      customProperties: json['custom_properties'] as Map<String, dynamic>?,
+      $type: json['format_type'] as String?,
+    );
+
+Map<String, dynamic> _$FormatMetadataDocxToJson(FormatMetadataDocx instance) =>
+    <String, dynamic>{
+      'app_properties': instance.appProperties,
+      'core_properties': instance.coreProperties,
+      'custom_properties': instance.customProperties,
       'format_type': instance.$type,
     };
 
@@ -85,6 +213,28 @@ Map<String, dynamic> _$FormatMetadataEmailToJson(
   'format_type': instance.$type,
 };
 
+FormatMetadataEpub _$FormatMetadataEpubFromJson(Map<String, dynamic> json) =>
+    FormatMetadataEpub(
+      coverImage: json['cover_image'] as String?,
+      coverage: json['coverage'] as String?,
+      dcFormat: json['dc_format'] as String?,
+      dcType: json['dc_type'] as String?,
+      relation: json['relation'] as String?,
+      source: json['source'] as String?,
+      $type: json['format_type'] as String?,
+    );
+
+Map<String, dynamic> _$FormatMetadataEpubToJson(FormatMetadataEpub instance) =>
+    <String, dynamic>{
+      'cover_image': instance.coverImage,
+      'coverage': instance.coverage,
+      'dc_format': instance.dcFormat,
+      'dc_type': instance.dcType,
+      'relation': instance.relation,
+      'source': instance.source,
+      'format_type': instance.$type,
+    };
+
 FormatMetadataExcel _$FormatMetadataExcelFromJson(Map<String, dynamic> json) =>
     FormatMetadataExcel(
       sheetCount: (json['sheet_count'] as num?)?.toInt(),
@@ -99,6 +249,26 @@ Map<String, dynamic> _$FormatMetadataExcelToJson(
 ) => <String, dynamic>{
   'sheet_count': instance.sheetCount,
   'sheet_names': instance.sheetNames,
+  'format_type': instance.$type,
+};
+
+FormatMetadataFictionBook _$FormatMetadataFictionBookFromJson(
+  Map<String, dynamic> json,
+) => FormatMetadataFictionBook(
+  annotation: json['annotation'] as String?,
+  genres: (json['genres'] as List<dynamic>?)?.map((e) => e as String).toList(),
+  sequences: (json['sequences'] as List<dynamic>?)
+      ?.map((e) => e as String)
+      .toList(),
+  $type: json['format_type'] as String?,
+);
+
+Map<String, dynamic> _$FormatMetadataFictionBookToJson(
+  FormatMetadataFictionBook instance,
+) => <String, dynamic>{
+  'annotation': instance.annotation,
+  'genres': instance.genres,
+  'sequences': instance.sequences,
   'format_type': instance.$type,
 };
 
@@ -179,6 +349,28 @@ Map<String, dynamic> _$FormatMetadataImageToJson(
   'format_type': instance.$type,
 };
 
+FormatMetadataJats _$FormatMetadataJatsFromJson(Map<String, dynamic> json) =>
+    FormatMetadataJats(
+      contributorRoles: (json['contributor_roles'] as List<dynamic>?)
+          ?.map((e) => ContributorRole.fromJson(e as Map<String, dynamic>))
+          .toList(),
+      copyright: json['copyright'] as String?,
+      historyDates: (json['history_dates'] as Map<String, dynamic>?)?.map(
+        (k, e) => MapEntry(k, e as String),
+      ),
+      license: json['license'] as String?,
+      $type: json['format_type'] as String?,
+    );
+
+Map<String, dynamic> _$FormatMetadataJatsToJson(FormatMetadataJats instance) =>
+    <String, dynamic>{
+      'contributor_roles': instance.contributorRoles,
+      'copyright': instance.copyright,
+      'history_dates': instance.historyDates,
+      'license': instance.license,
+      'format_type': instance.$type,
+    };
+
 FormatMetadataOcr _$FormatMetadataOcrFromJson(Map<String, dynamic> json) =>
     FormatMetadataOcr(
       language: json['language'] as String,
@@ -198,6 +390,28 @@ Map<String, dynamic> _$FormatMetadataOcrToJson(FormatMetadataOcr instance) =>
       'table_count': instance.tableCount,
       'table_cols': instance.tableCols,
       'table_rows': instance.tableRows,
+      'format_type': instance.$type,
+    };
+
+FormatMetadataPdf _$FormatMetadataPdfFromJson(Map<String, dynamic> json) =>
+    FormatMetadataPdf(
+      height: (json['height'] as num?)?.toInt(),
+      isEncrypted: json['is_encrypted'] as bool?,
+      pageCount: (json['page_count'] as num?)?.toInt(),
+      pdfVersion: json['pdf_version'] as String?,
+      producer: json['producer'] as String?,
+      width: (json['width'] as num?)?.toInt(),
+      $type: json['format_type'] as String?,
+    );
+
+Map<String, dynamic> _$FormatMetadataPdfToJson(FormatMetadataPdf instance) =>
+    <String, dynamic>{
+      'height': instance.height,
+      'is_encrypted': instance.isEncrypted,
+      'page_count': instance.pageCount,
+      'pdf_version': instance.pdfVersion,
+      'producer': instance.producer,
+      'width': instance.width,
       'format_type': instance.$type,
     };
 

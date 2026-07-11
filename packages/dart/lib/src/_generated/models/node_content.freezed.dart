@@ -95,7 +95,7 @@ NodeContent _$NodeContentFromJson(
           return NodeContentMetadataBlock.fromJson(
             json
           );
-        
+
           default:
             throw CheckedFromJsonException(
   json,
@@ -104,7 +104,7 @@ NodeContent _$NodeContentFromJson(
   'Invalid union type "${json['node_type']}"!'
 );
         }
-      
+
 }
 
 /// @nodoc
@@ -819,7 +819,7 @@ as TableGrid,
 @override
 @pragma('vm:prefer-inline')
 $TableGridCopyWith<$Res> get grid {
-  
+
   return $TableGridCopyWith<$Res>(_self.grid, (value) {
     return _then(_self.copyWith(grid: value));
   });

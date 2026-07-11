@@ -31,7 +31,7 @@ abstract class DocumentStructure with _$DocumentStructure {
     /// Each value is the snake_case `node_type` tag of the corresponding.
     /// [`NodeContent`] variant (e.g. `"paragraph"`, `"heading"`, `"table"`, …).
     ///
-    /// Computed from [`nodes`] via [`DocumentStructure::finalize_node_types`].
+    /// Computed from `nodes` via [`DocumentStructure::finalize_node_types`].
     /// Empty until that method is called (internal construction paths call it.
     /// at the end of derivation).
     @JsonKey(name: 'node_types') List<String>? nodeTypes,

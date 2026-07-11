@@ -27,19 +27,21 @@ mixin _$ExtractionConfig {
 @JsonKey(name: 'force_ocr_pages') List<int>? get forceOcrPages;/// HTML extraction options (flexible JSON)
 @JsonKey(name: 'html_options') dynamic get htmlOptions;/// Image extraction configuration
  ImageExtractionConfig? get images;/// Include structured document tree in output
-@JsonKey(name: 'include_document_structure') bool? get includeDocumentStructure;/// Keyword extraction configuration (flexible JSON)
- dynamic get keywords;/// Language detection configuration
+@JsonKey(name: 'include_document_structure') bool? get includeDocumentStructure;/// Keyword extraction configuration
+ KeywordConfig? get keywords;/// Language detection configuration
 @JsonKey(name: 'language_detection') LanguageDetectionConfig? get languageDetection;/// Layout detection configuration
  LayoutDetectionConfig? get layout;/// Maximum recursion depth for archive extraction
 @JsonKey(name: 'max_archive_depth') int? get maxArchiveDepth;/// Maximum concurrent extractions
-@JsonKey(name: 'max_concurrent_extractions') int? get maxConcurrentExtractions;/// OCR configuration
+@JsonKey(name: 'max_concurrent_extractions') int? get maxConcurrentExtractions;/// Maximum size in bytes for embedded/attached files during recursive extraction
+@JsonKey(name: 'max_embedded_file_bytes') int? get maxEmbeddedFileBytes;/// OCR configuration
  OcrConfig? get ocr;/// Output text format: "plain", "markdown", "html", "djot", "structured", "json"
 @JsonKey(name: 'output_format') String? get outputFormat;/// Page extraction configuration
  PageConfig? get pages;/// PDF-specific options
 @JsonKey(name: 'pdf_options') PdfConfig? get pdfOptions;/// Post-processor configuration
  PostProcessorConfig? get postprocessor;/// Result format: "unified" or "element_based"
-@JsonKey(name: 'result_format') String? get resultFormat;/// Security limits (flexible JSON)
-@JsonKey(name: 'security_limits') dynamic get securityLimits;/// Token reduction configuration
+@JsonKey(name: 'result_format') String? get resultFormat;/// Security limits for extraction (resource caps, recursion bounds)
+@JsonKey(name: 'security_limits') SecurityLimits? get securityLimits;/// LLM-driven structured extraction: schema + provider config.
+@JsonKey(name: 'structured_extraction') StructuredExtractionConfig? get structuredExtraction;/// Token reduction configuration
 @JsonKey(name: 'token_reduction') TokenReductionConfig? get tokenReduction;/// Enable extraction result caching
 @JsonKey(name: 'use_cache') bool? get useCache;
 /// Create a copy of ExtractionConfig
@@ -54,16 +56,16 @@ $ExtractionConfigCopyWith<ExtractionConfig> get copyWith => _$ExtractionConfigCo
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is ExtractionConfig&&(identical(other.cacheNamespace, cacheNamespace) || other.cacheNamespace == cacheNamespace)&&(identical(other.cacheTtlSecs, cacheTtlSecs) || other.cacheTtlSecs == cacheTtlSecs)&&(identical(other.chunking, chunking) || other.chunking == chunking)&&(identical(other.contentFilter, contentFilter) || other.contentFilter == contentFilter)&&(identical(other.disableOcr, disableOcr) || other.disableOcr == disableOcr)&&(identical(other.enableQualityProcessing, enableQualityProcessing) || other.enableQualityProcessing == enableQualityProcessing)&&(identical(other.extractionTimeoutSecs, extractionTimeoutSecs) || other.extractionTimeoutSecs == extractionTimeoutSecs)&&(identical(other.forceOcr, forceOcr) || other.forceOcr == forceOcr)&&const DeepCollectionEquality().equals(other.forceOcrPages, forceOcrPages)&&const DeepCollectionEquality().equals(other.htmlOptions, htmlOptions)&&(identical(other.images, images) || other.images == images)&&(identical(other.includeDocumentStructure, includeDocumentStructure) || other.includeDocumentStructure == includeDocumentStructure)&&const DeepCollectionEquality().equals(other.keywords, keywords)&&(identical(other.languageDetection, languageDetection) || other.languageDetection == languageDetection)&&(identical(other.layout, layout) || other.layout == layout)&&(identical(other.maxArchiveDepth, maxArchiveDepth) || other.maxArchiveDepth == maxArchiveDepth)&&(identical(other.maxConcurrentExtractions, maxConcurrentExtractions) || other.maxConcurrentExtractions == maxConcurrentExtractions)&&(identical(other.ocr, ocr) || other.ocr == ocr)&&(identical(other.outputFormat, outputFormat) || other.outputFormat == outputFormat)&&(identical(other.pages, pages) || other.pages == pages)&&(identical(other.pdfOptions, pdfOptions) || other.pdfOptions == pdfOptions)&&(identical(other.postprocessor, postprocessor) || other.postprocessor == postprocessor)&&(identical(other.resultFormat, resultFormat) || other.resultFormat == resultFormat)&&const DeepCollectionEquality().equals(other.securityLimits, securityLimits)&&(identical(other.tokenReduction, tokenReduction) || other.tokenReduction == tokenReduction)&&(identical(other.useCache, useCache) || other.useCache == useCache));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is ExtractionConfig&&(identical(other.cacheNamespace, cacheNamespace) || other.cacheNamespace == cacheNamespace)&&(identical(other.cacheTtlSecs, cacheTtlSecs) || other.cacheTtlSecs == cacheTtlSecs)&&(identical(other.chunking, chunking) || other.chunking == chunking)&&(identical(other.contentFilter, contentFilter) || other.contentFilter == contentFilter)&&(identical(other.disableOcr, disableOcr) || other.disableOcr == disableOcr)&&(identical(other.enableQualityProcessing, enableQualityProcessing) || other.enableQualityProcessing == enableQualityProcessing)&&(identical(other.extractionTimeoutSecs, extractionTimeoutSecs) || other.extractionTimeoutSecs == extractionTimeoutSecs)&&(identical(other.forceOcr, forceOcr) || other.forceOcr == forceOcr)&&const DeepCollectionEquality().equals(other.forceOcrPages, forceOcrPages)&&const DeepCollectionEquality().equals(other.htmlOptions, htmlOptions)&&(identical(other.images, images) || other.images == images)&&(identical(other.includeDocumentStructure, includeDocumentStructure) || other.includeDocumentStructure == includeDocumentStructure)&&(identical(other.keywords, keywords) || other.keywords == keywords)&&(identical(other.languageDetection, languageDetection) || other.languageDetection == languageDetection)&&(identical(other.layout, layout) || other.layout == layout)&&(identical(other.maxArchiveDepth, maxArchiveDepth) || other.maxArchiveDepth == maxArchiveDepth)&&(identical(other.maxConcurrentExtractions, maxConcurrentExtractions) || other.maxConcurrentExtractions == maxConcurrentExtractions)&&(identical(other.maxEmbeddedFileBytes, maxEmbeddedFileBytes) || other.maxEmbeddedFileBytes == maxEmbeddedFileBytes)&&(identical(other.ocr, ocr) || other.ocr == ocr)&&(identical(other.outputFormat, outputFormat) || other.outputFormat == outputFormat)&&(identical(other.pages, pages) || other.pages == pages)&&(identical(other.pdfOptions, pdfOptions) || other.pdfOptions == pdfOptions)&&(identical(other.postprocessor, postprocessor) || other.postprocessor == postprocessor)&&(identical(other.resultFormat, resultFormat) || other.resultFormat == resultFormat)&&(identical(other.securityLimits, securityLimits) || other.securityLimits == securityLimits)&&(identical(other.structuredExtraction, structuredExtraction) || other.structuredExtraction == structuredExtraction)&&(identical(other.tokenReduction, tokenReduction) || other.tokenReduction == tokenReduction)&&(identical(other.useCache, useCache) || other.useCache == useCache));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hashAll([runtimeType,cacheNamespace,cacheTtlSecs,chunking,contentFilter,disableOcr,enableQualityProcessing,extractionTimeoutSecs,forceOcr,const DeepCollectionEquality().hash(forceOcrPages),const DeepCollectionEquality().hash(htmlOptions),images,includeDocumentStructure,const DeepCollectionEquality().hash(keywords),languageDetection,layout,maxArchiveDepth,maxConcurrentExtractions,ocr,outputFormat,pages,pdfOptions,postprocessor,resultFormat,const DeepCollectionEquality().hash(securityLimits),tokenReduction,useCache]);
+int get hashCode => Object.hashAll([runtimeType,cacheNamespace,cacheTtlSecs,chunking,contentFilter,disableOcr,enableQualityProcessing,extractionTimeoutSecs,forceOcr,const DeepCollectionEquality().hash(forceOcrPages),const DeepCollectionEquality().hash(htmlOptions),images,includeDocumentStructure,keywords,languageDetection,layout,maxArchiveDepth,maxConcurrentExtractions,maxEmbeddedFileBytes,ocr,outputFormat,pages,pdfOptions,postprocessor,resultFormat,securityLimits,structuredExtraction,tokenReduction,useCache]);
 
 @override
 String toString() {
-  return 'ExtractionConfig(cacheNamespace: $cacheNamespace, cacheTtlSecs: $cacheTtlSecs, chunking: $chunking, contentFilter: $contentFilter, disableOcr: $disableOcr, enableQualityProcessing: $enableQualityProcessing, extractionTimeoutSecs: $extractionTimeoutSecs, forceOcr: $forceOcr, forceOcrPages: $forceOcrPages, htmlOptions: $htmlOptions, images: $images, includeDocumentStructure: $includeDocumentStructure, keywords: $keywords, languageDetection: $languageDetection, layout: $layout, maxArchiveDepth: $maxArchiveDepth, maxConcurrentExtractions: $maxConcurrentExtractions, ocr: $ocr, outputFormat: $outputFormat, pages: $pages, pdfOptions: $pdfOptions, postprocessor: $postprocessor, resultFormat: $resultFormat, securityLimits: $securityLimits, tokenReduction: $tokenReduction, useCache: $useCache)';
+  return 'ExtractionConfig(cacheNamespace: $cacheNamespace, cacheTtlSecs: $cacheTtlSecs, chunking: $chunking, contentFilter: $contentFilter, disableOcr: $disableOcr, enableQualityProcessing: $enableQualityProcessing, extractionTimeoutSecs: $extractionTimeoutSecs, forceOcr: $forceOcr, forceOcrPages: $forceOcrPages, htmlOptions: $htmlOptions, images: $images, includeDocumentStructure: $includeDocumentStructure, keywords: $keywords, languageDetection: $languageDetection, layout: $layout, maxArchiveDepth: $maxArchiveDepth, maxConcurrentExtractions: $maxConcurrentExtractions, maxEmbeddedFileBytes: $maxEmbeddedFileBytes, ocr: $ocr, outputFormat: $outputFormat, pages: $pages, pdfOptions: $pdfOptions, postprocessor: $postprocessor, resultFormat: $resultFormat, securityLimits: $securityLimits, structuredExtraction: $structuredExtraction, tokenReduction: $tokenReduction, useCache: $useCache)';
 }
 
 
@@ -74,11 +76,11 @@ abstract mixin class $ExtractionConfigCopyWith<$Res>  {
   factory $ExtractionConfigCopyWith(ExtractionConfig value, $Res Function(ExtractionConfig) _then) = _$ExtractionConfigCopyWithImpl;
 @useResult
 $Res call({
-@JsonKey(name: 'cache_namespace') String? cacheNamespace,@JsonKey(name: 'cache_ttl_secs') int? cacheTtlSecs, ChunkingConfig? chunking,@JsonKey(name: 'content_filter') ContentFilterConfig? contentFilter,@JsonKey(name: 'disable_ocr') bool? disableOcr,@JsonKey(name: 'enable_quality_processing') bool? enableQualityProcessing,@JsonKey(name: 'extraction_timeout_secs') int? extractionTimeoutSecs,@JsonKey(name: 'force_ocr') bool? forceOcr,@JsonKey(name: 'force_ocr_pages') List<int>? forceOcrPages,@JsonKey(name: 'html_options') dynamic htmlOptions, ImageExtractionConfig? images,@JsonKey(name: 'include_document_structure') bool? includeDocumentStructure, dynamic keywords,@JsonKey(name: 'language_detection') LanguageDetectionConfig? languageDetection, LayoutDetectionConfig? layout,@JsonKey(name: 'max_archive_depth') int? maxArchiveDepth,@JsonKey(name: 'max_concurrent_extractions') int? maxConcurrentExtractions, OcrConfig? ocr,@JsonKey(name: 'output_format') String? outputFormat, PageConfig? pages,@JsonKey(name: 'pdf_options') PdfConfig? pdfOptions, PostProcessorConfig? postprocessor,@JsonKey(name: 'result_format') String? resultFormat,@JsonKey(name: 'security_limits') dynamic securityLimits,@JsonKey(name: 'token_reduction') TokenReductionConfig? tokenReduction,@JsonKey(name: 'use_cache') bool? useCache
+@JsonKey(name: 'cache_namespace') String? cacheNamespace,@JsonKey(name: 'cache_ttl_secs') int? cacheTtlSecs, ChunkingConfig? chunking,@JsonKey(name: 'content_filter') ContentFilterConfig? contentFilter,@JsonKey(name: 'disable_ocr') bool? disableOcr,@JsonKey(name: 'enable_quality_processing') bool? enableQualityProcessing,@JsonKey(name: 'extraction_timeout_secs') int? extractionTimeoutSecs,@JsonKey(name: 'force_ocr') bool? forceOcr,@JsonKey(name: 'force_ocr_pages') List<int>? forceOcrPages,@JsonKey(name: 'html_options') dynamic htmlOptions, ImageExtractionConfig? images,@JsonKey(name: 'include_document_structure') bool? includeDocumentStructure, KeywordConfig? keywords,@JsonKey(name: 'language_detection') LanguageDetectionConfig? languageDetection, LayoutDetectionConfig? layout,@JsonKey(name: 'max_archive_depth') int? maxArchiveDepth,@JsonKey(name: 'max_concurrent_extractions') int? maxConcurrentExtractions,@JsonKey(name: 'max_embedded_file_bytes') int? maxEmbeddedFileBytes, OcrConfig? ocr,@JsonKey(name: 'output_format') String? outputFormat, PageConfig? pages,@JsonKey(name: 'pdf_options') PdfConfig? pdfOptions, PostProcessorConfig? postprocessor,@JsonKey(name: 'result_format') String? resultFormat,@JsonKey(name: 'security_limits') SecurityLimits? securityLimits,@JsonKey(name: 'structured_extraction') StructuredExtractionConfig? structuredExtraction,@JsonKey(name: 'token_reduction') TokenReductionConfig? tokenReduction,@JsonKey(name: 'use_cache') bool? useCache
 });
 
 
-$ChunkingConfigCopyWith<$Res>? get chunking;$ContentFilterConfigCopyWith<$Res>? get contentFilter;$ImageExtractionConfigCopyWith<$Res>? get images;$LanguageDetectionConfigCopyWith<$Res>? get languageDetection;$LayoutDetectionConfigCopyWith<$Res>? get layout;$OcrConfigCopyWith<$Res>? get ocr;$PageConfigCopyWith<$Res>? get pages;$PdfConfigCopyWith<$Res>? get pdfOptions;$PostProcessorConfigCopyWith<$Res>? get postprocessor;$TokenReductionConfigCopyWith<$Res>? get tokenReduction;
+$ChunkingConfigCopyWith<$Res>? get chunking;$ContentFilterConfigCopyWith<$Res>? get contentFilter;$ImageExtractionConfigCopyWith<$Res>? get images;$KeywordConfigCopyWith<$Res>? get keywords;$LanguageDetectionConfigCopyWith<$Res>? get languageDetection;$LayoutDetectionConfigCopyWith<$Res>? get layout;$OcrConfigCopyWith<$Res>? get ocr;$PageConfigCopyWith<$Res>? get pages;$PdfConfigCopyWith<$Res>? get pdfOptions;$PostProcessorConfigCopyWith<$Res>? get postprocessor;$SecurityLimitsCopyWith<$Res>? get securityLimits;$StructuredExtractionConfigCopyWith<$Res>? get structuredExtraction;$TokenReductionConfigCopyWith<$Res>? get tokenReduction;
 
 }
 /// @nodoc
@@ -91,7 +93,7 @@ class _$ExtractionConfigCopyWithImpl<$Res>
 
 /// Create a copy of ExtractionConfig
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? cacheNamespace = freezed,Object? cacheTtlSecs = freezed,Object? chunking = freezed,Object? contentFilter = freezed,Object? disableOcr = freezed,Object? enableQualityProcessing = freezed,Object? extractionTimeoutSecs = freezed,Object? forceOcr = freezed,Object? forceOcrPages = freezed,Object? htmlOptions = freezed,Object? images = freezed,Object? includeDocumentStructure = freezed,Object? keywords = freezed,Object? languageDetection = freezed,Object? layout = freezed,Object? maxArchiveDepth = freezed,Object? maxConcurrentExtractions = freezed,Object? ocr = freezed,Object? outputFormat = freezed,Object? pages = freezed,Object? pdfOptions = freezed,Object? postprocessor = freezed,Object? resultFormat = freezed,Object? securityLimits = freezed,Object? tokenReduction = freezed,Object? useCache = freezed,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? cacheNamespace = freezed,Object? cacheTtlSecs = freezed,Object? chunking = freezed,Object? contentFilter = freezed,Object? disableOcr = freezed,Object? enableQualityProcessing = freezed,Object? extractionTimeoutSecs = freezed,Object? forceOcr = freezed,Object? forceOcrPages = freezed,Object? htmlOptions = freezed,Object? images = freezed,Object? includeDocumentStructure = freezed,Object? keywords = freezed,Object? languageDetection = freezed,Object? layout = freezed,Object? maxArchiveDepth = freezed,Object? maxConcurrentExtractions = freezed,Object? maxEmbeddedFileBytes = freezed,Object? ocr = freezed,Object? outputFormat = freezed,Object? pages = freezed,Object? pdfOptions = freezed,Object? postprocessor = freezed,Object? resultFormat = freezed,Object? securityLimits = freezed,Object? structuredExtraction = freezed,Object? tokenReduction = freezed,Object? useCache = freezed,}) {
   return _then(_self.copyWith(
 cacheNamespace: freezed == cacheNamespace ? _self.cacheNamespace : cacheNamespace // ignore: cast_nullable_to_non_nullable
 as String?,cacheTtlSecs: freezed == cacheTtlSecs ? _self.cacheTtlSecs : cacheTtlSecs // ignore: cast_nullable_to_non_nullable
@@ -106,10 +108,11 @@ as List<int>?,htmlOptions: freezed == htmlOptions ? _self.htmlOptions : htmlOpti
 as dynamic,images: freezed == images ? _self.images : images // ignore: cast_nullable_to_non_nullable
 as ImageExtractionConfig?,includeDocumentStructure: freezed == includeDocumentStructure ? _self.includeDocumentStructure : includeDocumentStructure // ignore: cast_nullable_to_non_nullable
 as bool?,keywords: freezed == keywords ? _self.keywords : keywords // ignore: cast_nullable_to_non_nullable
-as dynamic,languageDetection: freezed == languageDetection ? _self.languageDetection : languageDetection // ignore: cast_nullable_to_non_nullable
+as KeywordConfig?,languageDetection: freezed == languageDetection ? _self.languageDetection : languageDetection // ignore: cast_nullable_to_non_nullable
 as LanguageDetectionConfig?,layout: freezed == layout ? _self.layout : layout // ignore: cast_nullable_to_non_nullable
 as LayoutDetectionConfig?,maxArchiveDepth: freezed == maxArchiveDepth ? _self.maxArchiveDepth : maxArchiveDepth // ignore: cast_nullable_to_non_nullable
 as int?,maxConcurrentExtractions: freezed == maxConcurrentExtractions ? _self.maxConcurrentExtractions : maxConcurrentExtractions // ignore: cast_nullable_to_non_nullable
+as int?,maxEmbeddedFileBytes: freezed == maxEmbeddedFileBytes ? _self.maxEmbeddedFileBytes : maxEmbeddedFileBytes // ignore: cast_nullable_to_non_nullable
 as int?,ocr: freezed == ocr ? _self.ocr : ocr // ignore: cast_nullable_to_non_nullable
 as OcrConfig?,outputFormat: freezed == outputFormat ? _self.outputFormat : outputFormat // ignore: cast_nullable_to_non_nullable
 as String?,pages: freezed == pages ? _self.pages : pages // ignore: cast_nullable_to_non_nullable
@@ -117,7 +120,8 @@ as PageConfig?,pdfOptions: freezed == pdfOptions ? _self.pdfOptions : pdfOptions
 as PdfConfig?,postprocessor: freezed == postprocessor ? _self.postprocessor : postprocessor // ignore: cast_nullable_to_non_nullable
 as PostProcessorConfig?,resultFormat: freezed == resultFormat ? _self.resultFormat : resultFormat // ignore: cast_nullable_to_non_nullable
 as String?,securityLimits: freezed == securityLimits ? _self.securityLimits : securityLimits // ignore: cast_nullable_to_non_nullable
-as dynamic,tokenReduction: freezed == tokenReduction ? _self.tokenReduction : tokenReduction // ignore: cast_nullable_to_non_nullable
+as SecurityLimits?,structuredExtraction: freezed == structuredExtraction ? _self.structuredExtraction : structuredExtraction // ignore: cast_nullable_to_non_nullable
+as StructuredExtractionConfig?,tokenReduction: freezed == tokenReduction ? _self.tokenReduction : tokenReduction // ignore: cast_nullable_to_non_nullable
 as TokenReductionConfig?,useCache: freezed == useCache ? _self.useCache : useCache // ignore: cast_nullable_to_non_nullable
 as bool?,
   ));
@@ -157,6 +161,18 @@ $ImageExtractionConfigCopyWith<$Res>? get images {
 
   return $ImageExtractionConfigCopyWith<$Res>(_self.images!, (value) {
     return _then(_self.copyWith(images: value));
+  });
+}/// Create a copy of ExtractionConfig
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
+$KeywordConfigCopyWith<$Res>? get keywords {
+    if (_self.keywords == null) {
+    return null;
+  }
+
+  return $KeywordConfigCopyWith<$Res>(_self.keywords!, (value) {
+    return _then(_self.copyWith(keywords: value));
   });
 }/// Create a copy of ExtractionConfig
 /// with the given fields replaced by the non-null parameter values.
@@ -229,6 +245,30 @@ $PostProcessorConfigCopyWith<$Res>? get postprocessor {
 
   return $PostProcessorConfigCopyWith<$Res>(_self.postprocessor!, (value) {
     return _then(_self.copyWith(postprocessor: value));
+  });
+}/// Create a copy of ExtractionConfig
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
+$SecurityLimitsCopyWith<$Res>? get securityLimits {
+    if (_self.securityLimits == null) {
+    return null;
+  }
+
+  return $SecurityLimitsCopyWith<$Res>(_self.securityLimits!, (value) {
+    return _then(_self.copyWith(securityLimits: value));
+  });
+}/// Create a copy of ExtractionConfig
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
+$StructuredExtractionConfigCopyWith<$Res>? get structuredExtraction {
+    if (_self.structuredExtraction == null) {
+    return null;
+  }
+
+  return $StructuredExtractionConfigCopyWith<$Res>(_self.structuredExtraction!, (value) {
+    return _then(_self.copyWith(structuredExtraction: value));
   });
 }/// Create a copy of ExtractionConfig
 /// with the given fields replaced by the non-null parameter values.
@@ -324,10 +364,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function(@JsonKey(name: 'cache_namespace')  String? cacheNamespace, @JsonKey(name: 'cache_ttl_secs')  int? cacheTtlSecs,  ChunkingConfig? chunking, @JsonKey(name: 'content_filter')  ContentFilterConfig? contentFilter, @JsonKey(name: 'disable_ocr')  bool? disableOcr, @JsonKey(name: 'enable_quality_processing')  bool? enableQualityProcessing, @JsonKey(name: 'extraction_timeout_secs')  int? extractionTimeoutSecs, @JsonKey(name: 'force_ocr')  bool? forceOcr, @JsonKey(name: 'force_ocr_pages')  List<int>? forceOcrPages, @JsonKey(name: 'html_options')  dynamic htmlOptions,  ImageExtractionConfig? images, @JsonKey(name: 'include_document_structure')  bool? includeDocumentStructure,  dynamic keywords, @JsonKey(name: 'language_detection')  LanguageDetectionConfig? languageDetection,  LayoutDetectionConfig? layout, @JsonKey(name: 'max_archive_depth')  int? maxArchiveDepth, @JsonKey(name: 'max_concurrent_extractions')  int? maxConcurrentExtractions,  OcrConfig? ocr, @JsonKey(name: 'output_format')  String? outputFormat,  PageConfig? pages, @JsonKey(name: 'pdf_options')  PdfConfig? pdfOptions,  PostProcessorConfig? postprocessor, @JsonKey(name: 'result_format')  String? resultFormat, @JsonKey(name: 'security_limits')  dynamic securityLimits, @JsonKey(name: 'token_reduction')  TokenReductionConfig? tokenReduction, @JsonKey(name: 'use_cache')  bool? useCache)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function(@JsonKey(name: 'cache_namespace')  String? cacheNamespace, @JsonKey(name: 'cache_ttl_secs')  int? cacheTtlSecs,  ChunkingConfig? chunking, @JsonKey(name: 'content_filter')  ContentFilterConfig? contentFilter, @JsonKey(name: 'disable_ocr')  bool? disableOcr, @JsonKey(name: 'enable_quality_processing')  bool? enableQualityProcessing, @JsonKey(name: 'extraction_timeout_secs')  int? extractionTimeoutSecs, @JsonKey(name: 'force_ocr')  bool? forceOcr, @JsonKey(name: 'force_ocr_pages')  List<int>? forceOcrPages, @JsonKey(name: 'html_options')  dynamic htmlOptions,  ImageExtractionConfig? images, @JsonKey(name: 'include_document_structure')  bool? includeDocumentStructure,  KeywordConfig? keywords, @JsonKey(name: 'language_detection')  LanguageDetectionConfig? languageDetection,  LayoutDetectionConfig? layout, @JsonKey(name: 'max_archive_depth')  int? maxArchiveDepth, @JsonKey(name: 'max_concurrent_extractions')  int? maxConcurrentExtractions, @JsonKey(name: 'max_embedded_file_bytes')  int? maxEmbeddedFileBytes,  OcrConfig? ocr, @JsonKey(name: 'output_format')  String? outputFormat,  PageConfig? pages, @JsonKey(name: 'pdf_options')  PdfConfig? pdfOptions,  PostProcessorConfig? postprocessor, @JsonKey(name: 'result_format')  String? resultFormat, @JsonKey(name: 'security_limits')  SecurityLimits? securityLimits, @JsonKey(name: 'structured_extraction')  StructuredExtractionConfig? structuredExtraction, @JsonKey(name: 'token_reduction')  TokenReductionConfig? tokenReduction, @JsonKey(name: 'use_cache')  bool? useCache)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _ExtractionConfig() when $default != null:
-return $default(_that.cacheNamespace,_that.cacheTtlSecs,_that.chunking,_that.contentFilter,_that.disableOcr,_that.enableQualityProcessing,_that.extractionTimeoutSecs,_that.forceOcr,_that.forceOcrPages,_that.htmlOptions,_that.images,_that.includeDocumentStructure,_that.keywords,_that.languageDetection,_that.layout,_that.maxArchiveDepth,_that.maxConcurrentExtractions,_that.ocr,_that.outputFormat,_that.pages,_that.pdfOptions,_that.postprocessor,_that.resultFormat,_that.securityLimits,_that.tokenReduction,_that.useCache);case _:
+return $default(_that.cacheNamespace,_that.cacheTtlSecs,_that.chunking,_that.contentFilter,_that.disableOcr,_that.enableQualityProcessing,_that.extractionTimeoutSecs,_that.forceOcr,_that.forceOcrPages,_that.htmlOptions,_that.images,_that.includeDocumentStructure,_that.keywords,_that.languageDetection,_that.layout,_that.maxArchiveDepth,_that.maxConcurrentExtractions,_that.maxEmbeddedFileBytes,_that.ocr,_that.outputFormat,_that.pages,_that.pdfOptions,_that.postprocessor,_that.resultFormat,_that.securityLimits,_that.structuredExtraction,_that.tokenReduction,_that.useCache);case _:
   return orElse();
 
 }
@@ -345,10 +385,10 @@ return $default(_that.cacheNamespace,_that.cacheTtlSecs,_that.chunking,_that.con
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function(@JsonKey(name: 'cache_namespace')  String? cacheNamespace, @JsonKey(name: 'cache_ttl_secs')  int? cacheTtlSecs,  ChunkingConfig? chunking, @JsonKey(name: 'content_filter')  ContentFilterConfig? contentFilter, @JsonKey(name: 'disable_ocr')  bool? disableOcr, @JsonKey(name: 'enable_quality_processing')  bool? enableQualityProcessing, @JsonKey(name: 'extraction_timeout_secs')  int? extractionTimeoutSecs, @JsonKey(name: 'force_ocr')  bool? forceOcr, @JsonKey(name: 'force_ocr_pages')  List<int>? forceOcrPages, @JsonKey(name: 'html_options')  dynamic htmlOptions,  ImageExtractionConfig? images, @JsonKey(name: 'include_document_structure')  bool? includeDocumentStructure,  dynamic keywords, @JsonKey(name: 'language_detection')  LanguageDetectionConfig? languageDetection,  LayoutDetectionConfig? layout, @JsonKey(name: 'max_archive_depth')  int? maxArchiveDepth, @JsonKey(name: 'max_concurrent_extractions')  int? maxConcurrentExtractions,  OcrConfig? ocr, @JsonKey(name: 'output_format')  String? outputFormat,  PageConfig? pages, @JsonKey(name: 'pdf_options')  PdfConfig? pdfOptions,  PostProcessorConfig? postprocessor, @JsonKey(name: 'result_format')  String? resultFormat, @JsonKey(name: 'security_limits')  dynamic securityLimits, @JsonKey(name: 'token_reduction')  TokenReductionConfig? tokenReduction, @JsonKey(name: 'use_cache')  bool? useCache)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function(@JsonKey(name: 'cache_namespace')  String? cacheNamespace, @JsonKey(name: 'cache_ttl_secs')  int? cacheTtlSecs,  ChunkingConfig? chunking, @JsonKey(name: 'content_filter')  ContentFilterConfig? contentFilter, @JsonKey(name: 'disable_ocr')  bool? disableOcr, @JsonKey(name: 'enable_quality_processing')  bool? enableQualityProcessing, @JsonKey(name: 'extraction_timeout_secs')  int? extractionTimeoutSecs, @JsonKey(name: 'force_ocr')  bool? forceOcr, @JsonKey(name: 'force_ocr_pages')  List<int>? forceOcrPages, @JsonKey(name: 'html_options')  dynamic htmlOptions,  ImageExtractionConfig? images, @JsonKey(name: 'include_document_structure')  bool? includeDocumentStructure,  KeywordConfig? keywords, @JsonKey(name: 'language_detection')  LanguageDetectionConfig? languageDetection,  LayoutDetectionConfig? layout, @JsonKey(name: 'max_archive_depth')  int? maxArchiveDepth, @JsonKey(name: 'max_concurrent_extractions')  int? maxConcurrentExtractions, @JsonKey(name: 'max_embedded_file_bytes')  int? maxEmbeddedFileBytes,  OcrConfig? ocr, @JsonKey(name: 'output_format')  String? outputFormat,  PageConfig? pages, @JsonKey(name: 'pdf_options')  PdfConfig? pdfOptions,  PostProcessorConfig? postprocessor, @JsonKey(name: 'result_format')  String? resultFormat, @JsonKey(name: 'security_limits')  SecurityLimits? securityLimits, @JsonKey(name: 'structured_extraction')  StructuredExtractionConfig? structuredExtraction, @JsonKey(name: 'token_reduction')  TokenReductionConfig? tokenReduction, @JsonKey(name: 'use_cache')  bool? useCache)  $default,) {final _that = this;
 switch (_that) {
 case _ExtractionConfig():
-return $default(_that.cacheNamespace,_that.cacheTtlSecs,_that.chunking,_that.contentFilter,_that.disableOcr,_that.enableQualityProcessing,_that.extractionTimeoutSecs,_that.forceOcr,_that.forceOcrPages,_that.htmlOptions,_that.images,_that.includeDocumentStructure,_that.keywords,_that.languageDetection,_that.layout,_that.maxArchiveDepth,_that.maxConcurrentExtractions,_that.ocr,_that.outputFormat,_that.pages,_that.pdfOptions,_that.postprocessor,_that.resultFormat,_that.securityLimits,_that.tokenReduction,_that.useCache);case _:
+return $default(_that.cacheNamespace,_that.cacheTtlSecs,_that.chunking,_that.contentFilter,_that.disableOcr,_that.enableQualityProcessing,_that.extractionTimeoutSecs,_that.forceOcr,_that.forceOcrPages,_that.htmlOptions,_that.images,_that.includeDocumentStructure,_that.keywords,_that.languageDetection,_that.layout,_that.maxArchiveDepth,_that.maxConcurrentExtractions,_that.maxEmbeddedFileBytes,_that.ocr,_that.outputFormat,_that.pages,_that.pdfOptions,_that.postprocessor,_that.resultFormat,_that.securityLimits,_that.structuredExtraction,_that.tokenReduction,_that.useCache);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -365,10 +405,10 @@ return $default(_that.cacheNamespace,_that.cacheTtlSecs,_that.chunking,_that.con
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function(@JsonKey(name: 'cache_namespace')  String? cacheNamespace, @JsonKey(name: 'cache_ttl_secs')  int? cacheTtlSecs,  ChunkingConfig? chunking, @JsonKey(name: 'content_filter')  ContentFilterConfig? contentFilter, @JsonKey(name: 'disable_ocr')  bool? disableOcr, @JsonKey(name: 'enable_quality_processing')  bool? enableQualityProcessing, @JsonKey(name: 'extraction_timeout_secs')  int? extractionTimeoutSecs, @JsonKey(name: 'force_ocr')  bool? forceOcr, @JsonKey(name: 'force_ocr_pages')  List<int>? forceOcrPages, @JsonKey(name: 'html_options')  dynamic htmlOptions,  ImageExtractionConfig? images, @JsonKey(name: 'include_document_structure')  bool? includeDocumentStructure,  dynamic keywords, @JsonKey(name: 'language_detection')  LanguageDetectionConfig? languageDetection,  LayoutDetectionConfig? layout, @JsonKey(name: 'max_archive_depth')  int? maxArchiveDepth, @JsonKey(name: 'max_concurrent_extractions')  int? maxConcurrentExtractions,  OcrConfig? ocr, @JsonKey(name: 'output_format')  String? outputFormat,  PageConfig? pages, @JsonKey(name: 'pdf_options')  PdfConfig? pdfOptions,  PostProcessorConfig? postprocessor, @JsonKey(name: 'result_format')  String? resultFormat, @JsonKey(name: 'security_limits')  dynamic securityLimits, @JsonKey(name: 'token_reduction')  TokenReductionConfig? tokenReduction, @JsonKey(name: 'use_cache')  bool? useCache)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function(@JsonKey(name: 'cache_namespace')  String? cacheNamespace, @JsonKey(name: 'cache_ttl_secs')  int? cacheTtlSecs,  ChunkingConfig? chunking, @JsonKey(name: 'content_filter')  ContentFilterConfig? contentFilter, @JsonKey(name: 'disable_ocr')  bool? disableOcr, @JsonKey(name: 'enable_quality_processing')  bool? enableQualityProcessing, @JsonKey(name: 'extraction_timeout_secs')  int? extractionTimeoutSecs, @JsonKey(name: 'force_ocr')  bool? forceOcr, @JsonKey(name: 'force_ocr_pages')  List<int>? forceOcrPages, @JsonKey(name: 'html_options')  dynamic htmlOptions,  ImageExtractionConfig? images, @JsonKey(name: 'include_document_structure')  bool? includeDocumentStructure,  KeywordConfig? keywords, @JsonKey(name: 'language_detection')  LanguageDetectionConfig? languageDetection,  LayoutDetectionConfig? layout, @JsonKey(name: 'max_archive_depth')  int? maxArchiveDepth, @JsonKey(name: 'max_concurrent_extractions')  int? maxConcurrentExtractions, @JsonKey(name: 'max_embedded_file_bytes')  int? maxEmbeddedFileBytes,  OcrConfig? ocr, @JsonKey(name: 'output_format')  String? outputFormat,  PageConfig? pages, @JsonKey(name: 'pdf_options')  PdfConfig? pdfOptions,  PostProcessorConfig? postprocessor, @JsonKey(name: 'result_format')  String? resultFormat, @JsonKey(name: 'security_limits')  SecurityLimits? securityLimits, @JsonKey(name: 'structured_extraction')  StructuredExtractionConfig? structuredExtraction, @JsonKey(name: 'token_reduction')  TokenReductionConfig? tokenReduction, @JsonKey(name: 'use_cache')  bool? useCache)?  $default,) {final _that = this;
 switch (_that) {
 case _ExtractionConfig() when $default != null:
-return $default(_that.cacheNamespace,_that.cacheTtlSecs,_that.chunking,_that.contentFilter,_that.disableOcr,_that.enableQualityProcessing,_that.extractionTimeoutSecs,_that.forceOcr,_that.forceOcrPages,_that.htmlOptions,_that.images,_that.includeDocumentStructure,_that.keywords,_that.languageDetection,_that.layout,_that.maxArchiveDepth,_that.maxConcurrentExtractions,_that.ocr,_that.outputFormat,_that.pages,_that.pdfOptions,_that.postprocessor,_that.resultFormat,_that.securityLimits,_that.tokenReduction,_that.useCache);case _:
+return $default(_that.cacheNamespace,_that.cacheTtlSecs,_that.chunking,_that.contentFilter,_that.disableOcr,_that.enableQualityProcessing,_that.extractionTimeoutSecs,_that.forceOcr,_that.forceOcrPages,_that.htmlOptions,_that.images,_that.includeDocumentStructure,_that.keywords,_that.languageDetection,_that.layout,_that.maxArchiveDepth,_that.maxConcurrentExtractions,_that.maxEmbeddedFileBytes,_that.ocr,_that.outputFormat,_that.pages,_that.pdfOptions,_that.postprocessor,_that.resultFormat,_that.securityLimits,_that.structuredExtraction,_that.tokenReduction,_that.useCache);case _:
   return null;
 
 }
@@ -380,7 +420,7 @@ return $default(_that.cacheNamespace,_that.cacheTtlSecs,_that.chunking,_that.con
 @JsonSerializable()
 
 class _ExtractionConfig implements ExtractionConfig {
-  const _ExtractionConfig({@JsonKey(name: 'cache_namespace') this.cacheNamespace, @JsonKey(name: 'cache_ttl_secs') this.cacheTtlSecs, this.chunking, @JsonKey(name: 'content_filter') this.contentFilter, @JsonKey(name: 'disable_ocr') this.disableOcr, @JsonKey(name: 'enable_quality_processing') this.enableQualityProcessing, @JsonKey(name: 'extraction_timeout_secs') this.extractionTimeoutSecs, @JsonKey(name: 'force_ocr') this.forceOcr, @JsonKey(name: 'force_ocr_pages') final  List<int>? forceOcrPages, @JsonKey(name: 'html_options') this.htmlOptions, this.images, @JsonKey(name: 'include_document_structure') this.includeDocumentStructure, this.keywords, @JsonKey(name: 'language_detection') this.languageDetection, this.layout, @JsonKey(name: 'max_archive_depth') this.maxArchiveDepth, @JsonKey(name: 'max_concurrent_extractions') this.maxConcurrentExtractions, this.ocr, @JsonKey(name: 'output_format') this.outputFormat, this.pages, @JsonKey(name: 'pdf_options') this.pdfOptions, this.postprocessor, @JsonKey(name: 'result_format') this.resultFormat, @JsonKey(name: 'security_limits') this.securityLimits, @JsonKey(name: 'token_reduction') this.tokenReduction, @JsonKey(name: 'use_cache') this.useCache}): _forceOcrPages = forceOcrPages;
+  const _ExtractionConfig({@JsonKey(name: 'cache_namespace') this.cacheNamespace, @JsonKey(name: 'cache_ttl_secs') this.cacheTtlSecs, this.chunking, @JsonKey(name: 'content_filter') this.contentFilter, @JsonKey(name: 'disable_ocr') this.disableOcr, @JsonKey(name: 'enable_quality_processing') this.enableQualityProcessing, @JsonKey(name: 'extraction_timeout_secs') this.extractionTimeoutSecs, @JsonKey(name: 'force_ocr') this.forceOcr, @JsonKey(name: 'force_ocr_pages') final  List<int>? forceOcrPages, @JsonKey(name: 'html_options') this.htmlOptions, this.images, @JsonKey(name: 'include_document_structure') this.includeDocumentStructure, this.keywords, @JsonKey(name: 'language_detection') this.languageDetection, this.layout, @JsonKey(name: 'max_archive_depth') this.maxArchiveDepth, @JsonKey(name: 'max_concurrent_extractions') this.maxConcurrentExtractions, @JsonKey(name: 'max_embedded_file_bytes') this.maxEmbeddedFileBytes, this.ocr, @JsonKey(name: 'output_format') this.outputFormat, this.pages, @JsonKey(name: 'pdf_options') this.pdfOptions, this.postprocessor, @JsonKey(name: 'result_format') this.resultFormat, @JsonKey(name: 'security_limits') this.securityLimits, @JsonKey(name: 'structured_extraction') this.structuredExtraction, @JsonKey(name: 'token_reduction') this.tokenReduction, @JsonKey(name: 'use_cache') this.useCache}): _forceOcrPages = forceOcrPages;
   factory _ExtractionConfig.fromJson(Map<String, dynamic> json) => _$ExtractionConfigFromJson(json);
 
 /// Cache namespace for tenant isolation
@@ -416,8 +456,8 @@ class _ExtractionConfig implements ExtractionConfig {
 @override final  ImageExtractionConfig? images;
 /// Include structured document tree in output
 @override@JsonKey(name: 'include_document_structure') final  bool? includeDocumentStructure;
-/// Keyword extraction configuration (flexible JSON)
-@override final  dynamic keywords;
+/// Keyword extraction configuration
+@override final  KeywordConfig? keywords;
 /// Language detection configuration
 @override@JsonKey(name: 'language_detection') final  LanguageDetectionConfig? languageDetection;
 /// Layout detection configuration
@@ -426,6 +466,8 @@ class _ExtractionConfig implements ExtractionConfig {
 @override@JsonKey(name: 'max_archive_depth') final  int? maxArchiveDepth;
 /// Maximum concurrent extractions
 @override@JsonKey(name: 'max_concurrent_extractions') final  int? maxConcurrentExtractions;
+/// Maximum size in bytes for embedded/attached files during recursive extraction
+@override@JsonKey(name: 'max_embedded_file_bytes') final  int? maxEmbeddedFileBytes;
 /// OCR configuration
 @override final  OcrConfig? ocr;
 /// Output text format: "plain", "markdown", "html", "djot", "structured", "json"
@@ -438,8 +480,10 @@ class _ExtractionConfig implements ExtractionConfig {
 @override final  PostProcessorConfig? postprocessor;
 /// Result format: "unified" or "element_based"
 @override@JsonKey(name: 'result_format') final  String? resultFormat;
-/// Security limits (flexible JSON)
-@override@JsonKey(name: 'security_limits') final  dynamic securityLimits;
+/// Security limits for extraction (resource caps, recursion bounds)
+@override@JsonKey(name: 'security_limits') final  SecurityLimits? securityLimits;
+/// LLM-driven structured extraction: schema + provider config.
+@override@JsonKey(name: 'structured_extraction') final  StructuredExtractionConfig? structuredExtraction;
 /// Token reduction configuration
 @override@JsonKey(name: 'token_reduction') final  TokenReductionConfig? tokenReduction;
 /// Enable extraction result caching
@@ -458,16 +502,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _ExtractionConfig&&(identical(other.cacheNamespace, cacheNamespace) || other.cacheNamespace == cacheNamespace)&&(identical(other.cacheTtlSecs, cacheTtlSecs) || other.cacheTtlSecs == cacheTtlSecs)&&(identical(other.chunking, chunking) || other.chunking == chunking)&&(identical(other.contentFilter, contentFilter) || other.contentFilter == contentFilter)&&(identical(other.disableOcr, disableOcr) || other.disableOcr == disableOcr)&&(identical(other.enableQualityProcessing, enableQualityProcessing) || other.enableQualityProcessing == enableQualityProcessing)&&(identical(other.extractionTimeoutSecs, extractionTimeoutSecs) || other.extractionTimeoutSecs == extractionTimeoutSecs)&&(identical(other.forceOcr, forceOcr) || other.forceOcr == forceOcr)&&const DeepCollectionEquality().equals(other._forceOcrPages, _forceOcrPages)&&const DeepCollectionEquality().equals(other.htmlOptions, htmlOptions)&&(identical(other.images, images) || other.images == images)&&(identical(other.includeDocumentStructure, includeDocumentStructure) || other.includeDocumentStructure == includeDocumentStructure)&&const DeepCollectionEquality().equals(other.keywords, keywords)&&(identical(other.languageDetection, languageDetection) || other.languageDetection == languageDetection)&&(identical(other.layout, layout) || other.layout == layout)&&(identical(other.maxArchiveDepth, maxArchiveDepth) || other.maxArchiveDepth == maxArchiveDepth)&&(identical(other.maxConcurrentExtractions, maxConcurrentExtractions) || other.maxConcurrentExtractions == maxConcurrentExtractions)&&(identical(other.ocr, ocr) || other.ocr == ocr)&&(identical(other.outputFormat, outputFormat) || other.outputFormat == outputFormat)&&(identical(other.pages, pages) || other.pages == pages)&&(identical(other.pdfOptions, pdfOptions) || other.pdfOptions == pdfOptions)&&(identical(other.postprocessor, postprocessor) || other.postprocessor == postprocessor)&&(identical(other.resultFormat, resultFormat) || other.resultFormat == resultFormat)&&const DeepCollectionEquality().equals(other.securityLimits, securityLimits)&&(identical(other.tokenReduction, tokenReduction) || other.tokenReduction == tokenReduction)&&(identical(other.useCache, useCache) || other.useCache == useCache));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _ExtractionConfig&&(identical(other.cacheNamespace, cacheNamespace) || other.cacheNamespace == cacheNamespace)&&(identical(other.cacheTtlSecs, cacheTtlSecs) || other.cacheTtlSecs == cacheTtlSecs)&&(identical(other.chunking, chunking) || other.chunking == chunking)&&(identical(other.contentFilter, contentFilter) || other.contentFilter == contentFilter)&&(identical(other.disableOcr, disableOcr) || other.disableOcr == disableOcr)&&(identical(other.enableQualityProcessing, enableQualityProcessing) || other.enableQualityProcessing == enableQualityProcessing)&&(identical(other.extractionTimeoutSecs, extractionTimeoutSecs) || other.extractionTimeoutSecs == extractionTimeoutSecs)&&(identical(other.forceOcr, forceOcr) || other.forceOcr == forceOcr)&&const DeepCollectionEquality().equals(other._forceOcrPages, _forceOcrPages)&&const DeepCollectionEquality().equals(other.htmlOptions, htmlOptions)&&(identical(other.images, images) || other.images == images)&&(identical(other.includeDocumentStructure, includeDocumentStructure) || other.includeDocumentStructure == includeDocumentStructure)&&(identical(other.keywords, keywords) || other.keywords == keywords)&&(identical(other.languageDetection, languageDetection) || other.languageDetection == languageDetection)&&(identical(other.layout, layout) || other.layout == layout)&&(identical(other.maxArchiveDepth, maxArchiveDepth) || other.maxArchiveDepth == maxArchiveDepth)&&(identical(other.maxConcurrentExtractions, maxConcurrentExtractions) || other.maxConcurrentExtractions == maxConcurrentExtractions)&&(identical(other.maxEmbeddedFileBytes, maxEmbeddedFileBytes) || other.maxEmbeddedFileBytes == maxEmbeddedFileBytes)&&(identical(other.ocr, ocr) || other.ocr == ocr)&&(identical(other.outputFormat, outputFormat) || other.outputFormat == outputFormat)&&(identical(other.pages, pages) || other.pages == pages)&&(identical(other.pdfOptions, pdfOptions) || other.pdfOptions == pdfOptions)&&(identical(other.postprocessor, postprocessor) || other.postprocessor == postprocessor)&&(identical(other.resultFormat, resultFormat) || other.resultFormat == resultFormat)&&(identical(other.securityLimits, securityLimits) || other.securityLimits == securityLimits)&&(identical(other.structuredExtraction, structuredExtraction) || other.structuredExtraction == structuredExtraction)&&(identical(other.tokenReduction, tokenReduction) || other.tokenReduction == tokenReduction)&&(identical(other.useCache, useCache) || other.useCache == useCache));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hashAll([runtimeType,cacheNamespace,cacheTtlSecs,chunking,contentFilter,disableOcr,enableQualityProcessing,extractionTimeoutSecs,forceOcr,const DeepCollectionEquality().hash(_forceOcrPages),const DeepCollectionEquality().hash(htmlOptions),images,includeDocumentStructure,const DeepCollectionEquality().hash(keywords),languageDetection,layout,maxArchiveDepth,maxConcurrentExtractions,ocr,outputFormat,pages,pdfOptions,postprocessor,resultFormat,const DeepCollectionEquality().hash(securityLimits),tokenReduction,useCache]);
+int get hashCode => Object.hashAll([runtimeType,cacheNamespace,cacheTtlSecs,chunking,contentFilter,disableOcr,enableQualityProcessing,extractionTimeoutSecs,forceOcr,const DeepCollectionEquality().hash(_forceOcrPages),const DeepCollectionEquality().hash(htmlOptions),images,includeDocumentStructure,keywords,languageDetection,layout,maxArchiveDepth,maxConcurrentExtractions,maxEmbeddedFileBytes,ocr,outputFormat,pages,pdfOptions,postprocessor,resultFormat,securityLimits,structuredExtraction,tokenReduction,useCache]);
 
 @override
 String toString() {
-  return 'ExtractionConfig(cacheNamespace: $cacheNamespace, cacheTtlSecs: $cacheTtlSecs, chunking: $chunking, contentFilter: $contentFilter, disableOcr: $disableOcr, enableQualityProcessing: $enableQualityProcessing, extractionTimeoutSecs: $extractionTimeoutSecs, forceOcr: $forceOcr, forceOcrPages: $forceOcrPages, htmlOptions: $htmlOptions, images: $images, includeDocumentStructure: $includeDocumentStructure, keywords: $keywords, languageDetection: $languageDetection, layout: $layout, maxArchiveDepth: $maxArchiveDepth, maxConcurrentExtractions: $maxConcurrentExtractions, ocr: $ocr, outputFormat: $outputFormat, pages: $pages, pdfOptions: $pdfOptions, postprocessor: $postprocessor, resultFormat: $resultFormat, securityLimits: $securityLimits, tokenReduction: $tokenReduction, useCache: $useCache)';
+  return 'ExtractionConfig(cacheNamespace: $cacheNamespace, cacheTtlSecs: $cacheTtlSecs, chunking: $chunking, contentFilter: $contentFilter, disableOcr: $disableOcr, enableQualityProcessing: $enableQualityProcessing, extractionTimeoutSecs: $extractionTimeoutSecs, forceOcr: $forceOcr, forceOcrPages: $forceOcrPages, htmlOptions: $htmlOptions, images: $images, includeDocumentStructure: $includeDocumentStructure, keywords: $keywords, languageDetection: $languageDetection, layout: $layout, maxArchiveDepth: $maxArchiveDepth, maxConcurrentExtractions: $maxConcurrentExtractions, maxEmbeddedFileBytes: $maxEmbeddedFileBytes, ocr: $ocr, outputFormat: $outputFormat, pages: $pages, pdfOptions: $pdfOptions, postprocessor: $postprocessor, resultFormat: $resultFormat, securityLimits: $securityLimits, structuredExtraction: $structuredExtraction, tokenReduction: $tokenReduction, useCache: $useCache)';
 }
 
 
@@ -478,11 +522,11 @@ abstract mixin class _$ExtractionConfigCopyWith<$Res> implements $ExtractionConf
   factory _$ExtractionConfigCopyWith(_ExtractionConfig value, $Res Function(_ExtractionConfig) _then) = __$ExtractionConfigCopyWithImpl;
 @override @useResult
 $Res call({
-@JsonKey(name: 'cache_namespace') String? cacheNamespace,@JsonKey(name: 'cache_ttl_secs') int? cacheTtlSecs, ChunkingConfig? chunking,@JsonKey(name: 'content_filter') ContentFilterConfig? contentFilter,@JsonKey(name: 'disable_ocr') bool? disableOcr,@JsonKey(name: 'enable_quality_processing') bool? enableQualityProcessing,@JsonKey(name: 'extraction_timeout_secs') int? extractionTimeoutSecs,@JsonKey(name: 'force_ocr') bool? forceOcr,@JsonKey(name: 'force_ocr_pages') List<int>? forceOcrPages,@JsonKey(name: 'html_options') dynamic htmlOptions, ImageExtractionConfig? images,@JsonKey(name: 'include_document_structure') bool? includeDocumentStructure, dynamic keywords,@JsonKey(name: 'language_detection') LanguageDetectionConfig? languageDetection, LayoutDetectionConfig? layout,@JsonKey(name: 'max_archive_depth') int? maxArchiveDepth,@JsonKey(name: 'max_concurrent_extractions') int? maxConcurrentExtractions, OcrConfig? ocr,@JsonKey(name: 'output_format') String? outputFormat, PageConfig? pages,@JsonKey(name: 'pdf_options') PdfConfig? pdfOptions, PostProcessorConfig? postprocessor,@JsonKey(name: 'result_format') String? resultFormat,@JsonKey(name: 'security_limits') dynamic securityLimits,@JsonKey(name: 'token_reduction') TokenReductionConfig? tokenReduction,@JsonKey(name: 'use_cache') bool? useCache
+@JsonKey(name: 'cache_namespace') String? cacheNamespace,@JsonKey(name: 'cache_ttl_secs') int? cacheTtlSecs, ChunkingConfig? chunking,@JsonKey(name: 'content_filter') ContentFilterConfig? contentFilter,@JsonKey(name: 'disable_ocr') bool? disableOcr,@JsonKey(name: 'enable_quality_processing') bool? enableQualityProcessing,@JsonKey(name: 'extraction_timeout_secs') int? extractionTimeoutSecs,@JsonKey(name: 'force_ocr') bool? forceOcr,@JsonKey(name: 'force_ocr_pages') List<int>? forceOcrPages,@JsonKey(name: 'html_options') dynamic htmlOptions, ImageExtractionConfig? images,@JsonKey(name: 'include_document_structure') bool? includeDocumentStructure, KeywordConfig? keywords,@JsonKey(name: 'language_detection') LanguageDetectionConfig? languageDetection, LayoutDetectionConfig? layout,@JsonKey(name: 'max_archive_depth') int? maxArchiveDepth,@JsonKey(name: 'max_concurrent_extractions') int? maxConcurrentExtractions,@JsonKey(name: 'max_embedded_file_bytes') int? maxEmbeddedFileBytes, OcrConfig? ocr,@JsonKey(name: 'output_format') String? outputFormat, PageConfig? pages,@JsonKey(name: 'pdf_options') PdfConfig? pdfOptions, PostProcessorConfig? postprocessor,@JsonKey(name: 'result_format') String? resultFormat,@JsonKey(name: 'security_limits') SecurityLimits? securityLimits,@JsonKey(name: 'structured_extraction') StructuredExtractionConfig? structuredExtraction,@JsonKey(name: 'token_reduction') TokenReductionConfig? tokenReduction,@JsonKey(name: 'use_cache') bool? useCache
 });
 
 
-@override $ChunkingConfigCopyWith<$Res>? get chunking;@override $ContentFilterConfigCopyWith<$Res>? get contentFilter;@override $ImageExtractionConfigCopyWith<$Res>? get images;@override $LanguageDetectionConfigCopyWith<$Res>? get languageDetection;@override $LayoutDetectionConfigCopyWith<$Res>? get layout;@override $OcrConfigCopyWith<$Res>? get ocr;@override $PageConfigCopyWith<$Res>? get pages;@override $PdfConfigCopyWith<$Res>? get pdfOptions;@override $PostProcessorConfigCopyWith<$Res>? get postprocessor;@override $TokenReductionConfigCopyWith<$Res>? get tokenReduction;
+@override $ChunkingConfigCopyWith<$Res>? get chunking;@override $ContentFilterConfigCopyWith<$Res>? get contentFilter;@override $ImageExtractionConfigCopyWith<$Res>? get images;@override $KeywordConfigCopyWith<$Res>? get keywords;@override $LanguageDetectionConfigCopyWith<$Res>? get languageDetection;@override $LayoutDetectionConfigCopyWith<$Res>? get layout;@override $OcrConfigCopyWith<$Res>? get ocr;@override $PageConfigCopyWith<$Res>? get pages;@override $PdfConfigCopyWith<$Res>? get pdfOptions;@override $PostProcessorConfigCopyWith<$Res>? get postprocessor;@override $SecurityLimitsCopyWith<$Res>? get securityLimits;@override $StructuredExtractionConfigCopyWith<$Res>? get structuredExtraction;@override $TokenReductionConfigCopyWith<$Res>? get tokenReduction;
 
 }
 /// @nodoc
@@ -495,7 +539,7 @@ class __$ExtractionConfigCopyWithImpl<$Res>
 
 /// Create a copy of ExtractionConfig
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? cacheNamespace = freezed,Object? cacheTtlSecs = freezed,Object? chunking = freezed,Object? contentFilter = freezed,Object? disableOcr = freezed,Object? enableQualityProcessing = freezed,Object? extractionTimeoutSecs = freezed,Object? forceOcr = freezed,Object? forceOcrPages = freezed,Object? htmlOptions = freezed,Object? images = freezed,Object? includeDocumentStructure = freezed,Object? keywords = freezed,Object? languageDetection = freezed,Object? layout = freezed,Object? maxArchiveDepth = freezed,Object? maxConcurrentExtractions = freezed,Object? ocr = freezed,Object? outputFormat = freezed,Object? pages = freezed,Object? pdfOptions = freezed,Object? postprocessor = freezed,Object? resultFormat = freezed,Object? securityLimits = freezed,Object? tokenReduction = freezed,Object? useCache = freezed,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? cacheNamespace = freezed,Object? cacheTtlSecs = freezed,Object? chunking = freezed,Object? contentFilter = freezed,Object? disableOcr = freezed,Object? enableQualityProcessing = freezed,Object? extractionTimeoutSecs = freezed,Object? forceOcr = freezed,Object? forceOcrPages = freezed,Object? htmlOptions = freezed,Object? images = freezed,Object? includeDocumentStructure = freezed,Object? keywords = freezed,Object? languageDetection = freezed,Object? layout = freezed,Object? maxArchiveDepth = freezed,Object? maxConcurrentExtractions = freezed,Object? maxEmbeddedFileBytes = freezed,Object? ocr = freezed,Object? outputFormat = freezed,Object? pages = freezed,Object? pdfOptions = freezed,Object? postprocessor = freezed,Object? resultFormat = freezed,Object? securityLimits = freezed,Object? structuredExtraction = freezed,Object? tokenReduction = freezed,Object? useCache = freezed,}) {
   return _then(_ExtractionConfig(
 cacheNamespace: freezed == cacheNamespace ? _self.cacheNamespace : cacheNamespace // ignore: cast_nullable_to_non_nullable
 as String?,cacheTtlSecs: freezed == cacheTtlSecs ? _self.cacheTtlSecs : cacheTtlSecs // ignore: cast_nullable_to_non_nullable
@@ -510,10 +554,11 @@ as List<int>?,htmlOptions: freezed == htmlOptions ? _self.htmlOptions : htmlOpti
 as dynamic,images: freezed == images ? _self.images : images // ignore: cast_nullable_to_non_nullable
 as ImageExtractionConfig?,includeDocumentStructure: freezed == includeDocumentStructure ? _self.includeDocumentStructure : includeDocumentStructure // ignore: cast_nullable_to_non_nullable
 as bool?,keywords: freezed == keywords ? _self.keywords : keywords // ignore: cast_nullable_to_non_nullable
-as dynamic,languageDetection: freezed == languageDetection ? _self.languageDetection : languageDetection // ignore: cast_nullable_to_non_nullable
+as KeywordConfig?,languageDetection: freezed == languageDetection ? _self.languageDetection : languageDetection // ignore: cast_nullable_to_non_nullable
 as LanguageDetectionConfig?,layout: freezed == layout ? _self.layout : layout // ignore: cast_nullable_to_non_nullable
 as LayoutDetectionConfig?,maxArchiveDepth: freezed == maxArchiveDepth ? _self.maxArchiveDepth : maxArchiveDepth // ignore: cast_nullable_to_non_nullable
 as int?,maxConcurrentExtractions: freezed == maxConcurrentExtractions ? _self.maxConcurrentExtractions : maxConcurrentExtractions // ignore: cast_nullable_to_non_nullable
+as int?,maxEmbeddedFileBytes: freezed == maxEmbeddedFileBytes ? _self.maxEmbeddedFileBytes : maxEmbeddedFileBytes // ignore: cast_nullable_to_non_nullable
 as int?,ocr: freezed == ocr ? _self.ocr : ocr // ignore: cast_nullable_to_non_nullable
 as OcrConfig?,outputFormat: freezed == outputFormat ? _self.outputFormat : outputFormat // ignore: cast_nullable_to_non_nullable
 as String?,pages: freezed == pages ? _self.pages : pages // ignore: cast_nullable_to_non_nullable
@@ -521,7 +566,8 @@ as PageConfig?,pdfOptions: freezed == pdfOptions ? _self.pdfOptions : pdfOptions
 as PdfConfig?,postprocessor: freezed == postprocessor ? _self.postprocessor : postprocessor // ignore: cast_nullable_to_non_nullable
 as PostProcessorConfig?,resultFormat: freezed == resultFormat ? _self.resultFormat : resultFormat // ignore: cast_nullable_to_non_nullable
 as String?,securityLimits: freezed == securityLimits ? _self.securityLimits : securityLimits // ignore: cast_nullable_to_non_nullable
-as dynamic,tokenReduction: freezed == tokenReduction ? _self.tokenReduction : tokenReduction // ignore: cast_nullable_to_non_nullable
+as SecurityLimits?,structuredExtraction: freezed == structuredExtraction ? _self.structuredExtraction : structuredExtraction // ignore: cast_nullable_to_non_nullable
+as StructuredExtractionConfig?,tokenReduction: freezed == tokenReduction ? _self.tokenReduction : tokenReduction // ignore: cast_nullable_to_non_nullable
 as TokenReductionConfig?,useCache: freezed == useCache ? _self.useCache : useCache // ignore: cast_nullable_to_non_nullable
 as bool?,
   ));
@@ -562,6 +608,18 @@ $ImageExtractionConfigCopyWith<$Res>? get images {
 
   return $ImageExtractionConfigCopyWith<$Res>(_self.images!, (value) {
     return _then(_self.copyWith(images: value));
+  });
+}/// Create a copy of ExtractionConfig
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
+$KeywordConfigCopyWith<$Res>? get keywords {
+    if (_self.keywords == null) {
+    return null;
+  }
+
+  return $KeywordConfigCopyWith<$Res>(_self.keywords!, (value) {
+    return _then(_self.copyWith(keywords: value));
   });
 }/// Create a copy of ExtractionConfig
 /// with the given fields replaced by the non-null parameter values.
@@ -634,6 +692,30 @@ $PostProcessorConfigCopyWith<$Res>? get postprocessor {
 
   return $PostProcessorConfigCopyWith<$Res>(_self.postprocessor!, (value) {
     return _then(_self.copyWith(postprocessor: value));
+  });
+}/// Create a copy of ExtractionConfig
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
+$SecurityLimitsCopyWith<$Res>? get securityLimits {
+    if (_self.securityLimits == null) {
+    return null;
+  }
+
+  return $SecurityLimitsCopyWith<$Res>(_self.securityLimits!, (value) {
+    return _then(_self.copyWith(securityLimits: value));
+  });
+}/// Create a copy of ExtractionConfig
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
+$StructuredExtractionConfigCopyWith<$Res>? get structuredExtraction {
+    if (_self.structuredExtraction == null) {
+    return null;
+  }
+
+  return $StructuredExtractionConfigCopyWith<$Res>(_self.structuredExtraction!, (value) {
+    return _then(_self.copyWith(structuredExtraction: value));
   });
 }/// Create a copy of ExtractionConfig
 /// with the given fields replaced by the non-null parameter values.

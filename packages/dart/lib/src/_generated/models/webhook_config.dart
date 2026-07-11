@@ -7,17 +7,17 @@ import 'package:freezed_annotation/freezed_annotation.dart';
 part 'webhook_config.freezed.dart';
 part 'webhook_config.g.dart';
 
-/// Webhook configuration for async delivery
+/// Webhook configuration for async delivery of job results.
 @Freezed()
 abstract class WebhookConfig with _$WebhookConfig {
   const factory WebhookConfig({
-    /// URL to deliver results to
+    /// URL to deliver results to.
     required String url,
 
-    /// Optional key-value metadata to include in the webhook payload
+    /// Optional key-value metadata included in the webhook payload.
     Map<String, String>? metadata,
 
-    /// Optional HMAC secret for signing the webhook payload
+    /// Optional HMAC-SHA256 secret for signing the webhook payload.
     String? secret,
   }) = _WebhookConfig;
 

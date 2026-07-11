@@ -24,10 +24,6 @@ class Element:
     unique identifier, and metadata for tracking origin and position.
 
     Attributes:
-            element_id (str): Unique identifier for semantic elements.
-
-                Wraps a string identifier that is deterministically generated
-                from element type, content, and page number.
             element_type (ElementType): Semantic element type classification.
 
                 Categorizes text content into semantic units for downstream processing.
@@ -36,15 +32,12 @@ class Element:
             text (str): Text content of the element
     """
 
-    element_id: str
     element_type: ElementType
     metadata: ElementMetadata
     text: str
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        element_id = self.element_id
-
         element_type: str = self.element_type
 
         metadata = self.metadata.to_dict()
@@ -55,7 +48,6 @@ class Element:
         field_dict.update(self.additional_properties)
         field_dict.update(
             {
-                "element_id": element_id,
                 "element_type": element_type,
                 "metadata": metadata,
                 "text": text,
@@ -69,8 +61,6 @@ class Element:
         from ..models.element_metadata import ElementMetadata
 
         d = dict(src_dict)
-        element_id = d.pop("element_id")
-
         element_type = check_element_type(d.pop("element_type"))
 
         metadata = ElementMetadata.from_dict(d.pop("metadata"))
@@ -78,7 +68,6 @@ class Element:
         text = d.pop("text")
 
         element = cls(
-            element_id=element_id,
             element_type=element_type,
             metadata=metadata,
             text=text,

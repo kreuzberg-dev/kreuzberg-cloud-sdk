@@ -26,7 +26,13 @@ mixin _$ChunkMetadata {
 ///
 /// Contains the heading hierarchy this chunk falls under.
 /// Only populated when `ChunkerType::Markdown` is used.
-@JsonKey(name: 'heading_context') HeadingContext? get headingContext;/// Indices into `ExtractionResult.images` for images on pages covered by this chunk.
+@JsonKey(name: 'heading_context') HeadingContext? get headingContext;/// Flattened heading trail from document root to this chunk's section.
+///
+/// Each element is a heading's text, outermost first. Derived from.
+/// [`heading_context`](Self::heading_context) when present; empty otherwise.
+/// Provides a binding-friendly, RAG-shaped breadcrumb without requiring.
+/// callers to walk the nested [`HeadingContext`] structure.
+@JsonKey(name: 'heading_path') List<String>? get headingPath;/// Indices into `ExtractedDocument.images` for images on pages covered by this chunk.
 ///
 /// Contains zero-based indices into the top-level `images` collection for every.
 /// image whose `page_number` falls within `[first_page, last_page]`.
@@ -50,16 +56,16 @@ $ChunkMetadataCopyWith<ChunkMetadata> get copyWith => _$ChunkMetadataCopyWithImp
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is ChunkMetadata&&(identical(other.byteEnd, byteEnd) || other.byteEnd == byteEnd)&&(identical(other.byteStart, byteStart) || other.byteStart == byteStart)&&(identical(other.chunkIndex, chunkIndex) || other.chunkIndex == chunkIndex)&&(identical(other.totalChunks, totalChunks) || other.totalChunks == totalChunks)&&(identical(other.firstPage, firstPage) || other.firstPage == firstPage)&&(identical(other.headingContext, headingContext) || other.headingContext == headingContext)&&const DeepCollectionEquality().equals(other.imageIndices, imageIndices)&&(identical(other.lastPage, lastPage) || other.lastPage == lastPage)&&(identical(other.tokenCount, tokenCount) || other.tokenCount == tokenCount));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is ChunkMetadata&&(identical(other.byteEnd, byteEnd) || other.byteEnd == byteEnd)&&(identical(other.byteStart, byteStart) || other.byteStart == byteStart)&&(identical(other.chunkIndex, chunkIndex) || other.chunkIndex == chunkIndex)&&(identical(other.totalChunks, totalChunks) || other.totalChunks == totalChunks)&&(identical(other.firstPage, firstPage) || other.firstPage == firstPage)&&(identical(other.headingContext, headingContext) || other.headingContext == headingContext)&&const DeepCollectionEquality().equals(other.headingPath, headingPath)&&const DeepCollectionEquality().equals(other.imageIndices, imageIndices)&&(identical(other.lastPage, lastPage) || other.lastPage == lastPage)&&(identical(other.tokenCount, tokenCount) || other.tokenCount == tokenCount));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,byteEnd,byteStart,chunkIndex,totalChunks,firstPage,headingContext,const DeepCollectionEquality().hash(imageIndices),lastPage,tokenCount);
+int get hashCode => Object.hash(runtimeType,byteEnd,byteStart,chunkIndex,totalChunks,firstPage,headingContext,const DeepCollectionEquality().hash(headingPath),const DeepCollectionEquality().hash(imageIndices),lastPage,tokenCount);
 
 @override
 String toString() {
-  return 'ChunkMetadata(byteEnd: $byteEnd, byteStart: $byteStart, chunkIndex: $chunkIndex, totalChunks: $totalChunks, firstPage: $firstPage, headingContext: $headingContext, imageIndices: $imageIndices, lastPage: $lastPage, tokenCount: $tokenCount)';
+  return 'ChunkMetadata(byteEnd: $byteEnd, byteStart: $byteStart, chunkIndex: $chunkIndex, totalChunks: $totalChunks, firstPage: $firstPage, headingContext: $headingContext, headingPath: $headingPath, imageIndices: $imageIndices, lastPage: $lastPage, tokenCount: $tokenCount)';
 }
 
 
@@ -70,7 +76,7 @@ abstract mixin class $ChunkMetadataCopyWith<$Res>  {
   factory $ChunkMetadataCopyWith(ChunkMetadata value, $Res Function(ChunkMetadata) _then) = _$ChunkMetadataCopyWithImpl;
 @useResult
 $Res call({
-@JsonKey(name: 'byte_end') int byteEnd,@JsonKey(name: 'byte_start') int byteStart,@JsonKey(name: 'chunk_index') int chunkIndex,@JsonKey(name: 'total_chunks') int totalChunks,@JsonKey(name: 'first_page') int? firstPage,@JsonKey(name: 'heading_context') HeadingContext? headingContext,@JsonKey(name: 'image_indices') List<int>? imageIndices,@JsonKey(name: 'last_page') int? lastPage,@JsonKey(name: 'token_count') int? tokenCount
+@JsonKey(name: 'byte_end') int byteEnd,@JsonKey(name: 'byte_start') int byteStart,@JsonKey(name: 'chunk_index') int chunkIndex,@JsonKey(name: 'total_chunks') int totalChunks,@JsonKey(name: 'first_page') int? firstPage,@JsonKey(name: 'heading_context') HeadingContext? headingContext,@JsonKey(name: 'heading_path') List<String>? headingPath,@JsonKey(name: 'image_indices') List<int>? imageIndices,@JsonKey(name: 'last_page') int? lastPage,@JsonKey(name: 'token_count') int? tokenCount
 });
 
 
@@ -87,7 +93,7 @@ class _$ChunkMetadataCopyWithImpl<$Res>
 
 /// Create a copy of ChunkMetadata
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? byteEnd = null,Object? byteStart = null,Object? chunkIndex = null,Object? totalChunks = null,Object? firstPage = freezed,Object? headingContext = freezed,Object? imageIndices = freezed,Object? lastPage = freezed,Object? tokenCount = freezed,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? byteEnd = null,Object? byteStart = null,Object? chunkIndex = null,Object? totalChunks = null,Object? firstPage = freezed,Object? headingContext = freezed,Object? headingPath = freezed,Object? imageIndices = freezed,Object? lastPage = freezed,Object? tokenCount = freezed,}) {
   return _then(_self.copyWith(
 byteEnd: null == byteEnd ? _self.byteEnd : byteEnd // ignore: cast_nullable_to_non_nullable
 as int,byteStart: null == byteStart ? _self.byteStart : byteStart // ignore: cast_nullable_to_non_nullable
@@ -95,7 +101,8 @@ as int,chunkIndex: null == chunkIndex ? _self.chunkIndex : chunkIndex // ignore:
 as int,totalChunks: null == totalChunks ? _self.totalChunks : totalChunks // ignore: cast_nullable_to_non_nullable
 as int,firstPage: freezed == firstPage ? _self.firstPage : firstPage // ignore: cast_nullable_to_non_nullable
 as int?,headingContext: freezed == headingContext ? _self.headingContext : headingContext // ignore: cast_nullable_to_non_nullable
-as HeadingContext?,imageIndices: freezed == imageIndices ? _self.imageIndices : imageIndices // ignore: cast_nullable_to_non_nullable
+as HeadingContext?,headingPath: freezed == headingPath ? _self.headingPath : headingPath // ignore: cast_nullable_to_non_nullable
+as List<String>?,imageIndices: freezed == imageIndices ? _self.imageIndices : imageIndices // ignore: cast_nullable_to_non_nullable
 as List<int>?,lastPage: freezed == lastPage ? _self.lastPage : lastPage // ignore: cast_nullable_to_non_nullable
 as int?,tokenCount: freezed == tokenCount ? _self.tokenCount : tokenCount // ignore: cast_nullable_to_non_nullable
 as int?,
@@ -195,10 +202,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function(@JsonKey(name: 'byte_end')  int byteEnd, @JsonKey(name: 'byte_start')  int byteStart, @JsonKey(name: 'chunk_index')  int chunkIndex, @JsonKey(name: 'total_chunks')  int totalChunks, @JsonKey(name: 'first_page')  int? firstPage, @JsonKey(name: 'heading_context')  HeadingContext? headingContext, @JsonKey(name: 'image_indices')  List<int>? imageIndices, @JsonKey(name: 'last_page')  int? lastPage, @JsonKey(name: 'token_count')  int? tokenCount)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function(@JsonKey(name: 'byte_end')  int byteEnd, @JsonKey(name: 'byte_start')  int byteStart, @JsonKey(name: 'chunk_index')  int chunkIndex, @JsonKey(name: 'total_chunks')  int totalChunks, @JsonKey(name: 'first_page')  int? firstPage, @JsonKey(name: 'heading_context')  HeadingContext? headingContext, @JsonKey(name: 'heading_path')  List<String>? headingPath, @JsonKey(name: 'image_indices')  List<int>? imageIndices, @JsonKey(name: 'last_page')  int? lastPage, @JsonKey(name: 'token_count')  int? tokenCount)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _ChunkMetadata() when $default != null:
-return $default(_that.byteEnd,_that.byteStart,_that.chunkIndex,_that.totalChunks,_that.firstPage,_that.headingContext,_that.imageIndices,_that.lastPage,_that.tokenCount);case _:
+return $default(_that.byteEnd,_that.byteStart,_that.chunkIndex,_that.totalChunks,_that.firstPage,_that.headingContext,_that.headingPath,_that.imageIndices,_that.lastPage,_that.tokenCount);case _:
   return orElse();
 
 }
@@ -216,10 +223,10 @@ return $default(_that.byteEnd,_that.byteStart,_that.chunkIndex,_that.totalChunks
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function(@JsonKey(name: 'byte_end')  int byteEnd, @JsonKey(name: 'byte_start')  int byteStart, @JsonKey(name: 'chunk_index')  int chunkIndex, @JsonKey(name: 'total_chunks')  int totalChunks, @JsonKey(name: 'first_page')  int? firstPage, @JsonKey(name: 'heading_context')  HeadingContext? headingContext, @JsonKey(name: 'image_indices')  List<int>? imageIndices, @JsonKey(name: 'last_page')  int? lastPage, @JsonKey(name: 'token_count')  int? tokenCount)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function(@JsonKey(name: 'byte_end')  int byteEnd, @JsonKey(name: 'byte_start')  int byteStart, @JsonKey(name: 'chunk_index')  int chunkIndex, @JsonKey(name: 'total_chunks')  int totalChunks, @JsonKey(name: 'first_page')  int? firstPage, @JsonKey(name: 'heading_context')  HeadingContext? headingContext, @JsonKey(name: 'heading_path')  List<String>? headingPath, @JsonKey(name: 'image_indices')  List<int>? imageIndices, @JsonKey(name: 'last_page')  int? lastPage, @JsonKey(name: 'token_count')  int? tokenCount)  $default,) {final _that = this;
 switch (_that) {
 case _ChunkMetadata():
-return $default(_that.byteEnd,_that.byteStart,_that.chunkIndex,_that.totalChunks,_that.firstPage,_that.headingContext,_that.imageIndices,_that.lastPage,_that.tokenCount);case _:
+return $default(_that.byteEnd,_that.byteStart,_that.chunkIndex,_that.totalChunks,_that.firstPage,_that.headingContext,_that.headingPath,_that.imageIndices,_that.lastPage,_that.tokenCount);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -236,10 +243,10 @@ return $default(_that.byteEnd,_that.byteStart,_that.chunkIndex,_that.totalChunks
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function(@JsonKey(name: 'byte_end')  int byteEnd, @JsonKey(name: 'byte_start')  int byteStart, @JsonKey(name: 'chunk_index')  int chunkIndex, @JsonKey(name: 'total_chunks')  int totalChunks, @JsonKey(name: 'first_page')  int? firstPage, @JsonKey(name: 'heading_context')  HeadingContext? headingContext, @JsonKey(name: 'image_indices')  List<int>? imageIndices, @JsonKey(name: 'last_page')  int? lastPage, @JsonKey(name: 'token_count')  int? tokenCount)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function(@JsonKey(name: 'byte_end')  int byteEnd, @JsonKey(name: 'byte_start')  int byteStart, @JsonKey(name: 'chunk_index')  int chunkIndex, @JsonKey(name: 'total_chunks')  int totalChunks, @JsonKey(name: 'first_page')  int? firstPage, @JsonKey(name: 'heading_context')  HeadingContext? headingContext, @JsonKey(name: 'heading_path')  List<String>? headingPath, @JsonKey(name: 'image_indices')  List<int>? imageIndices, @JsonKey(name: 'last_page')  int? lastPage, @JsonKey(name: 'token_count')  int? tokenCount)?  $default,) {final _that = this;
 switch (_that) {
 case _ChunkMetadata() when $default != null:
-return $default(_that.byteEnd,_that.byteStart,_that.chunkIndex,_that.totalChunks,_that.firstPage,_that.headingContext,_that.imageIndices,_that.lastPage,_that.tokenCount);case _:
+return $default(_that.byteEnd,_that.byteStart,_that.chunkIndex,_that.totalChunks,_that.firstPage,_that.headingContext,_that.headingPath,_that.imageIndices,_that.lastPage,_that.tokenCount);case _:
   return null;
 
 }
@@ -251,7 +258,7 @@ return $default(_that.byteEnd,_that.byteStart,_that.chunkIndex,_that.totalChunks
 @JsonSerializable()
 
 class _ChunkMetadata implements ChunkMetadata {
-  const _ChunkMetadata({@JsonKey(name: 'byte_end') required this.byteEnd, @JsonKey(name: 'byte_start') required this.byteStart, @JsonKey(name: 'chunk_index') required this.chunkIndex, @JsonKey(name: 'total_chunks') required this.totalChunks, @JsonKey(name: 'first_page') this.firstPage, @JsonKey(name: 'heading_context') this.headingContext, @JsonKey(name: 'image_indices') final  List<int>? imageIndices, @JsonKey(name: 'last_page') this.lastPage, @JsonKey(name: 'token_count') this.tokenCount}): _imageIndices = imageIndices;
+  const _ChunkMetadata({@JsonKey(name: 'byte_end') required this.byteEnd, @JsonKey(name: 'byte_start') required this.byteStart, @JsonKey(name: 'chunk_index') required this.chunkIndex, @JsonKey(name: 'total_chunks') required this.totalChunks, @JsonKey(name: 'first_page') this.firstPage, @JsonKey(name: 'heading_context') this.headingContext, @JsonKey(name: 'heading_path') final  List<String>? headingPath, @JsonKey(name: 'image_indices') final  List<int>? imageIndices, @JsonKey(name: 'last_page') this.lastPage, @JsonKey(name: 'token_count') this.tokenCount}): _headingPath = headingPath,_imageIndices = imageIndices;
   factory _ChunkMetadata.fromJson(Map<String, dynamic> json) => _$ChunkMetadataFromJson(json);
 
 /// Byte offset where this chunk ends in the original text (UTF-8 valid boundary).
@@ -271,13 +278,34 @@ class _ChunkMetadata implements ChunkMetadata {
 /// Contains the heading hierarchy this chunk falls under.
 /// Only populated when `ChunkerType::Markdown` is used.
 @override@JsonKey(name: 'heading_context') final  HeadingContext? headingContext;
-/// Indices into `ExtractionResult.images` for images on pages covered by this chunk.
+/// Flattened heading trail from document root to this chunk's section.
+///
+/// Each element is a heading's text, outermost first. Derived from.
+/// [`heading_context`](Self::heading_context) when present; empty otherwise.
+/// Provides a binding-friendly, RAG-shaped breadcrumb without requiring.
+/// callers to walk the nested [`HeadingContext`] structure.
+ final  List<String>? _headingPath;
+/// Flattened heading trail from document root to this chunk's section.
+///
+/// Each element is a heading's text, outermost first. Derived from.
+/// [`heading_context`](Self::heading_context) when present; empty otherwise.
+/// Provides a binding-friendly, RAG-shaped breadcrumb without requiring.
+/// callers to walk the nested [`HeadingContext`] structure.
+@override@JsonKey(name: 'heading_path') List<String>? get headingPath {
+  final value = _headingPath;
+  if (value == null) return null;
+  if (_headingPath is EqualUnmodifiableListView) return _headingPath;
+  // ignore: implicit_dynamic_type
+  return EqualUnmodifiableListView(value);
+}
+
+/// Indices into `ExtractedDocument.images` for images on pages covered by this chunk.
 ///
 /// Contains zero-based indices into the top-level `images` collection for every.
 /// image whose `page_number` falls within `[first_page, last_page]`.
 /// Empty when image extraction is disabled or the chunk spans no pages with images.
  final  List<int>? _imageIndices;
-/// Indices into `ExtractionResult.images` for images on pages covered by this chunk.
+/// Indices into `ExtractedDocument.images` for images on pages covered by this chunk.
 ///
 /// Contains zero-based indices into the top-level `images` collection for every.
 /// image whose `page_number` falls within `[first_page, last_page]`.
@@ -312,16 +340,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _ChunkMetadata&&(identical(other.byteEnd, byteEnd) || other.byteEnd == byteEnd)&&(identical(other.byteStart, byteStart) || other.byteStart == byteStart)&&(identical(other.chunkIndex, chunkIndex) || other.chunkIndex == chunkIndex)&&(identical(other.totalChunks, totalChunks) || other.totalChunks == totalChunks)&&(identical(other.firstPage, firstPage) || other.firstPage == firstPage)&&(identical(other.headingContext, headingContext) || other.headingContext == headingContext)&&const DeepCollectionEquality().equals(other._imageIndices, _imageIndices)&&(identical(other.lastPage, lastPage) || other.lastPage == lastPage)&&(identical(other.tokenCount, tokenCount) || other.tokenCount == tokenCount));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _ChunkMetadata&&(identical(other.byteEnd, byteEnd) || other.byteEnd == byteEnd)&&(identical(other.byteStart, byteStart) || other.byteStart == byteStart)&&(identical(other.chunkIndex, chunkIndex) || other.chunkIndex == chunkIndex)&&(identical(other.totalChunks, totalChunks) || other.totalChunks == totalChunks)&&(identical(other.firstPage, firstPage) || other.firstPage == firstPage)&&(identical(other.headingContext, headingContext) || other.headingContext == headingContext)&&const DeepCollectionEquality().equals(other._headingPath, _headingPath)&&const DeepCollectionEquality().equals(other._imageIndices, _imageIndices)&&(identical(other.lastPage, lastPage) || other.lastPage == lastPage)&&(identical(other.tokenCount, tokenCount) || other.tokenCount == tokenCount));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,byteEnd,byteStart,chunkIndex,totalChunks,firstPage,headingContext,const DeepCollectionEquality().hash(_imageIndices),lastPage,tokenCount);
+int get hashCode => Object.hash(runtimeType,byteEnd,byteStart,chunkIndex,totalChunks,firstPage,headingContext,const DeepCollectionEquality().hash(_headingPath),const DeepCollectionEquality().hash(_imageIndices),lastPage,tokenCount);
 
 @override
 String toString() {
-  return 'ChunkMetadata(byteEnd: $byteEnd, byteStart: $byteStart, chunkIndex: $chunkIndex, totalChunks: $totalChunks, firstPage: $firstPage, headingContext: $headingContext, imageIndices: $imageIndices, lastPage: $lastPage, tokenCount: $tokenCount)';
+  return 'ChunkMetadata(byteEnd: $byteEnd, byteStart: $byteStart, chunkIndex: $chunkIndex, totalChunks: $totalChunks, firstPage: $firstPage, headingContext: $headingContext, headingPath: $headingPath, imageIndices: $imageIndices, lastPage: $lastPage, tokenCount: $tokenCount)';
 }
 
 
@@ -332,7 +360,7 @@ abstract mixin class _$ChunkMetadataCopyWith<$Res> implements $ChunkMetadataCopy
   factory _$ChunkMetadataCopyWith(_ChunkMetadata value, $Res Function(_ChunkMetadata) _then) = __$ChunkMetadataCopyWithImpl;
 @override @useResult
 $Res call({
-@JsonKey(name: 'byte_end') int byteEnd,@JsonKey(name: 'byte_start') int byteStart,@JsonKey(name: 'chunk_index') int chunkIndex,@JsonKey(name: 'total_chunks') int totalChunks,@JsonKey(name: 'first_page') int? firstPage,@JsonKey(name: 'heading_context') HeadingContext? headingContext,@JsonKey(name: 'image_indices') List<int>? imageIndices,@JsonKey(name: 'last_page') int? lastPage,@JsonKey(name: 'token_count') int? tokenCount
+@JsonKey(name: 'byte_end') int byteEnd,@JsonKey(name: 'byte_start') int byteStart,@JsonKey(name: 'chunk_index') int chunkIndex,@JsonKey(name: 'total_chunks') int totalChunks,@JsonKey(name: 'first_page') int? firstPage,@JsonKey(name: 'heading_context') HeadingContext? headingContext,@JsonKey(name: 'heading_path') List<String>? headingPath,@JsonKey(name: 'image_indices') List<int>? imageIndices,@JsonKey(name: 'last_page') int? lastPage,@JsonKey(name: 'token_count') int? tokenCount
 });
 
 
@@ -349,7 +377,7 @@ class __$ChunkMetadataCopyWithImpl<$Res>
 
 /// Create a copy of ChunkMetadata
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? byteEnd = null,Object? byteStart = null,Object? chunkIndex = null,Object? totalChunks = null,Object? firstPage = freezed,Object? headingContext = freezed,Object? imageIndices = freezed,Object? lastPage = freezed,Object? tokenCount = freezed,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? byteEnd = null,Object? byteStart = null,Object? chunkIndex = null,Object? totalChunks = null,Object? firstPage = freezed,Object? headingContext = freezed,Object? headingPath = freezed,Object? imageIndices = freezed,Object? lastPage = freezed,Object? tokenCount = freezed,}) {
   return _then(_ChunkMetadata(
 byteEnd: null == byteEnd ? _self.byteEnd : byteEnd // ignore: cast_nullable_to_non_nullable
 as int,byteStart: null == byteStart ? _self.byteStart : byteStart // ignore: cast_nullable_to_non_nullable
@@ -357,7 +385,8 @@ as int,chunkIndex: null == chunkIndex ? _self.chunkIndex : chunkIndex // ignore:
 as int,totalChunks: null == totalChunks ? _self.totalChunks : totalChunks // ignore: cast_nullable_to_non_nullable
 as int,firstPage: freezed == firstPage ? _self.firstPage : firstPage // ignore: cast_nullable_to_non_nullable
 as int?,headingContext: freezed == headingContext ? _self.headingContext : headingContext // ignore: cast_nullable_to_non_nullable
-as HeadingContext?,imageIndices: freezed == imageIndices ? _self._imageIndices : imageIndices // ignore: cast_nullable_to_non_nullable
+as HeadingContext?,headingPath: freezed == headingPath ? _self._headingPath : headingPath // ignore: cast_nullable_to_non_nullable
+as List<String>?,imageIndices: freezed == imageIndices ? _self._imageIndices : imageIndices // ignore: cast_nullable_to_non_nullable
 as List<int>?,lastPage: freezed == lastPage ? _self.lastPage : lastPage // ignore: cast_nullable_to_non_nullable
 as int?,tokenCount: freezed == tokenCount ? _self.tokenCount : tokenCount // ignore: cast_nullable_to_non_nullable
 as int?,

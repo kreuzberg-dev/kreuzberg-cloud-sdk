@@ -89,7 +89,7 @@ as List<double>?,
 @override
 @pragma('vm:prefer-inline')
 $ChunkMetadataCopyWith<$Res> get metadata {
-  
+
   return $ChunkMetadataCopyWith<$Res>(_self.metadata, (value) {
     return _then(_self.copyWith(metadata: value));
   });
@@ -326,7 +326,7 @@ as List<double>?,
 @override
 @pragma('vm:prefer-inline')
 $ChunkMetadataCopyWith<$Res> get metadata {
-  
+
   return $ChunkMetadataCopyWith<$Res>(_self.metadata, (value) {
     return _then(_self.copyWith(metadata: value));
   });

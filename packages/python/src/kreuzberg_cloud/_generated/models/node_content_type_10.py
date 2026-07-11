@@ -18,7 +18,7 @@ class NodeContentType10:
 
     Attributes:
         node_type (NodeContentType10NodeType):
-        text (str):
+        text (str): The footnote body text.
     """
 
     node_type: NodeContentType10NodeType

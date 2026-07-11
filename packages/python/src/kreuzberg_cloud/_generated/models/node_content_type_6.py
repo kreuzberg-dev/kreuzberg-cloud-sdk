@@ -19,8 +19,8 @@ class NodeContentType6:
 
     Attributes:
         node_type (NodeContentType6NodeType):
-        description (None | str | Unset):
-        image_index (int | None | Unset):
+        description (None | str | Unset): Optional alt text or caption describing the image.
+        image_index (int | None | Unset): Index into the parent `ExtractedDocument::images` list.
         src (None | str | Unset): Source URL or path of the image (from `<img src="...">` or `![](src)`).
     """
 

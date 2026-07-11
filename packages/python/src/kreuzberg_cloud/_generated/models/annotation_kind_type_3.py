@@ -17,7 +17,8 @@ T = TypeVar("T", bound="AnnotationKindType3")
 
 @_attrs_define
 class AnnotationKindType3:
-    """
+    """Strikethrough text.
+
     Attributes:
         annotation_type (AnnotationKindType3AnnotationType):
     """

@@ -17,7 +17,8 @@ T = TypeVar("T", bound="AnnotationKindType0")
 
 @_attrs_define
 class AnnotationKindType0:
-    """
+    """Bold (strong) text formatting.
+
     Attributes:
         annotation_type (AnnotationKindType0AnnotationType):
     """

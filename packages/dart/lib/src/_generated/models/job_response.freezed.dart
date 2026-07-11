@@ -19,9 +19,10 @@ mixin _$JobResponse {
 @JsonKey(name: 'created_at') DateTime get createdAt;/// Original filename
  String get filename;/// Unique job identifier (UUID)
  String get id;/// Job status
- JobStatus get status;/// Server-side processing duration in milliseconds (only present when completed)
+ JobStatus get status;/// Child job IDs created from multi-document splitting (empty if not split or parent job)
+@JsonKey(name: 'child_job_ids') List<String>? get childJobIds;/// Server-side processing duration in milliseconds (only present when completed)
 @JsonKey(name: 'processing_time_ms') int? get processingTimeMs;/// Extraction result (only present when status is completed/partial_success)
- ExtractionResult? get result;
+ ExtractedDocument? get result;
 /// Create a copy of JobResponse
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -34,16 +35,16 @@ $JobResponseCopyWith<JobResponse> get copyWith => _$JobResponseCopyWithImpl<JobR
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is JobResponse&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.filename, filename) || other.filename == filename)&&(identical(other.id, id) || other.id == id)&&(identical(other.status, status) || other.status == status)&&(identical(other.processingTimeMs, processingTimeMs) || other.processingTimeMs == processingTimeMs)&&(identical(other.result, result) || other.result == result));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is JobResponse&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.filename, filename) || other.filename == filename)&&(identical(other.id, id) || other.id == id)&&(identical(other.status, status) || other.status == status)&&const DeepCollectionEquality().equals(other.childJobIds, childJobIds)&&(identical(other.processingTimeMs, processingTimeMs) || other.processingTimeMs == processingTimeMs)&&(identical(other.result, result) || other.result == result));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,createdAt,filename,id,status,processingTimeMs,result);
+int get hashCode => Object.hash(runtimeType,createdAt,filename,id,status,const DeepCollectionEquality().hash(childJobIds),processingTimeMs,result);
 
 @override
 String toString() {
-  return 'JobResponse(createdAt: $createdAt, filename: $filename, id: $id, status: $status, processingTimeMs: $processingTimeMs, result: $result)';
+  return 'JobResponse(createdAt: $createdAt, filename: $filename, id: $id, status: $status, childJobIds: $childJobIds, processingTimeMs: $processingTimeMs, result: $result)';
 }
 
 
@@ -54,11 +55,11 @@ abstract mixin class $JobResponseCopyWith<$Res>  {
   factory $JobResponseCopyWith(JobResponse value, $Res Function(JobResponse) _then) = _$JobResponseCopyWithImpl;
 @useResult
 $Res call({
-@JsonKey(name: 'created_at') DateTime createdAt, String filename, String id, JobStatus status,@JsonKey(name: 'processing_time_ms') int? processingTimeMs, ExtractionResult? result
+@JsonKey(name: 'created_at') DateTime createdAt, String filename, String id, JobStatus status,@JsonKey(name: 'child_job_ids') List<String>? childJobIds,@JsonKey(name: 'processing_time_ms') int? processingTimeMs, ExtractedDocument? result
 });
 
 
-$ExtractionResultCopyWith<$Res>? get result;
+$ExtractedDocumentCopyWith<$Res>? get result;
 
 }
 /// @nodoc
@@ -71,27 +72,28 @@ class _$JobResponseCopyWithImpl<$Res>
 
 /// Create a copy of JobResponse
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? createdAt = null,Object? filename = null,Object? id = null,Object? status = null,Object? processingTimeMs = freezed,Object? result = freezed,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? createdAt = null,Object? filename = null,Object? id = null,Object? status = null,Object? childJobIds = freezed,Object? processingTimeMs = freezed,Object? result = freezed,}) {
   return _then(_self.copyWith(
 createdAt: null == createdAt ? _self.createdAt : createdAt // ignore: cast_nullable_to_non_nullable
 as DateTime,filename: null == filename ? _self.filename : filename // ignore: cast_nullable_to_non_nullable
 as String,id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,status: null == status ? _self.status : status // ignore: cast_nullable_to_non_nullable
-as JobStatus,processingTimeMs: freezed == processingTimeMs ? _self.processingTimeMs : processingTimeMs // ignore: cast_nullable_to_non_nullable
+as JobStatus,childJobIds: freezed == childJobIds ? _self.childJobIds : childJobIds // ignore: cast_nullable_to_non_nullable
+as List<String>?,processingTimeMs: freezed == processingTimeMs ? _self.processingTimeMs : processingTimeMs // ignore: cast_nullable_to_non_nullable
 as int?,result: freezed == result ? _self.result : result // ignore: cast_nullable_to_non_nullable
-as ExtractionResult?,
+as ExtractedDocument?,
   ));
 }
 /// Create a copy of JobResponse
 /// with the given fields replaced by the non-null parameter values.
 @override
 @pragma('vm:prefer-inline')
-$ExtractionResultCopyWith<$Res>? get result {
+$ExtractedDocumentCopyWith<$Res>? get result {
     if (_self.result == null) {
     return null;
   }
 
-  return $ExtractionResultCopyWith<$Res>(_self.result!, (value) {
+  return $ExtractedDocumentCopyWith<$Res>(_self.result!, (value) {
     return _then(_self.copyWith(result: value));
   });
 }
@@ -176,10 +178,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function(@JsonKey(name: 'created_at')  DateTime createdAt,  String filename,  String id,  JobStatus status, @JsonKey(name: 'processing_time_ms')  int? processingTimeMs,  ExtractionResult? result)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function(@JsonKey(name: 'created_at')  DateTime createdAt,  String filename,  String id,  JobStatus status, @JsonKey(name: 'child_job_ids')  List<String>? childJobIds, @JsonKey(name: 'processing_time_ms')  int? processingTimeMs,  ExtractedDocument? result)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _JobResponse() when $default != null:
-return $default(_that.createdAt,_that.filename,_that.id,_that.status,_that.processingTimeMs,_that.result);case _:
+return $default(_that.createdAt,_that.filename,_that.id,_that.status,_that.childJobIds,_that.processingTimeMs,_that.result);case _:
   return orElse();
 
 }
@@ -197,10 +199,10 @@ return $default(_that.createdAt,_that.filename,_that.id,_that.status,_that.proce
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function(@JsonKey(name: 'created_at')  DateTime createdAt,  String filename,  String id,  JobStatus status, @JsonKey(name: 'processing_time_ms')  int? processingTimeMs,  ExtractionResult? result)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function(@JsonKey(name: 'created_at')  DateTime createdAt,  String filename,  String id,  JobStatus status, @JsonKey(name: 'child_job_ids')  List<String>? childJobIds, @JsonKey(name: 'processing_time_ms')  int? processingTimeMs,  ExtractedDocument? result)  $default,) {final _that = this;
 switch (_that) {
 case _JobResponse():
-return $default(_that.createdAt,_that.filename,_that.id,_that.status,_that.processingTimeMs,_that.result);case _:
+return $default(_that.createdAt,_that.filename,_that.id,_that.status,_that.childJobIds,_that.processingTimeMs,_that.result);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -217,10 +219,10 @@ return $default(_that.createdAt,_that.filename,_that.id,_that.status,_that.proce
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function(@JsonKey(name: 'created_at')  DateTime createdAt,  String filename,  String id,  JobStatus status, @JsonKey(name: 'processing_time_ms')  int? processingTimeMs,  ExtractionResult? result)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function(@JsonKey(name: 'created_at')  DateTime createdAt,  String filename,  String id,  JobStatus status, @JsonKey(name: 'child_job_ids')  List<String>? childJobIds, @JsonKey(name: 'processing_time_ms')  int? processingTimeMs,  ExtractedDocument? result)?  $default,) {final _that = this;
 switch (_that) {
 case _JobResponse() when $default != null:
-return $default(_that.createdAt,_that.filename,_that.id,_that.status,_that.processingTimeMs,_that.result);case _:
+return $default(_that.createdAt,_that.filename,_that.id,_that.status,_that.childJobIds,_that.processingTimeMs,_that.result);case _:
   return null;
 
 }
@@ -232,7 +234,7 @@ return $default(_that.createdAt,_that.filename,_that.id,_that.status,_that.proce
 @JsonSerializable()
 
 class _JobResponse implements JobResponse {
-  const _JobResponse({@JsonKey(name: 'created_at') required this.createdAt, required this.filename, required this.id, required this.status, @JsonKey(name: 'processing_time_ms') this.processingTimeMs, this.result});
+  const _JobResponse({@JsonKey(name: 'created_at') required this.createdAt, required this.filename, required this.id, required this.status, @JsonKey(name: 'child_job_ids') final  List<String>? childJobIds, @JsonKey(name: 'processing_time_ms') this.processingTimeMs, this.result}): _childJobIds = childJobIds;
   factory _JobResponse.fromJson(Map<String, dynamic> json) => _$JobResponseFromJson(json);
 
 /// Job creation timestamp (RFC3339)
@@ -243,10 +245,21 @@ class _JobResponse implements JobResponse {
 @override final  String id;
 /// Job status
 @override final  JobStatus status;
+/// Child job IDs created from multi-document splitting (empty if not split or parent job)
+ final  List<String>? _childJobIds;
+/// Child job IDs created from multi-document splitting (empty if not split or parent job)
+@override@JsonKey(name: 'child_job_ids') List<String>? get childJobIds {
+  final value = _childJobIds;
+  if (value == null) return null;
+  if (_childJobIds is EqualUnmodifiableListView) return _childJobIds;
+  // ignore: implicit_dynamic_type
+  return EqualUnmodifiableListView(value);
+}
+
 /// Server-side processing duration in milliseconds (only present when completed)
 @override@JsonKey(name: 'processing_time_ms') final  int? processingTimeMs;
 /// Extraction result (only present when status is completed/partial_success)
-@override final  ExtractionResult? result;
+@override final  ExtractedDocument? result;
 
 /// Create a copy of JobResponse
 /// with the given fields replaced by the non-null parameter values.
@@ -261,16 +274,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _JobResponse&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.filename, filename) || other.filename == filename)&&(identical(other.id, id) || other.id == id)&&(identical(other.status, status) || other.status == status)&&(identical(other.processingTimeMs, processingTimeMs) || other.processingTimeMs == processingTimeMs)&&(identical(other.result, result) || other.result == result));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _JobResponse&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.filename, filename) || other.filename == filename)&&(identical(other.id, id) || other.id == id)&&(identical(other.status, status) || other.status == status)&&const DeepCollectionEquality().equals(other._childJobIds, _childJobIds)&&(identical(other.processingTimeMs, processingTimeMs) || other.processingTimeMs == processingTimeMs)&&(identical(other.result, result) || other.result == result));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,createdAt,filename,id,status,processingTimeMs,result);
+int get hashCode => Object.hash(runtimeType,createdAt,filename,id,status,const DeepCollectionEquality().hash(_childJobIds),processingTimeMs,result);
 
 @override
 String toString() {
-  return 'JobResponse(createdAt: $createdAt, filename: $filename, id: $id, status: $status, processingTimeMs: $processingTimeMs, result: $result)';
+  return 'JobResponse(createdAt: $createdAt, filename: $filename, id: $id, status: $status, childJobIds: $childJobIds, processingTimeMs: $processingTimeMs, result: $result)';
 }
 
 
@@ -281,11 +294,11 @@ abstract mixin class _$JobResponseCopyWith<$Res> implements $JobResponseCopyWith
   factory _$JobResponseCopyWith(_JobResponse value, $Res Function(_JobResponse) _then) = __$JobResponseCopyWithImpl;
 @override @useResult
 $Res call({
-@JsonKey(name: 'created_at') DateTime createdAt, String filename, String id, JobStatus status,@JsonKey(name: 'processing_time_ms') int? processingTimeMs, ExtractionResult? result
+@JsonKey(name: 'created_at') DateTime createdAt, String filename, String id, JobStatus status,@JsonKey(name: 'child_job_ids') List<String>? childJobIds,@JsonKey(name: 'processing_time_ms') int? processingTimeMs, ExtractedDocument? result
 });
 
 
-@override $ExtractionResultCopyWith<$Res>? get result;
+@override $ExtractedDocumentCopyWith<$Res>? get result;
 
 }
 /// @nodoc
@@ -298,15 +311,16 @@ class __$JobResponseCopyWithImpl<$Res>
 
 /// Create a copy of JobResponse
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? createdAt = null,Object? filename = null,Object? id = null,Object? status = null,Object? processingTimeMs = freezed,Object? result = freezed,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? createdAt = null,Object? filename = null,Object? id = null,Object? status = null,Object? childJobIds = freezed,Object? processingTimeMs = freezed,Object? result = freezed,}) {
   return _then(_JobResponse(
 createdAt: null == createdAt ? _self.createdAt : createdAt // ignore: cast_nullable_to_non_nullable
 as DateTime,filename: null == filename ? _self.filename : filename // ignore: cast_nullable_to_non_nullable
 as String,id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,status: null == status ? _self.status : status // ignore: cast_nullable_to_non_nullable
-as JobStatus,processingTimeMs: freezed == processingTimeMs ? _self.processingTimeMs : processingTimeMs // ignore: cast_nullable_to_non_nullable
+as JobStatus,childJobIds: freezed == childJobIds ? _self._childJobIds : childJobIds // ignore: cast_nullable_to_non_nullable
+as List<String>?,processingTimeMs: freezed == processingTimeMs ? _self.processingTimeMs : processingTimeMs // ignore: cast_nullable_to_non_nullable
 as int?,result: freezed == result ? _self.result : result // ignore: cast_nullable_to_non_nullable
-as ExtractionResult?,
+as ExtractedDocument?,
   ));
 }
 
@@ -314,12 +328,12 @@ as ExtractionResult?,
 /// with the given fields replaced by the non-null parameter values.
 @override
 @pragma('vm:prefer-inline')
-$ExtractionResultCopyWith<$Res>? get result {
+$ExtractedDocumentCopyWith<$Res>? get result {
     if (_self.result == null) {
     return null;
   }
 
-  return $ExtractionResultCopyWith<$Res>(_self.result!, (value) {
+  return $ExtractedDocumentCopyWith<$Res>(_self.result!, (value) {
     return _then(_self.copyWith(result: value));
   });
 }

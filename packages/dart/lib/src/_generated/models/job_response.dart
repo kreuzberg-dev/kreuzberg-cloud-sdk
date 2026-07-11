@@ -4,7 +4,7 @@
 
 import 'package:freezed_annotation/freezed_annotation.dart';
 
-import 'extraction_result.dart';
+import 'extracted_document.dart';
 import 'job_status.dart';
 
 part 'job_response.freezed.dart';
@@ -26,11 +26,14 @@ abstract class JobResponse with _$JobResponse {
     /// Job status
     required JobStatus status,
 
+    /// Child job IDs created from multi-document splitting (empty if not split or parent job)
+    @JsonKey(name: 'child_job_ids') List<String>? childJobIds,
+
     /// Server-side processing duration in milliseconds (only present when completed)
     @JsonKey(name: 'processing_time_ms') int? processingTimeMs,
 
     /// Extraction result (only present when status is completed/partial_success)
-    ExtractionResult? result,
+    ExtractedDocument? result,
   }) = _JobResponse;
 
   factory JobResponse.fromJson(Map<String, Object?> json) =>

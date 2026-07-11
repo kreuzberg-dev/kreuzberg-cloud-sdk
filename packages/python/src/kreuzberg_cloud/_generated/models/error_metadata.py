@@ -15,8 +15,8 @@ class ErrorMetadata:
     """Error metadata (for batch operations).
 
     Attributes:
-        error_type (str):
-        message (str):
+        error_type (str): Machine-readable error type identifier (e.g. "UnsupportedFormat").
+        message (str): Human-readable error description.
     """
 
     error_type: str

@@ -26,7 +26,11 @@ abstract class OcrMetadata with _$OcrMetadata {
 
     /// Number of tables detected
     @JsonKey(name: 'table_count') required int tableCount,
+
+    /// Number of columns in the detected table (if a single table was found).
     @JsonKey(name: 'table_cols') int? tableCols,
+
+    /// Number of rows in the detected table (if a single table was found).
     @JsonKey(name: 'table_rows') int? tableRows,
   }) = _OcrMetadata;
 

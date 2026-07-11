@@ -25,7 +25,7 @@ mixin _$CrawlChildJob {
 /// as the "document" — typically 5–30 KB).
 @JsonKey(name: 'body_bytes') int? get bodyBytes;/// Processing time in ms (when completed)
 @JsonKey(name: 'processing_time_ms') int? get processingTimeMs;/// Extraction result (when completed)
- ExtractionResult? get result;/// Source URL where this document was found
+ ExtractedDocument? get result;/// Source URL where this document was found
 @JsonKey(name: 'source_url') String? get sourceUrl;
 /// Create a copy of CrawlChildJob
 /// with the given fields replaced by the non-null parameter values.
@@ -59,11 +59,11 @@ abstract mixin class $CrawlChildJobCopyWith<$Res>  {
   factory $CrawlChildJobCopyWith(CrawlChildJob value, $Res Function(CrawlChildJob) _then) = _$CrawlChildJobCopyWithImpl;
 @useResult
 $Res call({
- String filename, String id, String status,@JsonKey(name: 'body_bytes') int? bodyBytes,@JsonKey(name: 'processing_time_ms') int? processingTimeMs, ExtractionResult? result,@JsonKey(name: 'source_url') String? sourceUrl
+ String filename, String id, String status,@JsonKey(name: 'body_bytes') int? bodyBytes,@JsonKey(name: 'processing_time_ms') int? processingTimeMs, ExtractedDocument? result,@JsonKey(name: 'source_url') String? sourceUrl
 });
 
 
-$ExtractionResultCopyWith<$Res>? get result;
+$ExtractedDocumentCopyWith<$Res>? get result;
 
 }
 /// @nodoc
@@ -84,7 +84,7 @@ as String,status: null == status ? _self.status : status // ignore: cast_nullabl
 as String,bodyBytes: freezed == bodyBytes ? _self.bodyBytes : bodyBytes // ignore: cast_nullable_to_non_nullable
 as int?,processingTimeMs: freezed == processingTimeMs ? _self.processingTimeMs : processingTimeMs // ignore: cast_nullable_to_non_nullable
 as int?,result: freezed == result ? _self.result : result // ignore: cast_nullable_to_non_nullable
-as ExtractionResult?,sourceUrl: freezed == sourceUrl ? _self.sourceUrl : sourceUrl // ignore: cast_nullable_to_non_nullable
+as ExtractedDocument?,sourceUrl: freezed == sourceUrl ? _self.sourceUrl : sourceUrl // ignore: cast_nullable_to_non_nullable
 as String?,
   ));
 }
@@ -92,12 +92,12 @@ as String?,
 /// with the given fields replaced by the non-null parameter values.
 @override
 @pragma('vm:prefer-inline')
-$ExtractionResultCopyWith<$Res>? get result {
+$ExtractedDocumentCopyWith<$Res>? get result {
     if (_self.result == null) {
     return null;
   }
 
-  return $ExtractionResultCopyWith<$Res>(_self.result!, (value) {
+  return $ExtractedDocumentCopyWith<$Res>(_self.result!, (value) {
     return _then(_self.copyWith(result: value));
   });
 }
@@ -182,7 +182,7 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String filename,  String id,  String status, @JsonKey(name: 'body_bytes')  int? bodyBytes, @JsonKey(name: 'processing_time_ms')  int? processingTimeMs,  ExtractionResult? result, @JsonKey(name: 'source_url')  String? sourceUrl)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String filename,  String id,  String status, @JsonKey(name: 'body_bytes')  int? bodyBytes, @JsonKey(name: 'processing_time_ms')  int? processingTimeMs,  ExtractedDocument? result, @JsonKey(name: 'source_url')  String? sourceUrl)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _CrawlChildJob() when $default != null:
 return $default(_that.filename,_that.id,_that.status,_that.bodyBytes,_that.processingTimeMs,_that.result,_that.sourceUrl);case _:
@@ -203,7 +203,7 @@ return $default(_that.filename,_that.id,_that.status,_that.bodyBytes,_that.proce
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String filename,  String id,  String status, @JsonKey(name: 'body_bytes')  int? bodyBytes, @JsonKey(name: 'processing_time_ms')  int? processingTimeMs,  ExtractionResult? result, @JsonKey(name: 'source_url')  String? sourceUrl)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String filename,  String id,  String status, @JsonKey(name: 'body_bytes')  int? bodyBytes, @JsonKey(name: 'processing_time_ms')  int? processingTimeMs,  ExtractedDocument? result, @JsonKey(name: 'source_url')  String? sourceUrl)  $default,) {final _that = this;
 switch (_that) {
 case _CrawlChildJob():
 return $default(_that.filename,_that.id,_that.status,_that.bodyBytes,_that.processingTimeMs,_that.result,_that.sourceUrl);case _:
@@ -223,7 +223,7 @@ return $default(_that.filename,_that.id,_that.status,_that.bodyBytes,_that.proce
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String filename,  String id,  String status, @JsonKey(name: 'body_bytes')  int? bodyBytes, @JsonKey(name: 'processing_time_ms')  int? processingTimeMs,  ExtractionResult? result, @JsonKey(name: 'source_url')  String? sourceUrl)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String filename,  String id,  String status, @JsonKey(name: 'body_bytes')  int? bodyBytes, @JsonKey(name: 'processing_time_ms')  int? processingTimeMs,  ExtractedDocument? result, @JsonKey(name: 'source_url')  String? sourceUrl)?  $default,) {final _that = this;
 switch (_that) {
 case _CrawlChildJob() when $default != null:
 return $default(_that.filename,_that.id,_that.status,_that.bodyBytes,_that.processingTimeMs,_that.result,_that.sourceUrl);case _:
@@ -256,7 +256,7 @@ class _CrawlChildJob implements CrawlChildJob {
 /// Processing time in ms (when completed)
 @override@JsonKey(name: 'processing_time_ms') final  int? processingTimeMs;
 /// Extraction result (when completed)
-@override final  ExtractionResult? result;
+@override final  ExtractedDocument? result;
 /// Source URL where this document was found
 @override@JsonKey(name: 'source_url') final  String? sourceUrl;
 
@@ -293,11 +293,11 @@ abstract mixin class _$CrawlChildJobCopyWith<$Res> implements $CrawlChildJobCopy
   factory _$CrawlChildJobCopyWith(_CrawlChildJob value, $Res Function(_CrawlChildJob) _then) = __$CrawlChildJobCopyWithImpl;
 @override @useResult
 $Res call({
- String filename, String id, String status,@JsonKey(name: 'body_bytes') int? bodyBytes,@JsonKey(name: 'processing_time_ms') int? processingTimeMs, ExtractionResult? result,@JsonKey(name: 'source_url') String? sourceUrl
+ String filename, String id, String status,@JsonKey(name: 'body_bytes') int? bodyBytes,@JsonKey(name: 'processing_time_ms') int? processingTimeMs, ExtractedDocument? result,@JsonKey(name: 'source_url') String? sourceUrl
 });
 
 
-@override $ExtractionResultCopyWith<$Res>? get result;
+@override $ExtractedDocumentCopyWith<$Res>? get result;
 
 }
 /// @nodoc
@@ -318,7 +318,7 @@ as String,status: null == status ? _self.status : status // ignore: cast_nullabl
 as String,bodyBytes: freezed == bodyBytes ? _self.bodyBytes : bodyBytes // ignore: cast_nullable_to_non_nullable
 as int?,processingTimeMs: freezed == processingTimeMs ? _self.processingTimeMs : processingTimeMs // ignore: cast_nullable_to_non_nullable
 as int?,result: freezed == result ? _self.result : result // ignore: cast_nullable_to_non_nullable
-as ExtractionResult?,sourceUrl: freezed == sourceUrl ? _self.sourceUrl : sourceUrl // ignore: cast_nullable_to_non_nullable
+as ExtractedDocument?,sourceUrl: freezed == sourceUrl ? _self.sourceUrl : sourceUrl // ignore: cast_nullable_to_non_nullable
 as String?,
   ));
 }
@@ -327,12 +327,12 @@ as String?,
 /// with the given fields replaced by the non-null parameter values.
 @override
 @pragma('vm:prefer-inline')
-$ExtractionResultCopyWith<$Res>? get result {
+$ExtractedDocumentCopyWith<$Res>? get result {
     if (_self.result == null) {
     return null;
   }
 
-  return $ExtractionResultCopyWith<$Res>(_self.result!, (value) {
+  return $ExtractedDocumentCopyWith<$Res>(_self.result!, (value) {
     return _then(_self.copyWith(result: value));
   });
 }

@@ -18,7 +18,7 @@ mixin _$ArchiveEntry {
 /// Detected MIME type of the file.
 @JsonKey(name: 'mime_type') String get mimeType;/// Archive-relative file path (e.g. "folder/document.pdf").
  String get path;/// Full extraction result for this file.
- ExtractionResult get result;
+ ExtractedDocument get result;
 /// Create a copy of ArchiveEntry
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -51,11 +51,11 @@ abstract mixin class $ArchiveEntryCopyWith<$Res>  {
   factory $ArchiveEntryCopyWith(ArchiveEntry value, $Res Function(ArchiveEntry) _then) = _$ArchiveEntryCopyWithImpl;
 @useResult
 $Res call({
-@JsonKey(name: 'mime_type') String mimeType, String path, ExtractionResult result
+@JsonKey(name: 'mime_type') String mimeType, String path, ExtractedDocument result
 });
 
 
-$ExtractionResultCopyWith<$Res> get result;
+$ExtractedDocumentCopyWith<$Res> get result;
 
 }
 /// @nodoc
@@ -73,16 +73,16 @@ class _$ArchiveEntryCopyWithImpl<$Res>
 mimeType: null == mimeType ? _self.mimeType : mimeType // ignore: cast_nullable_to_non_nullable
 as String,path: null == path ? _self.path : path // ignore: cast_nullable_to_non_nullable
 as String,result: null == result ? _self.result : result // ignore: cast_nullable_to_non_nullable
-as ExtractionResult,
+as ExtractedDocument,
   ));
 }
 /// Create a copy of ArchiveEntry
 /// with the given fields replaced by the non-null parameter values.
 @override
 @pragma('vm:prefer-inline')
-$ExtractionResultCopyWith<$Res> get result {
-  
-  return $ExtractionResultCopyWith<$Res>(_self.result, (value) {
+$ExtractedDocumentCopyWith<$Res> get result {
+
+  return $ExtractedDocumentCopyWith<$Res>(_self.result, (value) {
     return _then(_self.copyWith(result: value));
   });
 }
@@ -167,7 +167,7 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function(@JsonKey(name: 'mime_type')  String mimeType,  String path,  ExtractionResult result)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function(@JsonKey(name: 'mime_type')  String mimeType,  String path,  ExtractedDocument result)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _ArchiveEntry() when $default != null:
 return $default(_that.mimeType,_that.path,_that.result);case _:
@@ -188,7 +188,7 @@ return $default(_that.mimeType,_that.path,_that.result);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function(@JsonKey(name: 'mime_type')  String mimeType,  String path,  ExtractionResult result)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function(@JsonKey(name: 'mime_type')  String mimeType,  String path,  ExtractedDocument result)  $default,) {final _that = this;
 switch (_that) {
 case _ArchiveEntry():
 return $default(_that.mimeType,_that.path,_that.result);case _:
@@ -208,7 +208,7 @@ return $default(_that.mimeType,_that.path,_that.result);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function(@JsonKey(name: 'mime_type')  String mimeType,  String path,  ExtractionResult result)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function(@JsonKey(name: 'mime_type')  String mimeType,  String path,  ExtractedDocument result)?  $default,) {final _that = this;
 switch (_that) {
 case _ArchiveEntry() when $default != null:
 return $default(_that.mimeType,_that.path,_that.result);case _:
@@ -231,7 +231,7 @@ class _ArchiveEntry implements ArchiveEntry {
 /// Archive-relative file path (e.g. "folder/document.pdf").
 @override final  String path;
 /// Full extraction result for this file.
-@override final  ExtractionResult result;
+@override final  ExtractedDocument result;
 
 /// Create a copy of ArchiveEntry
 /// with the given fields replaced by the non-null parameter values.
@@ -266,11 +266,11 @@ abstract mixin class _$ArchiveEntryCopyWith<$Res> implements $ArchiveEntryCopyWi
   factory _$ArchiveEntryCopyWith(_ArchiveEntry value, $Res Function(_ArchiveEntry) _then) = __$ArchiveEntryCopyWithImpl;
 @override @useResult
 $Res call({
-@JsonKey(name: 'mime_type') String mimeType, String path, ExtractionResult result
+@JsonKey(name: 'mime_type') String mimeType, String path, ExtractedDocument result
 });
 
 
-@override $ExtractionResultCopyWith<$Res> get result;
+@override $ExtractedDocumentCopyWith<$Res> get result;
 
 }
 /// @nodoc
@@ -288,7 +288,7 @@ class __$ArchiveEntryCopyWithImpl<$Res>
 mimeType: null == mimeType ? _self.mimeType : mimeType // ignore: cast_nullable_to_non_nullable
 as String,path: null == path ? _self.path : path // ignore: cast_nullable_to_non_nullable
 as String,result: null == result ? _self.result : result // ignore: cast_nullable_to_non_nullable
-as ExtractionResult,
+as ExtractedDocument,
   ));
 }
 
@@ -296,9 +296,9 @@ as ExtractionResult,
 /// with the given fields replaced by the non-null parameter values.
 @override
 @pragma('vm:prefer-inline')
-$ExtractionResultCopyWith<$Res> get result {
-  
-  return $ExtractionResultCopyWith<$Res>(_self.result, (value) {
+$ExtractedDocumentCopyWith<$Res> get result {
+
+  return $ExtractedDocumentCopyWith<$Res>(_self.result, (value) {
     return _then(_self.copyWith(result: value));
   });
 }

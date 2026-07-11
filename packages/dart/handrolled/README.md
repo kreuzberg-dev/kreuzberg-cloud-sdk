@@ -17,5 +17,8 @@ Files currently maintained here:
 - `models/diff_line.dart`
 - `models/node_content.dart`
 - `models/ocr_bounding_geometry.dart`
+- `models/primary_score.dart`
+- `models/reranker_spec.dart`
 - `models/revision_anchor.dart`
 - `models/job_lookup_response.dart`
+- `models/vlm_fallback_policy.dart`

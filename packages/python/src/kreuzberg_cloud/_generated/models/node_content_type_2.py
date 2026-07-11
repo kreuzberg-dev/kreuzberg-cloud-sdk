@@ -18,7 +18,7 @@ class NodeContentType2:
 
     Attributes:
         node_type (NodeContentType2NodeType):
-        text (str):
+        text (str): The paragraph text content.
     """
 
     node_type: NodeContentType2NodeType

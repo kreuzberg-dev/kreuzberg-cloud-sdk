@@ -29,6 +29,14 @@ enum ChunkType {
   formula('formula'),
   @JsonValue('code_block')
   codeBlock('code_block'),
+  @JsonValue('function')
+  function('function'),
+
+  /// The name has been replaced because it contains a keyword. Original name: `class`.
+  @JsonValue('class')
+  valueClass('class'),
+  @JsonValue('module')
+  module('module'),
   @JsonValue('image')
   image('image'),
   @JsonValue('org_chart')

@@ -90,18 +90,9 @@ void main() {
 
       test('format_map_dispatch_should_reach_ocr_branch', () {
         final result = _loadFixture('extraction_result_pdf.json');
-        final dispatched = result.metadata.format!.map(
+        final dispatched = result.metadata.format!.maybeMap(
           ocr: (ocr) => 'got-ocr:${ocr.language}',
-          archive: (_) => 'archive',
-          csv: (_) => 'csv',
-          email: (_) => 'email',
-          excel: (_) => 'excel',
-          html: (_) => 'html',
-          image: (_) => 'image',
-          pptx: (_) => 'pptx',
-          pst: (_) => 'pst',
-          text: (_) => 'text',
-          xml: (_) => 'xml',
+          orElse: () => 'other',
         );
         expect(dispatched, 'got-ocr:eng');
       });
@@ -165,18 +156,9 @@ void main() {
         final result = _loadFixture(
           'extraction_result_xlsx_with_children.json',
         );
-        final dispatched = result.metadata.format!.map(
+        final dispatched = result.metadata.format!.maybeMap(
           excel: (excel) => 'got-excel:${excel.sheetCount}',
-          archive: (_) => 'archive',
-          csv: (_) => 'csv',
-          email: (_) => 'email',
-          html: (_) => 'html',
-          image: (_) => 'image',
-          ocr: (_) => 'ocr',
-          pptx: (_) => 'pptx',
-          pst: (_) => 'pst',
-          text: (_) => 'text',
-          xml: (_) => 'xml',
+          orElse: () => 'other',
         );
         expect(dispatched, 'got-excel:3');
       });

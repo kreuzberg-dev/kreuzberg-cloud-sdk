@@ -1,5 +1,5 @@
 from http import HTTPStatus
-from typing import Any
+from typing import Any, cast
 from urllib.parse import quote
 from uuid import UUID
 
@@ -39,6 +39,10 @@ def _parse_response(
         response_202 = DiffAsyncAccepted.from_dict(response.json())
 
         return response_202
+
+    if response.status_code == 401:
+        response_401 = cast("Any", None)
+        return response_401
 
     if response.status_code == 404:
         response_404 = response.json()

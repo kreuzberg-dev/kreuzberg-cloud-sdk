@@ -19,7 +19,10 @@ void main() {
   group('auth + headers', () {
     test('Authorization header is set to Bearer <apiKey>', () async {
       final adapter = MockAdapter()
-      ..enqueueJson(statusCode: 200, body: {'status': 'ok'});
+      ..enqueueJson(
+        statusCode: 200,
+        body: {'status': 'ok', 'tier': 'enterprise'},
+      );
       final client = _newClient(adapter);
       await client.healthz();
       expect(
@@ -30,7 +33,10 @@ void main() {
 
     test('User-Agent header carries package version', () async {
       final adapter = MockAdapter()
-      ..enqueueJson(statusCode: 200, body: {'status': 'ok'});
+      ..enqueueJson(
+        statusCode: 200,
+        body: {'status': 'ok', 'tier': 'enterprise'},
+      );
       final client = _newClient(adapter);
       await client.healthz();
       expect(
@@ -41,7 +47,10 @@ void main() {
 
     test('Accept header defaults to application/json', () async {
       final adapter = MockAdapter()
-      ..enqueueJson(statusCode: 200, body: {'status': 'ok'});
+      ..enqueueJson(
+        statusCode: 200,
+        body: {'status': 'ok', 'tier': 'enterprise'},
+      );
       final client = _newClient(adapter);
       await client.healthz();
       expect(adapter.captured.single.headers['Accept'], 'application/json');
@@ -51,7 +60,10 @@ void main() {
   group('healthz / readyz', () {
     test('healthz returns parsed HealthResponse', () async {
       final adapter = MockAdapter()
-      ..enqueueJson(statusCode: 200, body: {'status': 'ok'});
+      ..enqueueJson(
+        statusCode: 200,
+        body: {'status': 'ok', 'tier': 'enterprise'},
+      );
       final client = _newClient(adapter);
       final res = await client.healthz();
       expect(res.status, 'ok');
@@ -243,7 +255,10 @@ void main() {
     test('retries on 503 then succeeds', () async {
       final adapter = MockAdapter()
       ..enqueueJson(statusCode: 503, body: {'error': 'down'})
-      ..enqueueJson(statusCode: 200, body: {'status': 'ok'});
+      ..enqueueJson(
+        statusCode: 200,
+        body: {'status': 'ok', 'tier': 'enterprise'},
+      );
       final client = _newClient(
         adapter,
         policy: const RetryPolicy(
@@ -308,7 +323,10 @@ void main() {
           },
         ),
       )
-      ..enqueueJson(statusCode: 200, body: {'status': 'ok'});
+      ..enqueueJson(
+        statusCode: 200,
+        body: {'status': 'ok', 'tier': 'enterprise'},
+      );
       final client = _newClient(
         adapter,
         policy: const RetryPolicy(maxRetries: 1),

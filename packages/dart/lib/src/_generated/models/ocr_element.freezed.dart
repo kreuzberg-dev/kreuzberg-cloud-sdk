@@ -93,7 +93,7 @@ as OcrRotation?,
 @override
 @pragma('vm:prefer-inline')
 $OcrConfidenceCopyWith<$Res> get confidence {
-  
+
   return $OcrConfidenceCopyWith<$Res>(_self.confidence, (value) {
     return _then(_self.copyWith(confidence: value));
   });
@@ -102,7 +102,7 @@ $OcrConfidenceCopyWith<$Res> get confidence {
 @override
 @pragma('vm:prefer-inline')
 $OcrBoundingGeometryCopyWith<$Res> get geometry {
-  
+
   return $OcrBoundingGeometryCopyWith<$Res>(_self.geometry, (value) {
     return _then(_self.copyWith(geometry: value));
   });
@@ -356,7 +356,7 @@ as OcrRotation?,
 @override
 @pragma('vm:prefer-inline')
 $OcrConfidenceCopyWith<$Res> get confidence {
-  
+
   return $OcrConfidenceCopyWith<$Res>(_self.confidence, (value) {
     return _then(_self.copyWith(confidence: value));
   });
@@ -365,7 +365,7 @@ $OcrConfidenceCopyWith<$Res> get confidence {
 @override
 @pragma('vm:prefer-inline')
 $OcrBoundingGeometryCopyWith<$Res> get geometry {
-  
+
   return $OcrBoundingGeometryCopyWith<$Res>(_self.geometry, (value) {
     return _then(_self.copyWith(geometry: value));
   });

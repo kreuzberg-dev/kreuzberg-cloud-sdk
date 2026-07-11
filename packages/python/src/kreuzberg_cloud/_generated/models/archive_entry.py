@@ -8,7 +8,7 @@ from attrs import field as _attrs_field
 from typing_extensions import Self
 
 if TYPE_CHECKING:
-    from ..models.extraction_result import ExtractionResult
+    from ..models.extracted_document import ExtractedDocument
 
 
 T = TypeVar("T", bound="ArchiveEntry")
@@ -19,19 +19,20 @@ class ArchiveEntry:
     """A single file extracted from an archive.
 
     When archives (ZIP, TAR, 7Z, GZIP) are extracted with recursive extraction
-    enabled, each processable file produces its own full `ExtractionResult`.
+    enabled, each processable file produces its own full `ExtractedDocument`.
 
     Attributes:
             mime_type (str): Detected MIME type of the file.
             path (str): Archive-relative file path (e.g. "folder/document.pdf").
-            result (ExtractionResult): General extraction result used by the core extraction API.
+            result (ExtractedDocument): Document extracted by the core extraction pipeline.
 
-                This is the main result type returned by all extraction functions.
+                `extract` and `extract_batch` return an `ExtractionResult` envelope whose
+                `results` field contains these per-document payloads.
     """
 
     mime_type: str
     path: str
-    result: ExtractionResult
+    result: ExtractedDocument
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -55,14 +56,14 @@ class ArchiveEntry:
 
     @classmethod
     def from_dict(cls, src_dict: Mapping[str, Any]) -> Self:
-        from ..models.extraction_result import ExtractionResult
+        from ..models.extracted_document import ExtractedDocument
 
         d = dict(src_dict)
         mime_type = d.pop("mime_type")
 
         path = d.pop("path")
 
-        result = ExtractionResult.from_dict(d.pop("result"))
+        result = ExtractedDocument.from_dict(d.pop("result"))
 
         archive_entry = cls(
             mime_type=mime_type,

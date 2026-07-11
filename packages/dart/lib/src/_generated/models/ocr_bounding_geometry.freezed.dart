@@ -23,7 +23,7 @@ OcrBoundingGeometry _$OcrBoundingGeometryFromJson(
           return OcrBoundingGeometryQuadrilateral.fromJson(
             json
           );
-        
+
           default:
             throw CheckedFromJsonException(
   json,
@@ -32,7 +32,7 @@ OcrBoundingGeometry _$OcrBoundingGeometryFromJson(
   'Invalid union type "${json['type']}"!'
 );
         }
-      
+
 }
 
 /// @nodoc

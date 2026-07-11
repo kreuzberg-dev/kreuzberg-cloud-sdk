@@ -15,7 +15,7 @@ class PstMetadata:
     """Outlook PST archive metadata.
 
     Attributes:
-        message_count (int):
+        message_count (int): Total number of email messages found in the PST archive.
     """
 
     message_count: int

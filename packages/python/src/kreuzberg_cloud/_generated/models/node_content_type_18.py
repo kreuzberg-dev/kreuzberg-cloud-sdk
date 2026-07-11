@@ -20,7 +20,7 @@ class NodeContentType18:
     (e.g. JSX in MDX, raw LaTeX in markdown, embedded HTML).
 
     Attributes:
-            content (str):
+            content (str): Verbatim source content in the specified format.
             format_ (str): Source format identifier (e.g. "html", "latex", "jsx").
             node_type (NodeContentType18NodeType):
     """

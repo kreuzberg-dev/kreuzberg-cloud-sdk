@@ -36,7 +36,15 @@ abstract class ChunkMetadata with _$ChunkMetadata {
     /// Only populated when `ChunkerType::Markdown` is used.
     @JsonKey(name: 'heading_context') HeadingContext? headingContext,
 
-    /// Indices into `ExtractionResult.images` for images on pages covered by this chunk.
+    /// Flattened heading trail from document root to this chunk's section.
+    ///
+    /// Each element is a heading's text, outermost first. Derived from.
+    /// [`heading_context`](Self::heading_context) when present; empty otherwise.
+    /// Provides a binding-friendly, RAG-shaped breadcrumb without requiring.
+    /// callers to walk the nested [`HeadingContext`] structure.
+    @JsonKey(name: 'heading_path') List<String>? headingPath,
+
+    /// Indices into `ExtractedDocument.images` for images on pages covered by this chunk.
     ///
     /// Contains zero-based indices into the top-level `images` collection for every.
     /// image whose `page_number` falls within `[first_page, last_page]`.

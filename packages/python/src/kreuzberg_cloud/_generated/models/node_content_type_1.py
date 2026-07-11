@@ -17,9 +17,9 @@ class NodeContentType1:
     """Section heading with level (1-6).
 
     Attributes:
-        level (int):
+        level (int): Heading depth (1 = h1, 2 = h2, …, 6 = h6).
         node_type (NodeContentType1NodeType):
-        text (str):
+        text (str): The heading text content.
     """
 
     level: int

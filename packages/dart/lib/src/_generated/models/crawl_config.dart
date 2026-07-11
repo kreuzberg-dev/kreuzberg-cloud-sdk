@@ -18,7 +18,7 @@ abstract class CrawlConfig with _$CrawlConfig {
     /// Allow subdomains of the seed domain (default: true)
     @JsonKey(name: 'allow_subdomains') bool? allowSubdomains,
 
-    /// MIME types of documents to extract (default: all supported by kreuzberg)
+    /// MIME types of documents to extract (default: all supported by xberg)
     @JsonKey(name: 'allowed_file_types') List<String>? allowedFileTypes,
 
     /// Browser rendering configuration overrides for this request

@@ -31,7 +31,9 @@ _ExtractionConfig _$ExtractionConfigFromJson(
       ? null
       : ImageExtractionConfig.fromJson(json['images'] as Map<String, dynamic>),
   includeDocumentStructure: json['include_document_structure'] as bool?,
-  keywords: json['keywords'],
+  keywords: json['keywords'] == null
+      ? null
+      : KeywordConfig.fromJson(json['keywords'] as Map<String, dynamic>),
   languageDetection: json['language_detection'] == null
       ? null
       : LanguageDetectionConfig.fromJson(
@@ -43,6 +45,7 @@ _ExtractionConfig _$ExtractionConfigFromJson(
   maxArchiveDepth: (json['max_archive_depth'] as num?)?.toInt(),
   maxConcurrentExtractions: (json['max_concurrent_extractions'] as num?)
       ?.toInt(),
+  maxEmbeddedFileBytes: (json['max_embedded_file_bytes'] as num?)?.toInt(),
   ocr: json['ocr'] == null
       ? null
       : OcrConfig.fromJson(json['ocr'] as Map<String, dynamic>),
@@ -59,7 +62,16 @@ _ExtractionConfig _$ExtractionConfigFromJson(
           json['postprocessor'] as Map<String, dynamic>,
         ),
   resultFormat: json['result_format'] as String?,
-  securityLimits: json['security_limits'],
+  securityLimits: json['security_limits'] == null
+      ? null
+      : SecurityLimits.fromJson(
+          json['security_limits'] as Map<String, dynamic>,
+        ),
+  structuredExtraction: json['structured_extraction'] == null
+      ? null
+      : StructuredExtractionConfig.fromJson(
+          json['structured_extraction'] as Map<String, dynamic>,
+        ),
   tokenReduction: json['token_reduction'] == null
       ? null
       : TokenReductionConfig.fromJson(
@@ -87,6 +99,7 @@ Map<String, dynamic> _$ExtractionConfigToJson(_ExtractionConfig instance) =>
       'layout': instance.layout,
       'max_archive_depth': instance.maxArchiveDepth,
       'max_concurrent_extractions': instance.maxConcurrentExtractions,
+      'max_embedded_file_bytes': instance.maxEmbeddedFileBytes,
       'ocr': instance.ocr,
       'output_format': instance.outputFormat,
       'pages': instance.pages,
@@ -94,6 +107,7 @@ Map<String, dynamic> _$ExtractionConfigToJson(_ExtractionConfig instance) =>
       'postprocessor': instance.postprocessor,
       'result_format': instance.resultFormat,
       'security_limits': instance.securityLimits,
+      'structured_extraction': instance.structuredExtraction,
       'token_reduction': instance.tokenReduction,
       'use_cache': instance.useCache,
     };

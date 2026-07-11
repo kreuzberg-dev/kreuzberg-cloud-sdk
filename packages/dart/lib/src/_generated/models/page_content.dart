@@ -39,7 +39,7 @@ abstract class PageContent with _$PageContent {
     /// Contains text hierarchy levels (H1-H6) extracted from the page content.
     PageHierarchy? hierarchy,
 
-    /// Indices into `ExtractionResult.images` for images found on this page.
+    /// Indices into `ExtractedDocument.images` for images found on this page.
     ///
     /// Each value is a zero-based index into the top-level `images` collection.
     /// Only populated when `extract_images = true` in the extraction config.
@@ -80,7 +80,7 @@ abstract class PageContent with _$PageContent {
 
     /// Tables found on this page (uses Arc for memory efficiency).
     ///
-    /// Serializes as Vec<Table> for JSON compatibility while maintaining.
+    /// Serializes as `Vec<Table>` for JSON compatibility while maintaining.
     /// Arc semantics in-memory for zero-copy sharing.
     List<Table>? tables,
   }) = _PageContent;

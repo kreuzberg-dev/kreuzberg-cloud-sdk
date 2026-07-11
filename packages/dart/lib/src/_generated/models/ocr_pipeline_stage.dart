@@ -4,6 +4,8 @@
 
 import 'package:freezed_annotation/freezed_annotation.dart';
 
+import 'tesseract_config.dart';
+
 part 'ocr_pipeline_stage.freezed.dart';
 part 'ocr_pipeline_stage.g.dart';
 
@@ -21,7 +23,7 @@ abstract class OcrPipelineStage with _$OcrPipelineStage {
     int? priority,
 
     /// Tesseract config override for this stage
-    @JsonKey(name: 'tesseract_config') dynamic tesseractConfig,
+    @JsonKey(name: 'tesseract_config') TesseractConfig? tesseractConfig,
 
     /// VLM config override for this stage
     @JsonKey(name: 'vlm_config') dynamic vlmConfig,

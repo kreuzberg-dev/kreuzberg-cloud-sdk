@@ -18,7 +18,7 @@ class NodeContentType9:
 
     Attributes:
         node_type (NodeContentType9NodeType):
-        text (str):
+        text (str): The formula source text (LaTeX or plain mathematical notation).
     """
 
     node_type: NodeContentType9NodeType

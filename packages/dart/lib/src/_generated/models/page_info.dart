@@ -17,14 +17,11 @@ abstract class PageInfo with _$PageInfo {
     /// Page number (1-indexed)
     required int number,
 
-    /// Dimensions in points (PDF) or pixels (images): (width, height)
-    List<double>? dimensions,
-
     /// Whether this page contains non-trivial vector graphics (paths, shapes, curves).
     ///
     /// Indicates the presence of vector-drawn content such as charts, diagrams,.
     /// or geometric shapes (e.g., from Adobe InDesign, LaTeX TikZ). These are.
-    /// invisible to `ExtractionResult.images` since they are not embedded as raster.
+    /// invisible to `ExtractedDocument.images` since they are not embedded as raster.
     /// XObjects. Set to `true` when path count exceeds a heuristic threshold,.
     /// signaling that downstream consumers may want to rasterize the page to.
     /// capture this content.

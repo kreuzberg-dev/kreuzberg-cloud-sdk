@@ -81,7 +81,7 @@ as int,
 @override
 @pragma('vm:prefer-inline')
 $AnnotationKindCopyWith<$Res> get kind {
-  
+
   return $AnnotationKindCopyWith<$Res>(_self.kind, (value) {
     return _then(_self.copyWith(kind: value));
   });
@@ -297,7 +297,7 @@ as int,
 @override
 @pragma('vm:prefer-inline')
 $AnnotationKindCopyWith<$Res> get kind {
-  
+
   return $AnnotationKindCopyWith<$Res>(_self.kind, (value) {
     return _then(_self.copyWith(kind: value));
   });

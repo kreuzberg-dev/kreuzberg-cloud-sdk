@@ -29,7 +29,13 @@ class ChunkMetadata:
 
             Only populated when page tracking is enabled in extraction configuration.
         heading_context (HeadingContext | None | Unset):
-        image_indices (list[int] | Unset): Indices into `ExtractionResult.images` for images on pages covered by this
+        heading_path (list[str] | Unset): Flattened heading trail from document root to this chunk's section.
+
+            Each element is a heading's text, outermost first. Derived from
+            [`heading_context`](Self::heading_context) when present; empty otherwise.
+            Provides a binding-friendly, RAG-shaped breadcrumb without requiring
+            callers to walk the nested [`HeadingContext`] structure.
+        image_indices (list[int] | Unset): Indices into `ExtractedDocument.images` for images on pages covered by this
             chunk.
 
             Contains zero-based indices into the top-level `images` collection for every
@@ -50,6 +56,7 @@ class ChunkMetadata:
     total_chunks: int
     first_page: int | None | Unset = UNSET
     heading_context: HeadingContext | None | Unset = UNSET
+    heading_path: list[str] | Unset = UNSET
     image_indices: list[int] | Unset = UNSET
     last_page: int | None | Unset = UNSET
     token_count: int | None | Unset = UNSET
@@ -79,6 +86,10 @@ class ChunkMetadata:
             heading_context = self.heading_context.to_dict()
         else:
             heading_context = self.heading_context
+
+        heading_path: list[str] | Unset = UNSET
+        if not isinstance(self.heading_path, Unset):
+            heading_path = self.heading_path
 
         image_indices: list[int] | Unset = UNSET
         if not isinstance(self.image_indices, Unset):
@@ -110,6 +121,8 @@ class ChunkMetadata:
             field_dict["first_page"] = first_page
         if heading_context is not UNSET:
             field_dict["heading_context"] = heading_context
+        if heading_path is not UNSET:
+            field_dict["heading_path"] = heading_path
         if image_indices is not UNSET:
             field_dict["image_indices"] = image_indices
         if last_page is not UNSET:
@@ -158,6 +171,8 @@ class ChunkMetadata:
 
         heading_context = _parse_heading_context(d.pop("heading_context", UNSET))
 
+        heading_path = cast("list[str]", d.pop("heading_path", UNSET))
+
         image_indices = cast("list[int]", d.pop("image_indices", UNSET))
 
         def _parse_last_page(data: object) -> int | None | Unset:
@@ -185,6 +200,7 @@ class ChunkMetadata:
             total_chunks=total_chunks,
             first_page=first_page,
             heading_context=heading_context,
+            heading_path=heading_path,
             image_indices=image_indices,
             last_page=last_page,
             token_count=token_count,

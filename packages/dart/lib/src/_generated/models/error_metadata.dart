@@ -11,7 +11,10 @@ part 'error_metadata.g.dart';
 @Freezed()
 abstract class ErrorMetadata with _$ErrorMetadata {
   const factory ErrorMetadata({
+    /// Machine-readable error type identifier (e.g. "UnsupportedFormat").
     @JsonKey(name: 'error_type') required String errorType,
+
+    /// Human-readable error description.
     required String message,
   }) = _ErrorMetadata;
 

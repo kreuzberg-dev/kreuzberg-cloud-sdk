@@ -83,7 +83,7 @@ as double,
 @override
 @pragma('vm:prefer-inline')
 $BoundingBoxCopyWith<$Res> get boundingBox {
-  
+
   return $BoundingBoxCopyWith<$Res>(_self.boundingBox, (value) {
     return _then(_self.copyWith(boundingBox: value));
   });
@@ -302,7 +302,7 @@ as double,
 @override
 @pragma('vm:prefer-inline')
 $BoundingBoxCopyWith<$Res> get boundingBox {
-  
+
   return $BoundingBoxCopyWith<$Res>(_self.boundingBox, (value) {
     return _then(_self.copyWith(boundingBox: value));
   });

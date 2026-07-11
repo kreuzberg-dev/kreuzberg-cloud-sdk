@@ -22,9 +22,9 @@ class NodeContentType11:
 
     Attributes:
             node_type (NodeContentType11NodeType):
-            heading_level (int | None | Unset):
-            heading_text (None | str | Unset):
-            label (None | str | Unset):
+            heading_level (int | None | Unset): Heading level of the section heading that opened this group (1-6).
+            heading_text (None | str | Unset): Text of the section heading that opened this group.
+            label (None | str | Unset): Optional display label for the group (e.g. section name).
     """
 
     node_type: NodeContentType11NodeType

@@ -16,7 +16,8 @@ T _$identity<T>(T value) => value;
 mixin _$HealthResponse {
 
 /// Service status
- String get status;
+ String get status;/// Deployment tier the frontend uses for runtime feature gating (ADR-0047).
+ String get tier;
 /// Create a copy of HealthResponse
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -29,16 +30,16 @@ $HealthResponseCopyWith<HealthResponse> get copyWith => _$HealthResponseCopyWith
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is HealthResponse&&(identical(other.status, status) || other.status == status));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is HealthResponse&&(identical(other.status, status) || other.status == status)&&(identical(other.tier, tier) || other.tier == tier));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,status);
+int get hashCode => Object.hash(runtimeType,status,tier);
 
 @override
 String toString() {
-  return 'HealthResponse(status: $status)';
+  return 'HealthResponse(status: $status, tier: $tier)';
 }
 
 
@@ -49,7 +50,7 @@ abstract mixin class $HealthResponseCopyWith<$Res>  {
   factory $HealthResponseCopyWith(HealthResponse value, $Res Function(HealthResponse) _then) = _$HealthResponseCopyWithImpl;
 @useResult
 $Res call({
- String status
+ String status, String tier
 });
 
 
@@ -66,9 +67,10 @@ class _$HealthResponseCopyWithImpl<$Res>
 
 /// Create a copy of HealthResponse
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? status = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? status = null,Object? tier = null,}) {
   return _then(_self.copyWith(
 status: null == status ? _self.status : status // ignore: cast_nullable_to_non_nullable
+as String,tier: null == tier ? _self.tier : tier // ignore: cast_nullable_to_non_nullable
 as String,
   ));
 }
@@ -154,10 +156,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String status)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String status,  String tier)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _HealthResponse() when $default != null:
-return $default(_that.status);case _:
+return $default(_that.status,_that.tier);case _:
   return orElse();
 
 }
@@ -175,10 +177,10 @@ return $default(_that.status);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String status)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String status,  String tier)  $default,) {final _that = this;
 switch (_that) {
 case _HealthResponse():
-return $default(_that.status);case _:
+return $default(_that.status,_that.tier);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -195,10 +197,10 @@ return $default(_that.status);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String status)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String status,  String tier)?  $default,) {final _that = this;
 switch (_that) {
 case _HealthResponse() when $default != null:
-return $default(_that.status);case _:
+return $default(_that.status,_that.tier);case _:
   return null;
 
 }
@@ -210,11 +212,13 @@ return $default(_that.status);case _:
 @JsonSerializable()
 
 class _HealthResponse implements HealthResponse {
-  const _HealthResponse({required this.status});
+  const _HealthResponse({required this.status, required this.tier});
   factory _HealthResponse.fromJson(Map<String, dynamic> json) => _$HealthResponseFromJson(json);
 
 /// Service status
 @override final  String status;
+/// Deployment tier the frontend uses for runtime feature gating (ADR-0047).
+@override final  String tier;
 
 /// Create a copy of HealthResponse
 /// with the given fields replaced by the non-null parameter values.
@@ -229,16 +233,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _HealthResponse&&(identical(other.status, status) || other.status == status));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _HealthResponse&&(identical(other.status, status) || other.status == status)&&(identical(other.tier, tier) || other.tier == tier));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,status);
+int get hashCode => Object.hash(runtimeType,status,tier);
 
 @override
 String toString() {
-  return 'HealthResponse(status: $status)';
+  return 'HealthResponse(status: $status, tier: $tier)';
 }
 
 
@@ -249,7 +253,7 @@ abstract mixin class _$HealthResponseCopyWith<$Res> implements $HealthResponseCo
   factory _$HealthResponseCopyWith(_HealthResponse value, $Res Function(_HealthResponse) _then) = __$HealthResponseCopyWithImpl;
 @override @useResult
 $Res call({
- String status
+ String status, String tier
 });
 
 
@@ -266,9 +270,10 @@ class __$HealthResponseCopyWithImpl<$Res>
 
 /// Create a copy of HealthResponse
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? status = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? status = null,Object? tier = null,}) {
   return _then(_HealthResponse(
 status: null == status ? _self.status : status // ignore: cast_nullable_to_non_nullable
+as String,tier: null == tier ? _self.tier : tier // ignore: cast_nullable_to_non_nullable
 as String,
   ));
 }

@@ -21,7 +21,7 @@ class AnnotationKindType10:
 
     Attributes:
         annotation_type (AnnotationKindType10AnnotationType):
-        value (str):
+        value (str): Font size including unit (e.g. `"12pt"`, `"1.2em"`, `"16px"`).
     """
 
     annotation_type: AnnotationKindType10AnnotationType

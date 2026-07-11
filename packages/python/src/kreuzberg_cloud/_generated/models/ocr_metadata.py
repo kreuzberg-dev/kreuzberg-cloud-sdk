@@ -23,8 +23,8 @@ class OcrMetadata:
             output_format (str): Output format (e.g., "text", "hocr")
             psm (int): Tesseract Page Segmentation Mode (PSM)
             table_count (int): Number of tables detected
-            table_cols (int | None | Unset):
-            table_rows (int | None | Unset):
+            table_cols (int | None | Unset): Number of columns in the detected table (if a single table was found).
+            table_rows (int | None | Unset): Number of rows in the detected table (if a single table was found).
     """
 
     language: str

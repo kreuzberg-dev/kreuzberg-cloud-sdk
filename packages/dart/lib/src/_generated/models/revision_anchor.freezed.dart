@@ -35,7 +35,7 @@ RevisionAnchor _$RevisionAnchorFromJson(
           return RevisionAnchorSheet.fromJson(
             json
           );
-        
+
           default:
             throw CheckedFromJsonException(
   json,
@@ -44,7 +44,7 @@ RevisionAnchor _$RevisionAnchorFromJson(
   'Invalid union type "${json['type']}"!'
 );
         }
-      
+
 }
 
 /// @nodoc

@@ -17,9 +17,9 @@ class NodeContentType16:
     """Citation or bibliographic reference.
 
     Attributes:
-        key (str):
+        key (str): Citation key (e.g. BibTeX key or reference ID).
         node_type (NodeContentType16NodeType):
-        text (str):
+        text (str): Formatted citation text as it appears in the document.
     """
 
     key: str

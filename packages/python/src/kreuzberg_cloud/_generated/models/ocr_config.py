@@ -13,6 +13,10 @@ if TYPE_CHECKING:
     from ..models.ocr_element_config import OcrElementConfig
     from ..models.ocr_pipeline_config import OcrPipelineConfig
     from ..models.ocr_quality_thresholds import OcrQualityThresholds
+    from ..models.tesseract_config import TesseractConfig
+    from ..models.vlm_fallback_policy_type_0 import VlmFallbackPolicyType0
+    from ..models.vlm_fallback_policy_type_1 import VlmFallbackPolicyType1
+    from ..models.vlm_fallback_policy_type_2 import VlmFallbackPolicyType2
 
 
 T = TypeVar("T", bound="OcrConfig")
@@ -30,8 +34,9 @@ class OcrConfig:
         output_format (None | str | Unset): OCR output format override
         pipeline (None | OcrPipelineConfig | Unset):
         quality_thresholds (None | OcrQualityThresholds | Unset):
-        tesseract_config (Any | Unset): Tesseract-specific configuration (flexible JSON with 20+ fields)
+        tesseract_config (None | TesseractConfig | Unset):
         vlm_config (Any | Unset): VLM (Vision Language Model) configuration
+        vlm_fallback (None | Unset | VlmFallbackPolicyType0 | VlmFallbackPolicyType1 | VlmFallbackPolicyType2):
         vlm_prompt (None | str | Unset): Custom Jinja2 prompt template for VLM OCR
     """
 
@@ -42,8 +47,9 @@ class OcrConfig:
     output_format: None | str | Unset = UNSET
     pipeline: None | OcrPipelineConfig | Unset = UNSET
     quality_thresholds: None | OcrQualityThresholds | Unset = UNSET
-    tesseract_config: Any | Unset = UNSET
+    tesseract_config: None | TesseractConfig | Unset = UNSET
     vlm_config: Any | Unset = UNSET
+    vlm_fallback: None | Unset | VlmFallbackPolicyType0 | VlmFallbackPolicyType1 | VlmFallbackPolicyType2 = UNSET
     vlm_prompt: None | str | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -51,6 +57,10 @@ class OcrConfig:
         from ..models.ocr_element_config import OcrElementConfig
         from ..models.ocr_pipeline_config import OcrPipelineConfig
         from ..models.ocr_quality_thresholds import OcrQualityThresholds
+        from ..models.tesseract_config import TesseractConfig
+        from ..models.vlm_fallback_policy_type_0 import VlmFallbackPolicyType0
+        from ..models.vlm_fallback_policy_type_1 import VlmFallbackPolicyType1
+        from ..models.vlm_fallback_policy_type_2 import VlmFallbackPolicyType2
 
         auto_rotate: bool | None | Unset
         if isinstance(self.auto_rotate, Unset):
@@ -100,9 +110,27 @@ class OcrConfig:
         else:
             quality_thresholds = self.quality_thresholds
 
-        tesseract_config = self.tesseract_config
+        tesseract_config: dict[str, Any] | None | Unset
+        if isinstance(self.tesseract_config, Unset):
+            tesseract_config = UNSET
+        elif isinstance(self.tesseract_config, TesseractConfig):
+            tesseract_config = self.tesseract_config.to_dict()
+        else:
+            tesseract_config = self.tesseract_config
 
         vlm_config = self.vlm_config
+
+        vlm_fallback: dict[str, Any] | None | Unset
+        if isinstance(self.vlm_fallback, Unset):
+            vlm_fallback = UNSET
+        elif (
+            isinstance(self.vlm_fallback, VlmFallbackPolicyType0)
+            or isinstance(self.vlm_fallback, VlmFallbackPolicyType1)
+            or isinstance(self.vlm_fallback, VlmFallbackPolicyType2)
+        ):
+            vlm_fallback = self.vlm_fallback.to_dict()
+        else:
+            vlm_fallback = self.vlm_fallback
 
         vlm_prompt: None | str | Unset
         if isinstance(self.vlm_prompt, Unset):
@@ -131,6 +159,8 @@ class OcrConfig:
             field_dict["tesseract_config"] = tesseract_config
         if vlm_config is not UNSET:
             field_dict["vlm_config"] = vlm_config
+        if vlm_fallback is not UNSET:
+            field_dict["vlm_fallback"] = vlm_fallback
         if vlm_prompt is not UNSET:
             field_dict["vlm_prompt"] = vlm_prompt
 
@@ -141,6 +171,10 @@ class OcrConfig:
         from ..models.ocr_element_config import OcrElementConfig
         from ..models.ocr_pipeline_config import OcrPipelineConfig
         from ..models.ocr_quality_thresholds import OcrQualityThresholds
+        from ..models.tesseract_config import TesseractConfig
+        from ..models.vlm_fallback_policy_type_0 import VlmFallbackPolicyType0
+        from ..models.vlm_fallback_policy_type_1 import VlmFallbackPolicyType1
+        from ..models.vlm_fallback_policy_type_2 import VlmFallbackPolicyType2
 
         d = dict(src_dict)
 
@@ -231,9 +265,59 @@ class OcrConfig:
 
         quality_thresholds = _parse_quality_thresholds(d.pop("quality_thresholds", UNSET))
 
-        tesseract_config = d.pop("tesseract_config", UNSET)
+        def _parse_tesseract_config(data: object) -> None | TesseractConfig | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError
+                tesseract_config_type_1 = TesseractConfig.from_dict(data)
+
+                return tesseract_config_type_1
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            return cast("None | TesseractConfig | Unset", data)
+
+        tesseract_config = _parse_tesseract_config(d.pop("tesseract_config", UNSET))
 
         vlm_config = d.pop("vlm_config", UNSET)
+
+        def _parse_vlm_fallback(
+            data: object,
+        ) -> None | Unset | VlmFallbackPolicyType0 | VlmFallbackPolicyType1 | VlmFallbackPolicyType2:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError
+                componentsschemas_vlm_fallback_policy_type_0 = VlmFallbackPolicyType0.from_dict(data)
+
+                return componentsschemas_vlm_fallback_policy_type_0
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError
+                componentsschemas_vlm_fallback_policy_type_1 = VlmFallbackPolicyType1.from_dict(data)
+
+                return componentsschemas_vlm_fallback_policy_type_1
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError
+                componentsschemas_vlm_fallback_policy_type_2 = VlmFallbackPolicyType2.from_dict(data)
+
+                return componentsschemas_vlm_fallback_policy_type_2
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            return cast("None | Unset | VlmFallbackPolicyType0 | VlmFallbackPolicyType1 | VlmFallbackPolicyType2", data)
+
+        vlm_fallback = _parse_vlm_fallback(d.pop("vlm_fallback", UNSET))
 
         def _parse_vlm_prompt(data: object) -> None | str | Unset:
             if data is None:
@@ -254,6 +338,7 @@ class OcrConfig:
             quality_thresholds=quality_thresholds,
             tesseract_config=tesseract_config,
             vlm_config=vlm_config,
+            vlm_fallback=vlm_fallback,
             vlm_prompt=vlm_prompt,
         )
 

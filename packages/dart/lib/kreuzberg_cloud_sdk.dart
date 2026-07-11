@@ -13,6 +13,8 @@
 /// ```
 library;
 
+import 'src/_generated/models/extracted_document.dart';
+
 export 'src/client.dart' show KreuzbergCloudClient;
 export 'src/exceptions.dart'
 show
@@ -28,3 +30,6 @@ export 'src/retry.dart' show RetryPolicy;
 export 'src/version.dart' show packageVersion;
 
 export 'src/_generated/export.dart';
+
+/// Backwards-compatible alias for the extracted document payload.
+typedef ExtractionResult = ExtractedDocument;

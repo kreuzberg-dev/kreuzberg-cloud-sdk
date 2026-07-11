@@ -176,7 +176,7 @@ return crawl(_that.value);case _:
 
 class JobLookupResponseExtraction extends JobLookupResponse {
   const JobLookupResponseExtraction(this.value): super._();
-  
+
 
 @override final  JobResponse value;
 
@@ -239,7 +239,7 @@ as JobResponse,
 @override
 @pragma('vm:prefer-inline')
 $JobResponseCopyWith<$Res> get value {
-  
+
   return $JobResponseCopyWith<$Res>(_self.value, (value) {
     return _then(_self.copyWith(value: value));
   });
@@ -251,7 +251,7 @@ $JobResponseCopyWith<$Res> get value {
 
 class JobLookupResponseCrawl extends JobLookupResponse {
   const JobLookupResponseCrawl(this.value): super._();
-  
+
 
 @override final  CrawlJobResponse value;
 
@@ -314,7 +314,7 @@ as CrawlJobResponse,
 @override
 @pragma('vm:prefer-inline')
 $CrawlJobResponseCopyWith<$Res> get value {
-  
+
   return $CrawlJobResponseCopyWith<$Res>(_self.value, (value) {
     return _then(_self.copyWith(value: value));
   });

@@ -20,7 +20,7 @@ class NodeContentType13:
     Attributes:
         node_type (NodeContentType13NodeType):
         number (int): 1-indexed slide number.
-        title (None | str | Unset):
+        title (None | str | Unset): Slide title text, if present.
     """
 
     node_type: NodeContentType13NodeType

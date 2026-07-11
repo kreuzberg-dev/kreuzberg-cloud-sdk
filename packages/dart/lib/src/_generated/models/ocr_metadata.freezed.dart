@@ -19,7 +19,9 @@ mixin _$OcrMetadata {
  String get language;/// Output format (e.g., "text", "hocr")
 @JsonKey(name: 'output_format') String get outputFormat;/// Tesseract Page Segmentation Mode (PSM)
  int get psm;/// Number of tables detected
-@JsonKey(name: 'table_count') int get tableCount;@JsonKey(name: 'table_cols') int? get tableCols;@JsonKey(name: 'table_rows') int? get tableRows;
+@JsonKey(name: 'table_count') int get tableCount;/// Number of columns in the detected table (if a single table was found).
+@JsonKey(name: 'table_cols') int? get tableCols;/// Number of rows in the detected table (if a single table was found).
+@JsonKey(name: 'table_rows') int? get tableRows;
 /// Create a copy of OcrMetadata
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -229,7 +231,9 @@ class _OcrMetadata implements OcrMetadata {
 @override final  int psm;
 /// Number of tables detected
 @override@JsonKey(name: 'table_count') final  int tableCount;
+/// Number of columns in the detected table (if a single table was found).
 @override@JsonKey(name: 'table_cols') final  int? tableCols;
+/// Number of rows in the detected table (if a single table was found).
 @override@JsonKey(name: 'table_rows') final  int? tableRows;
 
 /// Create a copy of OcrMetadata

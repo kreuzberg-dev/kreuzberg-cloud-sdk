@@ -17,7 +17,8 @@ T = TypeVar("T", bound="AnnotationKindType1")
 
 @_attrs_define
 class AnnotationKindType1:
-    """
+    """Italic (emphasis) text formatting.
+
     Attributes:
         annotation_type (AnnotationKindType1AnnotationType):
     """

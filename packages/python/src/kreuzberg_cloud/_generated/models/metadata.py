@@ -11,16 +11,26 @@ from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
     from ..models.archive_metadata import ArchiveMetadata
+    from ..models.audio_metadata import AudioMetadata
+    from ..models.bibtex_metadata import BibtexMetadata
+    from ..models.citation_metadata import CitationMetadata
+    from ..models.code_metadata import CodeMetadata
     from ..models.csv_metadata import CsvMetadata
+    from ..models.dbf_metadata import DbfMetadata
+    from ..models.docx_metadata import DocxMetadata
     from ..models.email_metadata import EmailMetadata
+    from ..models.epub_metadata import EpubMetadata
     from ..models.error_metadata import ErrorMetadata
     from ..models.excel_metadata import ExcelMetadata
+    from ..models.fiction_book_metadata import FictionBookMetadata
     from ..models.html_metadata import HtmlMetadata
     from ..models.image_metadata import ImageMetadata
     from ..models.image_preprocessing_metadata import ImagePreprocessingMetadata
+    from ..models.jats_metadata import JatsMetadata
     from ..models.metadata_additional import MetadataAdditional
     from ..models.ocr_metadata import OcrMetadata
     from ..models.page_structure import PageStructure
+    from ..models.pdf_metadata import PdfMetadata
     from ..models.pptx_metadata import PptxMetadata
     from ..models.pst_metadata import PstMetadata
     from ..models.text_metadata import TextMetadata
@@ -53,8 +63,10 @@ class Metadata:
 
                 This field is populated by batch extraction to provide per-file timing
                 information. It's `None` for single-file extraction (which uses external timing).
-            format_ (ArchiveMetadata | CsvMetadata | EmailMetadata | ExcelMetadata | HtmlMetadata | ImageMetadata | None |
-                OcrMetadata | PptxMetadata | PstMetadata | TextMetadata | Unset | XmlMetadata):
+            format_ (ArchiveMetadata | AudioMetadata | BibtexMetadata | CitationMetadata | CodeMetadata | CsvMetadata |
+                DbfMetadata | DocxMetadata | EmailMetadata | EpubMetadata | ExcelMetadata | FictionBookMetadata | HtmlMetadata |
+                ImageMetadata | JatsMetadata | None | OcrMetadata | PdfMetadata | PptxMetadata | PstMetadata | TextMetadata |
+                Unset | XmlMetadata):
             image_preprocessing (ImagePreprocessingMetadata | None | Unset):
             json_schema (Any | Unset): JSON schema (for structured data extraction)
             keywords (list[str] | None | Unset): Keywords/tags - always Vec for consistency
@@ -87,13 +99,23 @@ class Metadata:
     extraction_duration_ms: int | None | Unset = UNSET
     format_: (
         ArchiveMetadata
+        | AudioMetadata
+        | BibtexMetadata
+        | CitationMetadata
+        | CodeMetadata
         | CsvMetadata
+        | DbfMetadata
+        | DocxMetadata
         | EmailMetadata
+        | EpubMetadata
         | ExcelMetadata
+        | FictionBookMetadata
         | HtmlMetadata
         | ImageMetadata
+        | JatsMetadata
         | None
         | OcrMetadata
+        | PdfMetadata
         | PptxMetadata
         | PstMetadata
         | TextMetadata
@@ -116,15 +138,25 @@ class Metadata:
 
     def to_dict(self) -> dict[str, Any]:
         from ..models.archive_metadata import ArchiveMetadata
+        from ..models.audio_metadata import AudioMetadata
+        from ..models.bibtex_metadata import BibtexMetadata
+        from ..models.citation_metadata import CitationMetadata
+        from ..models.code_metadata import CodeMetadata
         from ..models.csv_metadata import CsvMetadata
+        from ..models.dbf_metadata import DbfMetadata
+        from ..models.docx_metadata import DocxMetadata
         from ..models.email_metadata import EmailMetadata
+        from ..models.epub_metadata import EpubMetadata
         from ..models.error_metadata import ErrorMetadata
         from ..models.excel_metadata import ExcelMetadata
+        from ..models.fiction_book_metadata import FictionBookMetadata
         from ..models.html_metadata import HtmlMetadata
         from ..models.image_metadata import ImageMetadata
         from ..models.image_preprocessing_metadata import ImagePreprocessingMetadata
+        from ..models.jats_metadata import JatsMetadata
         from ..models.ocr_metadata import OcrMetadata
         from ..models.page_structure import PageStructure
+        from ..models.pdf_metadata import PdfMetadata
         from ..models.pptx_metadata import PptxMetadata
         from ..models.pst_metadata import PstMetadata
         from ..models.text_metadata import TextMetadata
@@ -191,7 +223,9 @@ class Metadata:
         if isinstance(self.format_, Unset):
             format_ = UNSET
         elif (
-            isinstance(self.format_, ExcelMetadata)
+            isinstance(self.format_, PdfMetadata)
+            or isinstance(self.format_, DocxMetadata)
+            or isinstance(self.format_, ExcelMetadata)
             or isinstance(self.format_, EmailMetadata)
             or isinstance(self.format_, PptxMetadata)
             or isinstance(self.format_, ArchiveMetadata)
@@ -201,7 +235,15 @@ class Metadata:
             or isinstance(self.format_, HtmlMetadata)
             or isinstance(self.format_, OcrMetadata)
             or isinstance(self.format_, CsvMetadata)
+            or isinstance(self.format_, BibtexMetadata)
+            or isinstance(self.format_, CitationMetadata)
+            or isinstance(self.format_, FictionBookMetadata)
+            or isinstance(self.format_, DbfMetadata)
+            or isinstance(self.format_, EpubMetadata)
+            or isinstance(self.format_, JatsMetadata)
             or isinstance(self.format_, PstMetadata)
+            or isinstance(self.format_, AudioMetadata)
+            or isinstance(self.format_, CodeMetadata)
         ):
             format_ = self.format_.to_dict()
         else:
@@ -334,16 +376,26 @@ class Metadata:
     @classmethod
     def from_dict(cls, src_dict: Mapping[str, Any]) -> Self:
         from ..models.archive_metadata import ArchiveMetadata
+        from ..models.audio_metadata import AudioMetadata
+        from ..models.bibtex_metadata import BibtexMetadata
+        from ..models.citation_metadata import CitationMetadata
+        from ..models.code_metadata import CodeMetadata
         from ..models.csv_metadata import CsvMetadata
+        from ..models.dbf_metadata import DbfMetadata
+        from ..models.docx_metadata import DocxMetadata
         from ..models.email_metadata import EmailMetadata
+        from ..models.epub_metadata import EpubMetadata
         from ..models.error_metadata import ErrorMetadata
         from ..models.excel_metadata import ExcelMetadata
+        from ..models.fiction_book_metadata import FictionBookMetadata
         from ..models.html_metadata import HtmlMetadata
         from ..models.image_metadata import ImageMetadata
         from ..models.image_preprocessing_metadata import ImagePreprocessingMetadata
+        from ..models.jats_metadata import JatsMetadata
         from ..models.metadata_additional import MetadataAdditional
         from ..models.ocr_metadata import OcrMetadata
         from ..models.page_structure import PageStructure
+        from ..models.pdf_metadata import PdfMetadata
         from ..models.pptx_metadata import PptxMetadata
         from ..models.pst_metadata import PstMetadata
         from ..models.text_metadata import TextMetadata
@@ -450,13 +502,23 @@ class Metadata:
             data: object,
         ) -> (
             ArchiveMetadata
+            | AudioMetadata
+            | BibtexMetadata
+            | CitationMetadata
+            | CodeMetadata
             | CsvMetadata
+            | DbfMetadata
+            | DocxMetadata
             | EmailMetadata
+            | EpubMetadata
             | ExcelMetadata
+            | FictionBookMetadata
             | HtmlMetadata
             | ImageMetadata
+            | JatsMetadata
             | None
             | OcrMetadata
+            | PdfMetadata
             | PptxMetadata
             | PstMetadata
             | TextMetadata
@@ -467,10 +529,38 @@ class Metadata:
                 return data
             if isinstance(data, Unset):
                 return data
+
+            if isinstance(data, dict):
+                format_metadata_types = {
+                    "archive": ArchiveMetadata,
+                    "audio": AudioMetadata,
+                    "bibtex": BibtexMetadata,
+                    "citation": CitationMetadata,
+                    "code": CodeMetadata,
+                    "csv": CsvMetadata,
+                    "dbf": DbfMetadata,
+                    "docx": DocxMetadata,
+                    "email": EmailMetadata,
+                    "epub": EpubMetadata,
+                    "excel": ExcelMetadata,
+                    "fiction_book": FictionBookMetadata,
+                    "html": HtmlMetadata,
+                    "image": ImageMetadata,
+                    "jats": JatsMetadata,
+                    "ocr": OcrMetadata,
+                    "pdf": PdfMetadata,
+                    "pptx": PptxMetadata,
+                    "pst": PstMetadata,
+                    "text": TextMetadata,
+                    "xml": XmlMetadata,
+                }
+                parser = format_metadata_types.get(data.get("format_type"))
+                if parser is not None:
+                    return parser.from_dict(data)
             try:
                 if not isinstance(data, dict):
                     raise TypeError
-                componentsschemas_format_metadata_type_0 = ExcelMetadata.from_dict(data)
+                componentsschemas_format_metadata_type_0 = PdfMetadata.from_dict(data)
 
                 return componentsschemas_format_metadata_type_0
             except (TypeError, ValueError, AttributeError, KeyError):
@@ -478,7 +568,7 @@ class Metadata:
             try:
                 if not isinstance(data, dict):
                     raise TypeError
-                componentsschemas_format_metadata_type_1 = EmailMetadata.from_dict(data)
+                componentsschemas_format_metadata_type_1 = DocxMetadata.from_dict(data)
 
                 return componentsschemas_format_metadata_type_1
             except (TypeError, ValueError, AttributeError, KeyError):
@@ -486,7 +576,7 @@ class Metadata:
             try:
                 if not isinstance(data, dict):
                     raise TypeError
-                componentsschemas_format_metadata_type_2 = PptxMetadata.from_dict(data)
+                componentsschemas_format_metadata_type_2 = ExcelMetadata.from_dict(data)
 
                 return componentsschemas_format_metadata_type_2
             except (TypeError, ValueError, AttributeError, KeyError):
@@ -494,7 +584,7 @@ class Metadata:
             try:
                 if not isinstance(data, dict):
                     raise TypeError
-                componentsschemas_format_metadata_type_3 = ArchiveMetadata.from_dict(data)
+                componentsschemas_format_metadata_type_3 = EmailMetadata.from_dict(data)
 
                 return componentsschemas_format_metadata_type_3
             except (TypeError, ValueError, AttributeError, KeyError):
@@ -502,7 +592,7 @@ class Metadata:
             try:
                 if not isinstance(data, dict):
                     raise TypeError
-                componentsschemas_format_metadata_type_4 = ImageMetadata.from_dict(data)
+                componentsschemas_format_metadata_type_4 = PptxMetadata.from_dict(data)
 
                 return componentsschemas_format_metadata_type_4
             except (TypeError, ValueError, AttributeError, KeyError):
@@ -510,7 +600,7 @@ class Metadata:
             try:
                 if not isinstance(data, dict):
                     raise TypeError
-                componentsschemas_format_metadata_type_5 = XmlMetadata.from_dict(data)
+                componentsschemas_format_metadata_type_5 = ArchiveMetadata.from_dict(data)
 
                 return componentsschemas_format_metadata_type_5
             except (TypeError, ValueError, AttributeError, KeyError):
@@ -518,7 +608,7 @@ class Metadata:
             try:
                 if not isinstance(data, dict):
                     raise TypeError
-                componentsschemas_format_metadata_type_6 = TextMetadata.from_dict(data)
+                componentsschemas_format_metadata_type_6 = ImageMetadata.from_dict(data)
 
                 return componentsschemas_format_metadata_type_6
             except (TypeError, ValueError, AttributeError, KeyError):
@@ -526,7 +616,7 @@ class Metadata:
             try:
                 if not isinstance(data, dict):
                     raise TypeError
-                componentsschemas_format_metadata_type_7 = HtmlMetadata.from_dict(data)
+                componentsschemas_format_metadata_type_7 = XmlMetadata.from_dict(data)
 
                 return componentsschemas_format_metadata_type_7
             except (TypeError, ValueError, AttributeError, KeyError):
@@ -534,7 +624,7 @@ class Metadata:
             try:
                 if not isinstance(data, dict):
                     raise TypeError
-                componentsschemas_format_metadata_type_8 = OcrMetadata.from_dict(data)
+                componentsschemas_format_metadata_type_8 = TextMetadata.from_dict(data)
 
                 return componentsschemas_format_metadata_type_8
             except (TypeError, ValueError, AttributeError, KeyError):
@@ -542,7 +632,7 @@ class Metadata:
             try:
                 if not isinstance(data, dict):
                     raise TypeError
-                componentsschemas_format_metadata_type_9 = CsvMetadata.from_dict(data)
+                componentsschemas_format_metadata_type_9 = HtmlMetadata.from_dict(data)
 
                 return componentsschemas_format_metadata_type_9
             except (TypeError, ValueError, AttributeError, KeyError):
@@ -550,13 +640,93 @@ class Metadata:
             try:
                 if not isinstance(data, dict):
                     raise TypeError
-                componentsschemas_format_metadata_type_10 = PstMetadata.from_dict(data)
+                componentsschemas_format_metadata_type_10 = OcrMetadata.from_dict(data)
 
                 return componentsschemas_format_metadata_type_10
             except (TypeError, ValueError, AttributeError, KeyError):
                 pass
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError
+                componentsschemas_format_metadata_type_11 = CsvMetadata.from_dict(data)
+
+                return componentsschemas_format_metadata_type_11
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError
+                componentsschemas_format_metadata_type_12 = BibtexMetadata.from_dict(data)
+
+                return componentsschemas_format_metadata_type_12
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError
+                componentsschemas_format_metadata_type_13 = CitationMetadata.from_dict(data)
+
+                return componentsschemas_format_metadata_type_13
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError
+                componentsschemas_format_metadata_type_14 = FictionBookMetadata.from_dict(data)
+
+                return componentsschemas_format_metadata_type_14
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError
+                componentsschemas_format_metadata_type_15 = DbfMetadata.from_dict(data)
+
+                return componentsschemas_format_metadata_type_15
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError
+                componentsschemas_format_metadata_type_16 = EpubMetadata.from_dict(data)
+
+                return componentsschemas_format_metadata_type_16
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError
+                componentsschemas_format_metadata_type_17 = JatsMetadata.from_dict(data)
+
+                return componentsschemas_format_metadata_type_17
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError
+                componentsschemas_format_metadata_type_18 = PstMetadata.from_dict(data)
+
+                return componentsschemas_format_metadata_type_18
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError
+                componentsschemas_format_metadata_type_19 = AudioMetadata.from_dict(data)
+
+                return componentsschemas_format_metadata_type_19
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError
+                componentsschemas_format_metadata_type_20 = CodeMetadata.from_dict(data)
+
+                return componentsschemas_format_metadata_type_20
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
             return cast(
-                "ArchiveMetadata | CsvMetadata | EmailMetadata | ExcelMetadata | HtmlMetadata | ImageMetadata | None | OcrMetadata | PptxMetadata | PstMetadata | TextMetadata | Unset | XmlMetadata",
+                "ArchiveMetadata | AudioMetadata | BibtexMetadata | CitationMetadata | CodeMetadata | CsvMetadata | DbfMetadata | DocxMetadata | EmailMetadata | EpubMetadata | ExcelMetadata | FictionBookMetadata | HtmlMetadata | ImageMetadata | JatsMetadata | None | OcrMetadata | PdfMetadata | PptxMetadata | PstMetadata | TextMetadata | Unset | XmlMetadata",
                 data,
             )
 

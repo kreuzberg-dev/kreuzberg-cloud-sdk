@@ -7,7 +7,10 @@ part of 'health_response.dart';
 // **************************************************************************
 
 _HealthResponse _$HealthResponseFromJson(Map<String, dynamic> json) =>
-    _HealthResponse(status: json['status'] as String);
+    _HealthResponse(
+      status: json['status'] as String,
+      tier: json['tier'] as String,
+    );
 
 Map<String, dynamic> _$HealthResponseToJson(_HealthResponse instance) =>
-    <String, dynamic>{'status': instance.status};
+    <String, dynamic>{'status': instance.status, 'tier': instance.tier};

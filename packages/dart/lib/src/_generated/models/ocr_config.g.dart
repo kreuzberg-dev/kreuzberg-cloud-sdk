@@ -24,8 +24,17 @@ _OcrConfig _$OcrConfigFromJson(Map<String, dynamic> json) => _OcrConfig(
       : OcrQualityThresholds.fromJson(
           json['quality_thresholds'] as Map<String, dynamic>,
         ),
-  tesseractConfig: json['tesseract_config'],
+  tesseractConfig: json['tesseract_config'] == null
+      ? null
+      : TesseractConfig.fromJson(
+          json['tesseract_config'] as Map<String, dynamic>,
+        ),
   vlmConfig: json['vlm_config'],
+  vlmFallback: json['vlm_fallback'] == null
+      ? null
+      : VlmFallbackPolicy.fromJson(
+          json['vlm_fallback'] as Map<String, dynamic>,
+        ),
   vlmPrompt: json['vlm_prompt'] as String?,
 );
 
@@ -40,5 +49,6 @@ Map<String, dynamic> _$OcrConfigToJson(_OcrConfig instance) =>
       'quality_thresholds': instance.qualityThresholds,
       'tesseract_config': instance.tesseractConfig,
       'vlm_config': instance.vlmConfig,
+      'vlm_fallback': instance.vlmFallback,
       'vlm_prompt': instance.vlmPrompt,
     };

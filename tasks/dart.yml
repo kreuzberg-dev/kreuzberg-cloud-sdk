@@ -10,12 +10,77 @@ tasks:
     cmds:
       - rm -rf {{.GENERATED_DIR}}
       - cd {{.PKG_DIR}} && dart run swagger_parser
-      - cd {{.PKG_DIR}} && dart run build_runner build --delete-conflicting-outputs
       - |
         for f in {{.PKG_DIR}}/handrolled/models/*.dart; do
           cp "$f" "{{.GENERATED_DIR}}/models/$(basename "$f")"
         done
-      - cd {{.PKG_DIR}} && dart run build_runner build --delete-conflicting-outputs
+      - |
+        python3 - <<'PY'
+        from pathlib import Path
+
+        generated_dir = Path("{{.GENERATED_DIR}}")
+        handrolled = [
+            "annotation_kind",
+            "diff_line",
+            "job_lookup_response",
+            "node_content",
+            "ocr_bounding_geometry",
+            "primary_score",
+            "reranker_spec",
+            "revision_anchor",
+            "vlm_fallback_policy",
+        ]
+
+        for model in handrolled:
+            for path in (generated_dir / "models").glob(f"{model}_union*.dart"):
+                path.unlink()
+
+        export_file = generated_dir / "export.dart"
+        lines = export_file.read_text().splitlines()
+        output = []
+        inserted = set()
+
+        for line in lines:
+            replaced = False
+            for model in handrolled:
+                if f"export 'models/{model}_union" in line:
+                    if model not in inserted:
+                        output.append(f"export 'models/{model}.dart';")
+                        inserted.add(model)
+                    replaced = True
+                    break
+            if not replaced:
+                output.append(line)
+
+        for model in handrolled:
+            export = f"export 'models/{model}.dart';"
+            if export not in output:
+                root_index = output.index("// Root client")
+                output.insert(root_index, export)
+
+        export_file.write_text("\n".join(output) + "\n")
+
+        tesseract_config = generated_dir / "models/tesseract_config.dart"
+        text = tesseract_config.read_text()
+        text = text.replace("@Default([eng])", "@Default(['eng'])")
+        text = text.replace(
+            "    @Default(ImagePreprocessingConfig.valueNull)\n"
+            "    ImagePreprocessingConfig? preprocessing,",
+            "    ImagePreprocessingConfig? preprocessing,",
+        )
+        tesseract_config.write_text(text)
+        PY
+      - cd {{.PKG_DIR}} && dart run build_runner build
+      - cd {{.PKG_DIR}} && dart format lib/src/_generated
+      - |
+        python3 - <<'PY'
+        from pathlib import Path
+
+        for path in Path("{{.GENERATED_DIR}}").rglob("*.dart"):
+            text = path.read_text()
+            lines = [line.rstrip() for line in text.splitlines()]
+            path.write_text("\n".join(lines) + "\n")
+        PY
 
   install:
     desc: "Install Dart deps via dart pub"

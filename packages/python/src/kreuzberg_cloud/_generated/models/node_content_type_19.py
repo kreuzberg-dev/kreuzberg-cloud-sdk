@@ -17,7 +17,7 @@ class NodeContentType19:
     """Structured metadata block (email headers, YAML frontmatter, etc.).
 
     Attributes:
-        entries (list[list[str]]):
+        entries (list[list[str]]): Key-value pairs extracted from the metadata block.
         node_type (NodeContentType19NodeType):
     """
 

@@ -16,19 +16,24 @@ class HealthResponse:
 
     Attributes:
         status (str): Service status Example: ok.
+        tier (str): Deployment tier the frontend uses for runtime feature gating (ADR-0047). Example: enterprise.
     """
 
     status: str
+    tier: str
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         status = self.status
+
+        tier = self.tier
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
             {
                 "status": status,
+                "tier": tier,
             }
         )
 
@@ -39,8 +44,11 @@ class HealthResponse:
         d = dict(src_dict)
         status = d.pop("status")
 
+        tier = d.pop("tier")
+
         health_response = cls(
             status=status,
+            tier=tier,
         )
 
         health_response.additional_properties = d

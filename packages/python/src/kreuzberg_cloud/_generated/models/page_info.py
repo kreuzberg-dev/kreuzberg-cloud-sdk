@@ -21,13 +21,12 @@ class PageInfo:
 
     Attributes:
             number (int): Page number (1-indexed)
-            dimensions (list[float] | None | Unset): Dimensions in points (PDF) or pixels (images): (width, height)
             has_vector_graphics (bool | Unset): Whether this page contains non-trivial vector graphics (paths, shapes,
                 curves)
 
                 Indicates the presence of vector-drawn content such as charts, diagrams,
                 or geometric shapes (e.g., from Adobe InDesign, LaTeX TikZ). These are
-                invisible to `ExtractionResult.images` since they are not embedded as raster
+                invisible to `ExtractedDocument.images` since they are not embedded as raster
                 XObjects. Set to `true` when path count exceeds a heuristic threshold,
                 signaling that downstream consumers may want to rasterize the page to
                 capture this content.
@@ -45,7 +44,6 @@ class PageInfo:
     """
 
     number: int
-    dimensions: list[float] | None | Unset = UNSET
     has_vector_graphics: bool | Unset = UNSET
     hidden: bool | None | Unset = UNSET
     image_count: int | None | Unset = UNSET
@@ -56,15 +54,6 @@ class PageInfo:
 
     def to_dict(self) -> dict[str, Any]:
         number = self.number
-
-        dimensions: list[float] | None | Unset
-        if isinstance(self.dimensions, Unset):
-            dimensions = UNSET
-        elif isinstance(self.dimensions, list):
-            dimensions = self.dimensions
-
-        else:
-            dimensions = self.dimensions
 
         has_vector_graphics = self.has_vector_graphics
 
@@ -105,8 +94,6 @@ class PageInfo:
                 "number": number,
             }
         )
-        if dimensions is not UNSET:
-            field_dict["dimensions"] = dimensions
         if has_vector_graphics is not UNSET:
             field_dict["has_vector_graphics"] = has_vector_graphics
         if hidden is not UNSET:
@@ -126,23 +113,6 @@ class PageInfo:
     def from_dict(cls, src_dict: Mapping[str, Any]) -> Self:
         d = dict(src_dict)
         number = d.pop("number")
-
-        def _parse_dimensions(data: object) -> list[float] | None | Unset:
-            if data is None:
-                return data
-            if isinstance(data, Unset):
-                return data
-            try:
-                if not isinstance(data, list):
-                    raise TypeError
-                dimensions_type_0 = cast("list[float]", data)
-
-                return dimensions_type_0
-            except (TypeError, ValueError, AttributeError, KeyError):
-                pass
-            return cast("list[float] | None | Unset", data)
-
-        dimensions = _parse_dimensions(d.pop("dimensions", UNSET))
 
         has_vector_graphics = d.pop("has_vector_graphics", UNSET)
 
@@ -193,7 +163,6 @@ class PageInfo:
 
         page_info = cls(
             number=number,
-            dimensions=dimensions,
             has_vector_graphics=has_vector_graphics,
             hidden=hidden,
             image_count=image_count,

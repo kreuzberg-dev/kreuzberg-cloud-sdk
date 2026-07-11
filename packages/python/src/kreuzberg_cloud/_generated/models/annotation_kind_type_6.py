@@ -17,7 +17,8 @@ T = TypeVar("T", bound="AnnotationKindType6")
 
 @_attrs_define
 class AnnotationKindType6:
-    """
+    """Superscript text.
+
     Attributes:
         annotation_type (AnnotationKindType6AnnotationType):
     """

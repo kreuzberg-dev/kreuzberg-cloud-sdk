@@ -118,7 +118,6 @@ class KreuzbergCloudClient {
   /// Call when the client is no longer needed (e.g. in shutdown handlers).
   void close({bool force = false}) => _dio.close(force: force);
 
-
   /// Liveness probe. Returns 200 with `status: ok` if the service is alive.
   Future<HealthResponse> healthz() => _api.health.healthz();
 
@@ -127,15 +126,20 @@ class KreuzbergCloudClient {
   /// component is unhealthy.
   Future<ReadinessResponse> readyz() => _api.health.readyz();
 
-
   /// Submits one or more documents for extraction via the JSON endpoint.
   ///
   /// Each document's payload must be supplied as base64 in
   /// `DocumentInput.data`. For binary uploads of large files, prefer
   /// [extractMultipart] or the presign-upload flow ([presignUpload] +
   /// [confirmUpload]).
-  Future<ExtractResponse> extract(ExtractJsonRequest request) =>
-  _api.extract.extract(body: request);
+  Future<ExtractResponse> extract(ExtractJsonRequest request) async {
+    final response = await _dio.post<Map<String, dynamic>>(
+      '/v1/extract',
+      data: request.toJson(),
+      options: Options(contentType: Headers.jsonContentType),
+    );
+    return ExtractResponse.fromJson(response.data!);
+  }
 
   /// Submits one or more files via `multipart/form-data` on `/v1/extract`.
   ///
@@ -175,7 +179,6 @@ class KreuzbergCloudClient {
     );
     return ExtractResponse.fromJson(response.data!);
   }
-
 
   /// Fetches the current status (and result, when terminal) of a job.
   ///
@@ -234,7 +237,6 @@ class KreuzbergCloudClient {
     );
   }
 
-
   /// Requests presigned upload URLs for one or more documents. The client
   /// then PUTs each file to the returned URL out-of-band, and calls
   /// [confirmUpload] with the `batch_id` to start processing.
@@ -245,7 +247,6 @@ class KreuzbergCloudClient {
   /// server verifies all files exist in storage and dispatches jobs.
   Future<ConfirmUploadResponse> confirmUpload(ConfirmUploadRequest request) =>
   _api.uploads.confirmUpload(body: request);
-
 
   /// Returns usage and quota statistics for the given date range.
   ///

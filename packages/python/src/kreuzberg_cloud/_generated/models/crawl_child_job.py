@@ -11,7 +11,7 @@ from typing_extensions import Self
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
-    from ..models.extraction_result import ExtractionResult
+    from ..models.extracted_document import ExtractedDocument
 
 
 T = TypeVar("T", bound="CrawlChildJob")
@@ -35,7 +35,7 @@ class CrawlChildJob:
             suspiciously small responses (e.g. WAF challenge pages captured
             as the "document" — typically 5–30 KB). Example: 18234.
         processing_time_ms (int | None | Unset): Processing time in ms (when completed) Example: 1234.
-        result (ExtractionResult | None | Unset):
+        result (ExtractedDocument | None | Unset):
         source_url (None | str | Unset): Source URL where this document was found Example:
             https://example.com/docs/guide.pdf.
     """
@@ -45,12 +45,12 @@ class CrawlChildJob:
     status: str
     body_bytes: int | None | Unset = UNSET
     processing_time_ms: int | None | Unset = UNSET
-    result: ExtractionResult | None | Unset = UNSET
+    result: ExtractedDocument | None | Unset = UNSET
     source_url: None | str | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        from ..models.extraction_result import ExtractionResult
+        from ..models.extracted_document import ExtractedDocument
 
         filename = self.filename
 
@@ -73,7 +73,7 @@ class CrawlChildJob:
         result: dict[str, Any] | None | Unset
         if isinstance(self.result, Unset):
             result = UNSET
-        elif isinstance(self.result, ExtractionResult):
+        elif isinstance(self.result, ExtractedDocument):
             result = self.result.to_dict()
         else:
             result = self.result
@@ -106,7 +106,7 @@ class CrawlChildJob:
 
     @classmethod
     def from_dict(cls, src_dict: Mapping[str, Any]) -> Self:
-        from ..models.extraction_result import ExtractionResult
+        from ..models.extracted_document import ExtractedDocument
 
         d = dict(src_dict)
         filename = d.pop("filename")
@@ -133,7 +133,7 @@ class CrawlChildJob:
 
         processing_time_ms = _parse_processing_time_ms(d.pop("processing_time_ms", UNSET))
 
-        def _parse_result(data: object) -> ExtractionResult | None | Unset:
+        def _parse_result(data: object) -> ExtractedDocument | None | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -141,12 +141,12 @@ class CrawlChildJob:
             try:
                 if not isinstance(data, dict):
                     raise TypeError
-                result_type_1 = ExtractionResult.from_dict(data)
+                result_type_1 = ExtractedDocument.from_dict(data)
 
                 return result_type_1
             except (TypeError, ValueError, AttributeError, KeyError):
                 pass
-            return cast("ExtractionResult | None | Unset", data)
+            return cast("ExtractedDocument | None | Unset", data)
 
         result = _parse_result(d.pop("result", UNSET))
 

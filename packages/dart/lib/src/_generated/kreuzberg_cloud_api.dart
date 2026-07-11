@@ -8,13 +8,14 @@ import 'health/health_client.dart';
 import 'documents/documents_client.dart';
 import 'extract/extract_client.dart';
 import 'jobs/jobs_client.dart';
-import 'super_sandbox/super_sandbox_client.dart';
+import 'presets/presets_client.dart';
+import 'rag/rag_client.dart';
 import 'uploads/uploads_client.dart';
 import 'usage/usage_client.dart';
 
 /// Xberg Enterprise API `v1.0.0`.
 ///
-/// Cloud document extraction API powered by Kreuzberg. Supports asynchronous extraction with webhook delivery.
+/// Cloud document extraction API powered by Xberg. Supports asynchronous extraction with webhook delivery.
 class KreuzbergCloudApi {
   KreuzbergCloudApi(Dio dio, {String? baseUrl})
     : _dio = dio,
@@ -29,7 +30,8 @@ class KreuzbergCloudApi {
   DocumentsClient? _documents;
   ExtractClient? _extract;
   JobsClient? _jobs;
-  SuperSandboxClient? _superSandbox;
+  PresetsClient? _presets;
+  RagClient? _rag;
   UploadsClient? _uploads;
   UsageClient? _usage;
 
@@ -43,8 +45,10 @@ class KreuzbergCloudApi {
 
   JobsClient get jobs => _jobs ??= JobsClient(_dio, baseUrl: _baseUrl);
 
-  SuperSandboxClient get superSandbox =>
-      _superSandbox ??= SuperSandboxClient(_dio, baseUrl: _baseUrl);
+  PresetsClient get presets =>
+      _presets ??= PresetsClient(_dio, baseUrl: _baseUrl);
+
+  RagClient get rag => _rag ??= RagClient(_dio, baseUrl: _baseUrl);
 
   UploadsClient get uploads =>
       _uploads ??= UploadsClient(_dio, baseUrl: _baseUrl);

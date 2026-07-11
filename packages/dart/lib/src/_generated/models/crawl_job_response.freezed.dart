@@ -91,7 +91,7 @@ as List<CrawledPage>?,
 @override
 @pragma('vm:prefer-inline')
 $CrawlProgressCopyWith<$Res> get progress {
-  
+
   return $CrawlProgressCopyWith<$Res>(_self.progress, (value) {
     return _then(_self.copyWith(progress: value));
   });
@@ -347,7 +347,7 @@ as List<CrawledPage>?,
 @override
 @pragma('vm:prefer-inline')
 $CrawlProgressCopyWith<$Res> get progress {
-  
+
   return $CrawlProgressCopyWith<$Res>(_self.progress, (value) {
     return _then(_self.copyWith(progress: value));
   });

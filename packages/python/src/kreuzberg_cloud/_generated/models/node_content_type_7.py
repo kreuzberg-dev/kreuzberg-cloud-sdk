@@ -19,8 +19,8 @@ class NodeContentType7:
 
     Attributes:
         node_type (NodeContentType7NodeType):
-        text (str):
-        language (None | str | Unset):
+        text (str): The source code text content.
+        language (None | str | Unset): Programming language identifier (e.g. `"rust"`, `"python"`).
     """
 
     node_type: NodeContentType7NodeType

@@ -15,14 +15,20 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$DocumentInput {
 
-/// Base64-encoded document data
- String get data;/// Original filename
- String get filename;/// MIME type of the document
-@JsonKey(name: 'mime_type') String get mimeType;/// Optional client-supplied document identifier. When provided, this.
+/// Original filename
+ String get filename;/// MIME type of the document. For an integration-sourced document this is a.
+/// hint only — the worker prefers the connector-reported type at fetch time.
+@JsonKey(name: 'mime_type') String get mimeType;/// Base64-encoded document data. Mutually exclusive with `integration`.
+ String? get data;/// Optional client-supplied document identifier. When provided, this.
 /// extraction is recorded as a version of that logical document and the.
 /// response carries `document_id` + `version_sequence`. Server mints a.
-/// new UUID when absent.
-@JsonKey(name: 'document_id') String? get documentId;
+/// new UUID when absent. Not supported with `integration` (versioning needs.
+/// a content hash the integration source has not fetched yet) — the combo.
+/// is rejected with 400.
+@JsonKey(name: 'document_id') String? get documentId;/// Reference to a document in a connected integration. Mutually exclusive.
+/// with `data`; the worker resolves the bytes through the integration's.
+/// source connector at fetch time.
+ IntegrationInput? get integration;
 /// Create a copy of DocumentInput
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -35,16 +41,16 @@ $DocumentInputCopyWith<DocumentInput> get copyWith => _$DocumentInputCopyWithImp
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is DocumentInput&&(identical(other.data, data) || other.data == data)&&(identical(other.filename, filename) || other.filename == filename)&&(identical(other.mimeType, mimeType) || other.mimeType == mimeType)&&(identical(other.documentId, documentId) || other.documentId == documentId));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is DocumentInput&&(identical(other.filename, filename) || other.filename == filename)&&(identical(other.mimeType, mimeType) || other.mimeType == mimeType)&&(identical(other.data, data) || other.data == data)&&(identical(other.documentId, documentId) || other.documentId == documentId)&&(identical(other.integration, integration) || other.integration == integration));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,data,filename,mimeType,documentId);
+int get hashCode => Object.hash(runtimeType,filename,mimeType,data,documentId,integration);
 
 @override
 String toString() {
-  return 'DocumentInput(data: $data, filename: $filename, mimeType: $mimeType, documentId: $documentId)';
+  return 'DocumentInput(filename: $filename, mimeType: $mimeType, data: $data, documentId: $documentId, integration: $integration)';
 }
 
 
@@ -55,11 +61,11 @@ abstract mixin class $DocumentInputCopyWith<$Res>  {
   factory $DocumentInputCopyWith(DocumentInput value, $Res Function(DocumentInput) _then) = _$DocumentInputCopyWithImpl;
 @useResult
 $Res call({
- String data, String filename,@JsonKey(name: 'mime_type') String mimeType,@JsonKey(name: 'document_id') String? documentId
+ String filename,@JsonKey(name: 'mime_type') String mimeType, String? data,@JsonKey(name: 'document_id') String? documentId, IntegrationInput? integration
 });
 
 
-
+$IntegrationInputCopyWith<$Res>? get integration;
 
 }
 /// @nodoc
@@ -72,16 +78,29 @@ class _$DocumentInputCopyWithImpl<$Res>
 
 /// Create a copy of DocumentInput
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? data = null,Object? filename = null,Object? mimeType = null,Object? documentId = freezed,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? filename = null,Object? mimeType = null,Object? data = freezed,Object? documentId = freezed,Object? integration = freezed,}) {
   return _then(_self.copyWith(
-data: null == data ? _self.data : data // ignore: cast_nullable_to_non_nullable
-as String,filename: null == filename ? _self.filename : filename // ignore: cast_nullable_to_non_nullable
+filename: null == filename ? _self.filename : filename // ignore: cast_nullable_to_non_nullable
 as String,mimeType: null == mimeType ? _self.mimeType : mimeType // ignore: cast_nullable_to_non_nullable
-as String,documentId: freezed == documentId ? _self.documentId : documentId // ignore: cast_nullable_to_non_nullable
-as String?,
+as String,data: freezed == data ? _self.data : data // ignore: cast_nullable_to_non_nullable
+as String?,documentId: freezed == documentId ? _self.documentId : documentId // ignore: cast_nullable_to_non_nullable
+as String?,integration: freezed == integration ? _self.integration : integration // ignore: cast_nullable_to_non_nullable
+as IntegrationInput?,
   ));
 }
+/// Create a copy of DocumentInput
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
+$IntegrationInputCopyWith<$Res>? get integration {
+    if (_self.integration == null) {
+    return null;
+  }
 
+  return $IntegrationInputCopyWith<$Res>(_self.integration!, (value) {
+    return _then(_self.copyWith(integration: value));
+  });
+}
 }
 
 
@@ -163,10 +182,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String data,  String filename, @JsonKey(name: 'mime_type')  String mimeType, @JsonKey(name: 'document_id')  String? documentId)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String filename, @JsonKey(name: 'mime_type')  String mimeType,  String? data, @JsonKey(name: 'document_id')  String? documentId,  IntegrationInput? integration)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _DocumentInput() when $default != null:
-return $default(_that.data,_that.filename,_that.mimeType,_that.documentId);case _:
+return $default(_that.filename,_that.mimeType,_that.data,_that.documentId,_that.integration);case _:
   return orElse();
 
 }
@@ -184,10 +203,10 @@ return $default(_that.data,_that.filename,_that.mimeType,_that.documentId);case 
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String data,  String filename, @JsonKey(name: 'mime_type')  String mimeType, @JsonKey(name: 'document_id')  String? documentId)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String filename, @JsonKey(name: 'mime_type')  String mimeType,  String? data, @JsonKey(name: 'document_id')  String? documentId,  IntegrationInput? integration)  $default,) {final _that = this;
 switch (_that) {
 case _DocumentInput():
-return $default(_that.data,_that.filename,_that.mimeType,_that.documentId);case _:
+return $default(_that.filename,_that.mimeType,_that.data,_that.documentId,_that.integration);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -204,10 +223,10 @@ return $default(_that.data,_that.filename,_that.mimeType,_that.documentId);case 
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String data,  String filename, @JsonKey(name: 'mime_type')  String mimeType, @JsonKey(name: 'document_id')  String? documentId)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String filename, @JsonKey(name: 'mime_type')  String mimeType,  String? data, @JsonKey(name: 'document_id')  String? documentId,  IntegrationInput? integration)?  $default,) {final _that = this;
 switch (_that) {
 case _DocumentInput() when $default != null:
-return $default(_that.data,_that.filename,_that.mimeType,_that.documentId);case _:
+return $default(_that.filename,_that.mimeType,_that.data,_that.documentId,_that.integration);case _:
   return null;
 
 }
@@ -219,20 +238,27 @@ return $default(_that.data,_that.filename,_that.mimeType,_that.documentId);case 
 @JsonSerializable()
 
 class _DocumentInput implements DocumentInput {
-  const _DocumentInput({required this.data, required this.filename, @JsonKey(name: 'mime_type') required this.mimeType, @JsonKey(name: 'document_id') this.documentId});
+  const _DocumentInput({required this.filename, @JsonKey(name: 'mime_type') required this.mimeType, this.data, @JsonKey(name: 'document_id') this.documentId, this.integration});
   factory _DocumentInput.fromJson(Map<String, dynamic> json) => _$DocumentInputFromJson(json);
 
-/// Base64-encoded document data
-@override final  String data;
 /// Original filename
 @override final  String filename;
-/// MIME type of the document
+/// MIME type of the document. For an integration-sourced document this is a.
+/// hint only — the worker prefers the connector-reported type at fetch time.
 @override@JsonKey(name: 'mime_type') final  String mimeType;
+/// Base64-encoded document data. Mutually exclusive with `integration`.
+@override final  String? data;
 /// Optional client-supplied document identifier. When provided, this.
 /// extraction is recorded as a version of that logical document and the.
 /// response carries `document_id` + `version_sequence`. Server mints a.
-/// new UUID when absent.
+/// new UUID when absent. Not supported with `integration` (versioning needs.
+/// a content hash the integration source has not fetched yet) — the combo.
+/// is rejected with 400.
 @override@JsonKey(name: 'document_id') final  String? documentId;
+/// Reference to a document in a connected integration. Mutually exclusive.
+/// with `data`; the worker resolves the bytes through the integration's.
+/// source connector at fetch time.
+@override final  IntegrationInput? integration;
 
 /// Create a copy of DocumentInput
 /// with the given fields replaced by the non-null parameter values.
@@ -247,16 +273,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _DocumentInput&&(identical(other.data, data) || other.data == data)&&(identical(other.filename, filename) || other.filename == filename)&&(identical(other.mimeType, mimeType) || other.mimeType == mimeType)&&(identical(other.documentId, documentId) || other.documentId == documentId));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _DocumentInput&&(identical(other.filename, filename) || other.filename == filename)&&(identical(other.mimeType, mimeType) || other.mimeType == mimeType)&&(identical(other.data, data) || other.data == data)&&(identical(other.documentId, documentId) || other.documentId == documentId)&&(identical(other.integration, integration) || other.integration == integration));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,data,filename,mimeType,documentId);
+int get hashCode => Object.hash(runtimeType,filename,mimeType,data,documentId,integration);
 
 @override
 String toString() {
-  return 'DocumentInput(data: $data, filename: $filename, mimeType: $mimeType, documentId: $documentId)';
+  return 'DocumentInput(filename: $filename, mimeType: $mimeType, data: $data, documentId: $documentId, integration: $integration)';
 }
 
 
@@ -267,11 +293,11 @@ abstract mixin class _$DocumentInputCopyWith<$Res> implements $DocumentInputCopy
   factory _$DocumentInputCopyWith(_DocumentInput value, $Res Function(_DocumentInput) _then) = __$DocumentInputCopyWithImpl;
 @override @useResult
 $Res call({
- String data, String filename,@JsonKey(name: 'mime_type') String mimeType,@JsonKey(name: 'document_id') String? documentId
+ String filename,@JsonKey(name: 'mime_type') String mimeType, String? data,@JsonKey(name: 'document_id') String? documentId, IntegrationInput? integration
 });
 
 
-
+@override $IntegrationInputCopyWith<$Res>? get integration;
 
 }
 /// @nodoc
@@ -284,17 +310,30 @@ class __$DocumentInputCopyWithImpl<$Res>
 
 /// Create a copy of DocumentInput
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? data = null,Object? filename = null,Object? mimeType = null,Object? documentId = freezed,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? filename = null,Object? mimeType = null,Object? data = freezed,Object? documentId = freezed,Object? integration = freezed,}) {
   return _then(_DocumentInput(
-data: null == data ? _self.data : data // ignore: cast_nullable_to_non_nullable
-as String,filename: null == filename ? _self.filename : filename // ignore: cast_nullable_to_non_nullable
+filename: null == filename ? _self.filename : filename // ignore: cast_nullable_to_non_nullable
 as String,mimeType: null == mimeType ? _self.mimeType : mimeType // ignore: cast_nullable_to_non_nullable
-as String,documentId: freezed == documentId ? _self.documentId : documentId // ignore: cast_nullable_to_non_nullable
-as String?,
+as String,data: freezed == data ? _self.data : data // ignore: cast_nullable_to_non_nullable
+as String?,documentId: freezed == documentId ? _self.documentId : documentId // ignore: cast_nullable_to_non_nullable
+as String?,integration: freezed == integration ? _self.integration : integration // ignore: cast_nullable_to_non_nullable
+as IntegrationInput?,
   ));
 }
 
+/// Create a copy of DocumentInput
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
+$IntegrationInputCopyWith<$Res>? get integration {
+    if (_self.integration == null) {
+    return null;
+  }
 
+  return $IntegrationInputCopyWith<$Res>(_self.integration!, (value) {
+    return _then(_self.copyWith(integration: value));
+  });
+}
 }
 
 // dart format on

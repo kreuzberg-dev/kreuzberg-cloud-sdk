@@ -18,7 +18,7 @@ class NodeContentType0:
 
     Attributes:
         node_type (NodeContentType0NodeType):
-        text (str):
+        text (str): The title text content.
     """
 
     node_type: NodeContentType0NodeType

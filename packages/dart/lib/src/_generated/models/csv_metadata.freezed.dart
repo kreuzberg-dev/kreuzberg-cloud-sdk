@@ -15,7 +15,12 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$CsvMetadata {
 
-@JsonKey(name: 'column_count') int get columnCount;@JsonKey(name: 'has_header') bool get hasHeader;@JsonKey(name: 'row_count') int get rowCount;@JsonKey(name: 'column_types') List<String>? get columnTypes; String? get delimiter;
+/// Number of columns detected.
+@JsonKey(name: 'column_count') int get columnCount;/// Whether the first row was treated as a header.
+@JsonKey(name: 'has_header') bool get hasHeader;/// Total number of data rows (excluding the header row if present).
+@JsonKey(name: 'row_count') int get rowCount;/// Inferred data type for each column (e.g. `"string"`, `"integer"`, `"float"`).
+@JsonKey(name: 'column_types') List<String>? get columnTypes;/// Field delimiter character (e.g. `","` or `"\t"`).
+ String? get delimiter;
 /// Create a copy of CsvMetadata
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -216,10 +221,15 @@ class _CsvMetadata implements CsvMetadata {
   const _CsvMetadata({@JsonKey(name: 'column_count') required this.columnCount, @JsonKey(name: 'has_header') required this.hasHeader, @JsonKey(name: 'row_count') required this.rowCount, @JsonKey(name: 'column_types') final  List<String>? columnTypes, this.delimiter}): _columnTypes = columnTypes;
   factory _CsvMetadata.fromJson(Map<String, dynamic> json) => _$CsvMetadataFromJson(json);
 
+/// Number of columns detected.
 @override@JsonKey(name: 'column_count') final  int columnCount;
+/// Whether the first row was treated as a header.
 @override@JsonKey(name: 'has_header') final  bool hasHeader;
+/// Total number of data rows (excluding the header row if present).
 @override@JsonKey(name: 'row_count') final  int rowCount;
+/// Inferred data type for each column (e.g. `"string"`, `"integer"`, `"float"`).
  final  List<String>? _columnTypes;
+/// Inferred data type for each column (e.g. `"string"`, `"integer"`, `"float"`).
 @override@JsonKey(name: 'column_types') List<String>? get columnTypes {
   final value = _columnTypes;
   if (value == null) return null;
@@ -228,6 +238,7 @@ class _CsvMetadata implements CsvMetadata {
   return EqualUnmodifiableListView(value);
 }
 
+/// Field delimiter character (e.g. `","` or `"\t"`).
 @override final  String? delimiter;
 
 /// Create a copy of CsvMetadata

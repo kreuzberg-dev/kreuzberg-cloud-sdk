@@ -17,9 +17,9 @@ class NodeContentType15:
     """Individual definition list entry with term and definition.
 
     Attributes:
-        definition (str):
+        definition (str): The definition or description of the term.
         node_type (NodeContentType15NodeType):
-        term (str):
+        term (str): The term being defined.
     """
 
     definition: str

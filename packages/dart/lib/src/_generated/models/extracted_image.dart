@@ -5,8 +5,9 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 
 import 'bounding_box.dart';
-import 'extraction_result.dart';
+import 'extracted_document.dart';
 import 'image_kind.dart';
+import 'qr_code.dart';
 
 part 'extracted_image.freezed.dart';
 part 'extracted_image.g.dart';
@@ -37,12 +38,24 @@ abstract class ExtractedImage with _$ExtractedImage {
     /// Only populated for PDF-extracted images when position data is available from the PDF extractor.
     @JsonKey(name: 'bounding_box') BoundingBox? boundingBox,
 
+    /// VLM-generated caption describing the image, when captioning is configured.
+    ///
+    /// Populated by the captioning post-processor.
+    /// (`crates/xberg/src/plugins/processor/builtin/captioning.rs`), which routes.
+    /// each image through `crate::llm::region_extractor::extract_region_with_vlm` in.
+    /// caption mode. `None` when captioning is disabled or the VLM declined to caption.
+    String? caption,
+
     /// Identifier shared across images that form a single logical figure.
     /// (e.g. all raster tiles of one technical drawing). `None` for singletons.
     @JsonKey(name: 'cluster_id') int? clusterId,
 
     /// Colorspace information (e.g., "RGB", "CMYK", "Gray")
     String? colorspace,
+
+    /// Base64-encoded copy of `data`; populated when `ImageExtractionConfig::include_data_base64`.
+    /// is `true`. Omitted from JSON by default; use instead of `data` in JSON-only clients.
+    @JsonKey(name: 'data_base64') String? dataBase64,
 
     /// Optional description of the image
     String? description,
@@ -64,10 +77,17 @@ abstract class ExtractedImage with _$ExtractedImage {
     ///
     /// When OCR is performed on this image, the result is embedded here.
     /// rather than in a separate collection, making the relationship explicit.
-    @JsonKey(name: 'ocr_result') ExtractionResult? ocrResult,
+    @JsonKey(name: 'ocr_result') ExtractedDocument? ocrResult,
 
     /// Page/slide number where image was found (1-indexed)
     @JsonKey(name: 'page_number') int? pageNumber,
+
+    /// QR codes decoded from this image, when QR detection is enabled.
+    ///
+    /// Populated by the QR post-processor (`crates/xberg/src/extractors/qr.rs`) via.
+    /// the pure-Rust `rqrr` decoder. `None` when QR detection is disabled; an empty.
+    /// `Some(vec![])` when detection ran but found nothing.
+    @JsonKey(name: 'qr_codes') List<QrCode>? qrCodes,
 
     /// Original source path of the image within the document archive (e.g., "media/image1.png" in DOCX).
     /// Used for rendering image references when the binary data is not extracted.

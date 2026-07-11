@@ -1,13 +1,17 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any, TypeVar, cast
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 from typing_extensions import Self
 
 from ..types import UNSET, Unset
+
+if TYPE_CHECKING:
+    from ..models.tesseract_config import TesseractConfig
+
 
 T = TypeVar("T", bound="OcrPipelineStage")
 
@@ -20,18 +24,20 @@ class OcrPipelineStage:
         backend (str): Backend name: "tesseract", "easyocr", or custom
         language (None | str | Unset): Language override for this stage
         priority (int | Unset): Priority (higher = tried first, default 100)
-        tesseract_config (Any | Unset): Tesseract config override for this stage
+        tesseract_config (None | TesseractConfig | Unset):
         vlm_config (Any | Unset): VLM config override for this stage
     """
 
     backend: str
     language: None | str | Unset = UNSET
     priority: int | Unset = UNSET
-    tesseract_config: Any | Unset = UNSET
+    tesseract_config: None | TesseractConfig | Unset = UNSET
     vlm_config: Any | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
+        from ..models.tesseract_config import TesseractConfig
+
         backend = self.backend
 
         language: None | str | Unset
@@ -42,7 +48,13 @@ class OcrPipelineStage:
 
         priority = self.priority
 
-        tesseract_config = self.tesseract_config
+        tesseract_config: dict[str, Any] | None | Unset
+        if isinstance(self.tesseract_config, Unset):
+            tesseract_config = UNSET
+        elif isinstance(self.tesseract_config, TesseractConfig):
+            tesseract_config = self.tesseract_config.to_dict()
+        else:
+            tesseract_config = self.tesseract_config
 
         vlm_config = self.vlm_config
 
@@ -66,6 +78,8 @@ class OcrPipelineStage:
 
     @classmethod
     def from_dict(cls, src_dict: Mapping[str, Any]) -> Self:
+        from ..models.tesseract_config import TesseractConfig
+
         d = dict(src_dict)
         backend = d.pop("backend")
 
@@ -80,7 +94,22 @@ class OcrPipelineStage:
 
         priority = d.pop("priority", UNSET)
 
-        tesseract_config = d.pop("tesseract_config", UNSET)
+        def _parse_tesseract_config(data: object) -> None | TesseractConfig | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError
+                tesseract_config_type_1 = TesseractConfig.from_dict(data)
+
+                return tesseract_config_type_1
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            return cast("None | TesseractConfig | Unset", data)
+
+        tesseract_config = _parse_tesseract_config(d.pop("tesseract_config", UNSET))
 
         vlm_config = d.pop("vlm_config", UNSET)
 

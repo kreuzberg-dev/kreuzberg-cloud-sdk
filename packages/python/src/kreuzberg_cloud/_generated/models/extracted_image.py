@@ -12,7 +12,8 @@ from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
     from ..models.bounding_box import BoundingBox
-    from ..models.extraction_result import ExtractionResult
+    from ..models.extracted_document import ExtractedDocument
+    from ..models.qr_code import QrCode
 
 
 T = TypeVar("T", bound="ExtractedImage")
@@ -34,16 +35,30 @@ class ExtractedImage:
             image_index (int): Zero-indexed position of this image in the document/page
             bits_per_component (int | None | Unset): Bits per color component (e.g., 8, 16)
             bounding_box (BoundingBox | None | Unset):
+            caption (None | str | Unset): VLM-generated caption describing the image, when captioning is configured.
+
+                Populated by the captioning post-processor
+                (`crates/xberg/src/plugins/processor/builtin/captioning.rs`), which routes
+                each image through `crate::llm::region_extractor::extract_region_with_vlm` in
+                caption mode. `None` when captioning is disabled or the VLM declined to caption.
             cluster_id (int | None | Unset): Identifier shared across images that form a single logical figure
                 (e.g. all raster tiles of one technical drawing). `None` for singletons.
             colorspace (None | str | Unset): Colorspace information (e.g., "RGB", "CMYK", "Gray")
+            data_base64 (None | str | Unset): Base64-encoded copy of `data`; populated when
+                `ImageExtractionConfig::include_data_base64`
+                is `true`. Omitted from JSON by default; use instead of `data` in JSON-only clients.
             description (None | str | Unset): Optional description of the image
             height (int | None | Unset): Image height in pixels
             image_kind (ImageKind | None | Unset):
             is_mask (bool | Unset): Whether this image is a mask image
             kind_confidence (float | None | Unset): Confidence score for `image_kind`, in the range 0.0 to 1.0.
-            ocr_result (ExtractionResult | None | Unset):
+            ocr_result (ExtractedDocument | None | Unset):
             page_number (int | None | Unset): Page/slide number where image was found (1-indexed)
+            qr_codes (list[QrCode] | None | Unset): QR codes decoded from this image, when QR detection is enabled.
+
+                Populated by the QR post-processor (`crates/xberg/src/extractors/qr.rs`) via
+                the pure-Rust `rqrr` decoder. `None` when QR detection is disabled; an empty
+                `Some(vec![])` when detection ran but found nothing.
             source_path (None | str | Unset): Original source path of the image within the document archive (e.g.,
                 "media/image1.png" in DOCX).
                 Used for rendering image references when the binary data is not extracted.
@@ -55,22 +70,25 @@ class ExtractedImage:
     image_index: int
     bits_per_component: int | None | Unset = UNSET
     bounding_box: BoundingBox | None | Unset = UNSET
+    caption: None | str | Unset = UNSET
     cluster_id: int | None | Unset = UNSET
     colorspace: None | str | Unset = UNSET
+    data_base64: None | str | Unset = UNSET
     description: None | str | Unset = UNSET
     height: int | None | Unset = UNSET
     image_kind: ImageKind | None | Unset = UNSET
     is_mask: bool | Unset = UNSET
     kind_confidence: float | None | Unset = UNSET
-    ocr_result: ExtractionResult | None | Unset = UNSET
+    ocr_result: ExtractedDocument | None | Unset = UNSET
     page_number: int | None | Unset = UNSET
+    qr_codes: list[QrCode] | None | Unset = UNSET
     source_path: None | str | Unset = UNSET
     width: int | None | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         from ..models.bounding_box import BoundingBox
-        from ..models.extraction_result import ExtractionResult
+        from ..models.extracted_document import ExtractedDocument
 
         data = self.data
 
@@ -92,6 +110,12 @@ class ExtractedImage:
         else:
             bounding_box = self.bounding_box
 
+        caption: None | str | Unset
+        if isinstance(self.caption, Unset):
+            caption = UNSET
+        else:
+            caption = self.caption
+
         cluster_id: int | None | Unset
         if isinstance(self.cluster_id, Unset):
             cluster_id = UNSET
@@ -103,6 +127,12 @@ class ExtractedImage:
             colorspace = UNSET
         else:
             colorspace = self.colorspace
+
+        data_base64: None | str | Unset
+        if isinstance(self.data_base64, Unset):
+            data_base64 = UNSET
+        else:
+            data_base64 = self.data_base64
 
         description: None | str | Unset
         if isinstance(self.description, Unset):
@@ -135,7 +165,7 @@ class ExtractedImage:
         ocr_result: dict[str, Any] | None | Unset
         if isinstance(self.ocr_result, Unset):
             ocr_result = UNSET
-        elif isinstance(self.ocr_result, ExtractionResult):
+        elif isinstance(self.ocr_result, ExtractedDocument):
             ocr_result = self.ocr_result.to_dict()
         else:
             ocr_result = self.ocr_result
@@ -145,6 +175,18 @@ class ExtractedImage:
             page_number = UNSET
         else:
             page_number = self.page_number
+
+        qr_codes: list[dict[str, Any]] | None | Unset
+        if isinstance(self.qr_codes, Unset):
+            qr_codes = UNSET
+        elif isinstance(self.qr_codes, list):
+            qr_codes = []
+            for qr_codes_type_0_item_data in self.qr_codes:
+                qr_codes_type_0_item = qr_codes_type_0_item_data.to_dict()
+                qr_codes.append(qr_codes_type_0_item)
+
+        else:
+            qr_codes = self.qr_codes
 
         source_path: None | str | Unset
         if isinstance(self.source_path, Unset):
@@ -171,10 +213,14 @@ class ExtractedImage:
             field_dict["bits_per_component"] = bits_per_component
         if bounding_box is not UNSET:
             field_dict["bounding_box"] = bounding_box
+        if caption is not UNSET:
+            field_dict["caption"] = caption
         if cluster_id is not UNSET:
             field_dict["cluster_id"] = cluster_id
         if colorspace is not UNSET:
             field_dict["colorspace"] = colorspace
+        if data_base64 is not UNSET:
+            field_dict["data_base64"] = data_base64
         if description is not UNSET:
             field_dict["description"] = description
         if height is not UNSET:
@@ -189,6 +235,8 @@ class ExtractedImage:
             field_dict["ocr_result"] = ocr_result
         if page_number is not UNSET:
             field_dict["page_number"] = page_number
+        if qr_codes is not UNSET:
+            field_dict["qr_codes"] = qr_codes
         if source_path is not UNSET:
             field_dict["source_path"] = source_path
         if width is not UNSET:
@@ -199,7 +247,8 @@ class ExtractedImage:
     @classmethod
     def from_dict(cls, src_dict: Mapping[str, Any]) -> Self:
         from ..models.bounding_box import BoundingBox
-        from ..models.extraction_result import ExtractionResult
+        from ..models.extracted_document import ExtractedDocument
+        from ..models.qr_code import QrCode
 
         d = dict(src_dict)
         data = cast("list[int]", d.pop("data"))
@@ -234,6 +283,15 @@ class ExtractedImage:
 
         bounding_box = _parse_bounding_box(d.pop("bounding_box", UNSET))
 
+        def _parse_caption(data: object) -> None | str | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast("None | str | Unset", data)
+
+        caption = _parse_caption(d.pop("caption", UNSET))
+
         def _parse_cluster_id(data: object) -> int | None | Unset:
             if data is None:
                 return data
@@ -251,6 +309,15 @@ class ExtractedImage:
             return cast("None | str | Unset", data)
 
         colorspace = _parse_colorspace(d.pop("colorspace", UNSET))
+
+        def _parse_data_base64(data: object) -> None | str | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast("None | str | Unset", data)
+
+        data_base64 = _parse_data_base64(d.pop("data_base64", UNSET))
 
         def _parse_description(data: object) -> None | str | Unset:
             if data is None:
@@ -298,7 +365,7 @@ class ExtractedImage:
 
         kind_confidence = _parse_kind_confidence(d.pop("kind_confidence", UNSET))
 
-        def _parse_ocr_result(data: object) -> ExtractionResult | None | Unset:
+        def _parse_ocr_result(data: object) -> ExtractedDocument | None | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
@@ -306,12 +373,12 @@ class ExtractedImage:
             try:
                 if not isinstance(data, dict):
                     raise TypeError
-                ocr_result_type_1 = ExtractionResult.from_dict(data)
+                ocr_result_type_1 = ExtractedDocument.from_dict(data)
 
                 return ocr_result_type_1
             except (TypeError, ValueError, AttributeError, KeyError):
                 pass
-            return cast("ExtractionResult | None | Unset", data)
+            return cast("ExtractedDocument | None | Unset", data)
 
         ocr_result = _parse_ocr_result(d.pop("ocr_result", UNSET))
 
@@ -323,6 +390,28 @@ class ExtractedImage:
             return cast("int | None | Unset", data)
 
         page_number = _parse_page_number(d.pop("page_number", UNSET))
+
+        def _parse_qr_codes(data: object) -> list[QrCode] | None | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, list):
+                    raise TypeError
+                qr_codes_type_0 = []
+                _qr_codes_type_0 = data
+                for qr_codes_type_0_item_data in _qr_codes_type_0:
+                    qr_codes_type_0_item = QrCode.from_dict(qr_codes_type_0_item_data)
+
+                    qr_codes_type_0.append(qr_codes_type_0_item)
+
+                return qr_codes_type_0
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            return cast("list[QrCode] | None | Unset", data)
+
+        qr_codes = _parse_qr_codes(d.pop("qr_codes", UNSET))
 
         def _parse_source_path(data: object) -> None | str | Unset:
             if data is None:
@@ -348,8 +437,10 @@ class ExtractedImage:
             image_index=image_index,
             bits_per_component=bits_per_component,
             bounding_box=bounding_box,
+            caption=caption,
             cluster_id=cluster_id,
             colorspace=colorspace,
+            data_base64=data_base64,
             description=description,
             height=height,
             image_kind=image_kind,
@@ -357,6 +448,7 @@ class ExtractedImage:
             kind_confidence=kind_confidence,
             ocr_result=ocr_result,
             page_number=page_number,
+            qr_codes=qr_codes,
             source_path=source_path,
             width=width,
         )

@@ -6,13 +6,14 @@ import httpx
 from ... import errors
 from ...client import AuthenticatedClient, Client
 from ...models.extract_json_request import ExtractJsonRequest
+from ...models.extract_multipart_form import ExtractMultipartForm
 from ...models.extract_response import ExtractResponse
-from ...types import Response
+from ...types import UNSET, Response
 
 
 def _get_kwargs(
     *,
-    body: ExtractJsonRequest,
+    body: ExtractJsonRequest | ExtractMultipartForm | Unset = UNSET,
 ) -> dict[str, Any]:
     headers: dict[str, Any] = {}
 
@@ -21,9 +22,14 @@ def _get_kwargs(
         "url": "/v1/extract",
     }
 
-    _kwargs["json"] = body.to_dict()
+    if isinstance(body, ExtractJsonRequest):
+        _kwargs["json"] = body.to_dict()
 
-    headers["Content-Type"] = "application/json"
+        headers["Content-Type"] = "application/json"
+    if isinstance(body, ExtractMultipartForm):
+        _kwargs["files"] = body.to_multipart()
+
+        headers["Content-Type"] = "multipart/form-data"
 
     _kwargs["headers"] = headers
     return _kwargs
@@ -62,7 +68,7 @@ def _build_response(
 def sync_detailed(
     *,
     client: AuthenticatedClient,
-    body: ExtractJsonRequest,
+    body: ExtractJsonRequest | ExtractMultipartForm | Unset = UNSET,
 ) -> Response[Any | ExtractResponse]:
     r"""`POST /v1/extract` — Submit documents for extraction
 
@@ -78,6 +84,14 @@ def sync_detailed(
 
     Args:
         body (ExtractJsonRequest): JSON body for `POST /v1/extract`
+        body (ExtractMultipartForm): Multipart (`multipart/form-data`) variant of the extract
+            request body.
+
+            Send one or more files as binary parts whose field name is the filename
+            (for example a part named `invoice.pdf`). Two reserved text parts carry
+            JSON: `options` (an [`ExtractionOptions`]) and `webhook` (a
+            [`WebhookConfig`]). To attach a lineage document id to a file, add a text
+            part named `document_id-<filename>` whose value is the document UUID.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -100,7 +114,7 @@ def sync_detailed(
 def sync(
     *,
     client: AuthenticatedClient,
-    body: ExtractJsonRequest,
+    body: ExtractJsonRequest | ExtractMultipartForm | Unset = UNSET,
 ) -> Any | ExtractResponse | None:
     r"""`POST /v1/extract` — Submit documents for extraction
 
@@ -116,6 +130,14 @@ def sync(
 
     Args:
         body (ExtractJsonRequest): JSON body for `POST /v1/extract`
+        body (ExtractMultipartForm): Multipart (`multipart/form-data`) variant of the extract
+            request body.
+
+            Send one or more files as binary parts whose field name is the filename
+            (for example a part named `invoice.pdf`). Two reserved text parts carry
+            JSON: `options` (an [`ExtractionOptions`]) and `webhook` (a
+            [`WebhookConfig`]). To attach a lineage document id to a file, add a text
+            part named `document_id-<filename>` whose value is the document UUID.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -133,7 +155,7 @@ def sync(
 async def asyncio_detailed(
     *,
     client: AuthenticatedClient,
-    body: ExtractJsonRequest,
+    body: ExtractJsonRequest | ExtractMultipartForm | Unset = UNSET,
 ) -> Response[Any | ExtractResponse]:
     r"""`POST /v1/extract` — Submit documents for extraction
 
@@ -149,6 +171,14 @@ async def asyncio_detailed(
 
     Args:
         body (ExtractJsonRequest): JSON body for `POST /v1/extract`
+        body (ExtractMultipartForm): Multipart (`multipart/form-data`) variant of the extract
+            request body.
+
+            Send one or more files as binary parts whose field name is the filename
+            (for example a part named `invoice.pdf`). Two reserved text parts carry
+            JSON: `options` (an [`ExtractionOptions`]) and `webhook` (a
+            [`WebhookConfig`]). To attach a lineage document id to a file, add a text
+            part named `document_id-<filename>` whose value is the document UUID.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -169,7 +199,7 @@ async def asyncio_detailed(
 async def asyncio(
     *,
     client: AuthenticatedClient,
-    body: ExtractJsonRequest,
+    body: ExtractJsonRequest | ExtractMultipartForm | Unset = UNSET,
 ) -> Any | ExtractResponse | None:
     r"""`POST /v1/extract` — Submit documents for extraction
 
@@ -185,6 +215,14 @@ async def asyncio(
 
     Args:
         body (ExtractJsonRequest): JSON body for `POST /v1/extract`
+        body (ExtractMultipartForm): Multipart (`multipart/form-data`) variant of the extract
+            request body.
+
+            Send one or more files as binary parts whose field name is the filename
+            (for example a part named `invoice.pdf`). Two reserved text parts carry
+            JSON: `options` (an [`ExtractionOptions`]) and `webhook` (a
+            [`WebhookConfig`]). To attach a lineage document id to a file, add a text
+            part named `document_id-<filename>` whose value is the document UUID.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.

@@ -4,7 +4,7 @@
 
 import 'package:freezed_annotation/freezed_annotation.dart';
 
-import 'extraction_result.dart';
+import 'extracted_document.dart';
 
 part 'crawl_child_job.freezed.dart';
 part 'crawl_child_job.g.dart';
@@ -33,7 +33,7 @@ abstract class CrawlChildJob with _$CrawlChildJob {
     @JsonKey(name: 'processing_time_ms') int? processingTimeMs,
 
     /// Extraction result (when completed)
-    ExtractionResult? result,
+    ExtractedDocument? result,
 
     /// Source URL where this document was found
     @JsonKey(name: 'source_url') String? sourceUrl,

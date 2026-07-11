@@ -7,7 +7,6 @@ import 'package:freezed_annotation/freezed_annotation.dart';
 import 'bounding_box.dart';
 import 'content_layer.dart';
 import 'node_content.dart';
-import 'node_id.dart';
 import 'node_index.dart';
 import 'text_annotation.dart';
 
@@ -23,9 +22,6 @@ abstract class DocumentNode with _$DocumentNode {
   const factory DocumentNode({
     /// Node content — tagged enum, type-specific data only.
     required NodeContent content,
-
-    /// Deterministic identifier (hash of content + position).
-    required NodeId id,
 
     /// Inline annotations (formatting, links) on this node's text content.
     ///
@@ -45,6 +41,11 @@ abstract class DocumentNode with _$DocumentNode {
     List<NodeIndex>? children,
 
     /// Content layer classification.
+    ///
+    /// Always serialised — Kotlin-Android (and any other typed binding) treats.
+    /// the field as non-nullable, so omitting it from the JSON wire would.
+    /// break consumer deserialisation.  `#[serde(default)]` covers the.
+    /// missing-field case on inbound JSON.
     @JsonKey(name: 'content_layer') ContentLayer? contentLayer,
 
     /// Page number where this node starts (1-indexed).

@@ -19,7 +19,7 @@ mixin _$OcrPipelineStage {
  String get backend;/// Language override for this stage
  String? get language;/// Priority (higher = tried first, default 100)
  int? get priority;/// Tesseract config override for this stage
-@JsonKey(name: 'tesseract_config') dynamic get tesseractConfig;/// VLM config override for this stage
+@JsonKey(name: 'tesseract_config') TesseractConfig? get tesseractConfig;/// VLM config override for this stage
 @JsonKey(name: 'vlm_config') dynamic get vlmConfig;
 /// Create a copy of OcrPipelineStage
 /// with the given fields replaced by the non-null parameter values.
@@ -33,12 +33,12 @@ $OcrPipelineStageCopyWith<OcrPipelineStage> get copyWith => _$OcrPipelineStageCo
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is OcrPipelineStage&&(identical(other.backend, backend) || other.backend == backend)&&(identical(other.language, language) || other.language == language)&&(identical(other.priority, priority) || other.priority == priority)&&const DeepCollectionEquality().equals(other.tesseractConfig, tesseractConfig)&&const DeepCollectionEquality().equals(other.vlmConfig, vlmConfig));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is OcrPipelineStage&&(identical(other.backend, backend) || other.backend == backend)&&(identical(other.language, language) || other.language == language)&&(identical(other.priority, priority) || other.priority == priority)&&(identical(other.tesseractConfig, tesseractConfig) || other.tesseractConfig == tesseractConfig)&&const DeepCollectionEquality().equals(other.vlmConfig, vlmConfig));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,backend,language,priority,const DeepCollectionEquality().hash(tesseractConfig),const DeepCollectionEquality().hash(vlmConfig));
+int get hashCode => Object.hash(runtimeType,backend,language,priority,tesseractConfig,const DeepCollectionEquality().hash(vlmConfig));
 
 @override
 String toString() {
@@ -53,11 +53,11 @@ abstract mixin class $OcrPipelineStageCopyWith<$Res>  {
   factory $OcrPipelineStageCopyWith(OcrPipelineStage value, $Res Function(OcrPipelineStage) _then) = _$OcrPipelineStageCopyWithImpl;
 @useResult
 $Res call({
- String backend, String? language, int? priority,@JsonKey(name: 'tesseract_config') dynamic tesseractConfig,@JsonKey(name: 'vlm_config') dynamic vlmConfig
+ String backend, String? language, int? priority,@JsonKey(name: 'tesseract_config') TesseractConfig? tesseractConfig,@JsonKey(name: 'vlm_config') dynamic vlmConfig
 });
 
 
-
+$TesseractConfigCopyWith<$Res>? get tesseractConfig;
 
 }
 /// @nodoc
@@ -76,11 +76,23 @@ backend: null == backend ? _self.backend : backend // ignore: cast_nullable_to_n
 as String,language: freezed == language ? _self.language : language // ignore: cast_nullable_to_non_nullable
 as String?,priority: freezed == priority ? _self.priority : priority // ignore: cast_nullable_to_non_nullable
 as int?,tesseractConfig: freezed == tesseractConfig ? _self.tesseractConfig : tesseractConfig // ignore: cast_nullable_to_non_nullable
-as dynamic,vlmConfig: freezed == vlmConfig ? _self.vlmConfig : vlmConfig // ignore: cast_nullable_to_non_nullable
+as TesseractConfig?,vlmConfig: freezed == vlmConfig ? _self.vlmConfig : vlmConfig // ignore: cast_nullable_to_non_nullable
 as dynamic,
   ));
 }
+/// Create a copy of OcrPipelineStage
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
+$TesseractConfigCopyWith<$Res>? get tesseractConfig {
+    if (_self.tesseractConfig == null) {
+    return null;
+  }
 
+  return $TesseractConfigCopyWith<$Res>(_self.tesseractConfig!, (value) {
+    return _then(_self.copyWith(tesseractConfig: value));
+  });
+}
 }
 
 
@@ -162,7 +174,7 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String backend,  String? language,  int? priority, @JsonKey(name: 'tesseract_config')  dynamic tesseractConfig, @JsonKey(name: 'vlm_config')  dynamic vlmConfig)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String backend,  String? language,  int? priority, @JsonKey(name: 'tesseract_config')  TesseractConfig? tesseractConfig, @JsonKey(name: 'vlm_config')  dynamic vlmConfig)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _OcrPipelineStage() when $default != null:
 return $default(_that.backend,_that.language,_that.priority,_that.tesseractConfig,_that.vlmConfig);case _:
@@ -183,7 +195,7 @@ return $default(_that.backend,_that.language,_that.priority,_that.tesseractConfi
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String backend,  String? language,  int? priority, @JsonKey(name: 'tesseract_config')  dynamic tesseractConfig, @JsonKey(name: 'vlm_config')  dynamic vlmConfig)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String backend,  String? language,  int? priority, @JsonKey(name: 'tesseract_config')  TesseractConfig? tesseractConfig, @JsonKey(name: 'vlm_config')  dynamic vlmConfig)  $default,) {final _that = this;
 switch (_that) {
 case _OcrPipelineStage():
 return $default(_that.backend,_that.language,_that.priority,_that.tesseractConfig,_that.vlmConfig);case _:
@@ -203,7 +215,7 @@ return $default(_that.backend,_that.language,_that.priority,_that.tesseractConfi
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String backend,  String? language,  int? priority, @JsonKey(name: 'tesseract_config')  dynamic tesseractConfig, @JsonKey(name: 'vlm_config')  dynamic vlmConfig)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String backend,  String? language,  int? priority, @JsonKey(name: 'tesseract_config')  TesseractConfig? tesseractConfig, @JsonKey(name: 'vlm_config')  dynamic vlmConfig)?  $default,) {final _that = this;
 switch (_that) {
 case _OcrPipelineStage() when $default != null:
 return $default(_that.backend,_that.language,_that.priority,_that.tesseractConfig,_that.vlmConfig);case _:
@@ -228,7 +240,7 @@ class _OcrPipelineStage implements OcrPipelineStage {
 /// Priority (higher = tried first, default 100)
 @override final  int? priority;
 /// Tesseract config override for this stage
-@override@JsonKey(name: 'tesseract_config') final  dynamic tesseractConfig;
+@override@JsonKey(name: 'tesseract_config') final  TesseractConfig? tesseractConfig;
 /// VLM config override for this stage
 @override@JsonKey(name: 'vlm_config') final  dynamic vlmConfig;
 
@@ -245,12 +257,12 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _OcrPipelineStage&&(identical(other.backend, backend) || other.backend == backend)&&(identical(other.language, language) || other.language == language)&&(identical(other.priority, priority) || other.priority == priority)&&const DeepCollectionEquality().equals(other.tesseractConfig, tesseractConfig)&&const DeepCollectionEquality().equals(other.vlmConfig, vlmConfig));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _OcrPipelineStage&&(identical(other.backend, backend) || other.backend == backend)&&(identical(other.language, language) || other.language == language)&&(identical(other.priority, priority) || other.priority == priority)&&(identical(other.tesseractConfig, tesseractConfig) || other.tesseractConfig == tesseractConfig)&&const DeepCollectionEquality().equals(other.vlmConfig, vlmConfig));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,backend,language,priority,const DeepCollectionEquality().hash(tesseractConfig),const DeepCollectionEquality().hash(vlmConfig));
+int get hashCode => Object.hash(runtimeType,backend,language,priority,tesseractConfig,const DeepCollectionEquality().hash(vlmConfig));
 
 @override
 String toString() {
@@ -265,11 +277,11 @@ abstract mixin class _$OcrPipelineStageCopyWith<$Res> implements $OcrPipelineSta
   factory _$OcrPipelineStageCopyWith(_OcrPipelineStage value, $Res Function(_OcrPipelineStage) _then) = __$OcrPipelineStageCopyWithImpl;
 @override @useResult
 $Res call({
- String backend, String? language, int? priority,@JsonKey(name: 'tesseract_config') dynamic tesseractConfig,@JsonKey(name: 'vlm_config') dynamic vlmConfig
+ String backend, String? language, int? priority,@JsonKey(name: 'tesseract_config') TesseractConfig? tesseractConfig,@JsonKey(name: 'vlm_config') dynamic vlmConfig
 });
 
 
-
+@override $TesseractConfigCopyWith<$Res>? get tesseractConfig;
 
 }
 /// @nodoc
@@ -288,12 +300,24 @@ backend: null == backend ? _self.backend : backend // ignore: cast_nullable_to_n
 as String,language: freezed == language ? _self.language : language // ignore: cast_nullable_to_non_nullable
 as String?,priority: freezed == priority ? _self.priority : priority // ignore: cast_nullable_to_non_nullable
 as int?,tesseractConfig: freezed == tesseractConfig ? _self.tesseractConfig : tesseractConfig // ignore: cast_nullable_to_non_nullable
-as dynamic,vlmConfig: freezed == vlmConfig ? _self.vlmConfig : vlmConfig // ignore: cast_nullable_to_non_nullable
+as TesseractConfig?,vlmConfig: freezed == vlmConfig ? _self.vlmConfig : vlmConfig // ignore: cast_nullable_to_non_nullable
 as dynamic,
   ));
 }
 
+/// Create a copy of OcrPipelineStage
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
+$TesseractConfigCopyWith<$Res>? get tesseractConfig {
+    if (_self.tesseractConfig == null) {
+    return null;
+  }
 
+  return $TesseractConfigCopyWith<$Res>(_self.tesseractConfig!, (value) {
+    return _then(_self.copyWith(tesseractConfig: value));
+  });
+}
 }
 
 // dart format on
