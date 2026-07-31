@@ -8,7 +8,7 @@ import httpx
 import pytest
 import respx
 
-from kreuzberg_cloud import AsyncKreuzbergCloud, KreuzbergCloud, RateLimitError, SandboxKey
+from xberg_io_sdk import AsyncXbergClient, RateLimitError, SandboxKey, XbergClient
 
 SANDBOX_KEY_PAYLOAD = {
     "api_key": "sk_sandbox_01ABCDEFGHIJKLMNOPQRSTUVWX",
@@ -21,7 +21,7 @@ SANDBOX_KEY_PAYLOAD = {
 def test_create_sandbox_key_sync_returns_typed_value(base_url: str) -> None:
     respx.post(f"{base_url}/v1/sandbox/key").mock(return_value=httpx.Response(200, json=SANDBOX_KEY_PAYLOAD))
 
-    with KreuzbergCloud(base_url=base_url) as client:
+    with XbergClient(base_url=base_url) as client:
         key = client.create_sandbox_key()
 
     assert isinstance(key, SandboxKey)
@@ -35,7 +35,7 @@ def test_create_sandbox_key_sync_returns_typed_value(base_url: str) -> None:
 async def test_create_sandbox_key_async_returns_typed_value(base_url: str) -> None:
     respx.post(f"{base_url}/v1/sandbox/key").mock(return_value=httpx.Response(200, json=SANDBOX_KEY_PAYLOAD))
 
-    async with AsyncKreuzbergCloud(base_url=base_url) as client:
+    async with AsyncXbergClient(base_url=base_url) as client:
         key = await client.create_sandbox_key()
 
     assert key.api_key == SANDBOX_KEY_PAYLOAD["api_key"]
@@ -45,7 +45,7 @@ async def test_create_sandbox_key_async_returns_typed_value(base_url: str) -> No
 def test_from_sandbox_sync_returns_authenticated_client(base_url: str) -> None:
     respx.post(f"{base_url}/v1/sandbox/key").mock(return_value=httpx.Response(200, json=SANDBOX_KEY_PAYLOAD))
 
-    client = KreuzbergCloud.from_sandbox(base_url=base_url)
+    client = XbergClient.from_sandbox(base_url=base_url)
     try:
         assert client._headers["Authorization"] == f"Bearer {SANDBOX_KEY_PAYLOAD['api_key']}"
     finally:
@@ -57,7 +57,7 @@ def test_from_sandbox_sync_returns_authenticated_client(base_url: str) -> None:
 async def test_from_sandbox_async_returns_authenticated_client(base_url: str) -> None:
     respx.post(f"{base_url}/v1/sandbox/key").mock(return_value=httpx.Response(200, json=SANDBOX_KEY_PAYLOAD))
 
-    client = await AsyncKreuzbergCloud.from_sandbox(base_url=base_url)
+    client = await AsyncXbergClient.from_sandbox(base_url=base_url)
     try:
         assert client._headers["Authorization"] == f"Bearer {SANDBOX_KEY_PAYLOAD['api_key']}"
     finally:
@@ -74,7 +74,7 @@ def test_create_sandbox_key_sync_raises_rate_limit_with_retry_after(base_url: st
         ),
     )
 
-    with KreuzbergCloud(base_url=base_url) as client, pytest.raises(RateLimitError) as exc_info:
+    with XbergClient(base_url=base_url) as client, pytest.raises(RateLimitError) as exc_info:
         client.create_sandbox_key()
     assert exc_info.value.retry_after == 60.0
 
@@ -87,4 +87,4 @@ async def test_from_sandbox_async_raises_rate_limit(base_url: str) -> None:
     )
 
     with pytest.raises(RateLimitError):
-        await AsyncKreuzbergCloud.from_sandbox(base_url=base_url)
+        await AsyncXbergClient.from_sandbox(base_url=base_url)

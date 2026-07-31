@@ -6,15 +6,15 @@ import httpx
 import pytest
 import respx
 
-from kreuzberg_cloud import (
-    AsyncKreuzbergCloud,
+from xberg_io_sdk import (
+    AsyncXbergClient,
     AuthError,
-    KreuzbergCloud,
-    KreuzbergCloudError,
     NotFoundError,
     RateLimitError,
     ServerError,
     ValidationError,
+    XbergClient,
+    XbergError,
 )
 
 
@@ -23,7 +23,7 @@ def test_400_raises_validation_error_sync(base_url: str, api_key: str) -> None:
     respx.post(f"{base_url}/v1/extract").mock(
         return_value=httpx.Response(400, json={"error": "bad_request", "message": "missing file"}),
     )
-    with KreuzbergCloud(api_key=api_key, base_url=base_url) as client, pytest.raises(ValidationError) as exc_info:
+    with XbergClient(api_key=api_key, base_url=base_url) as client, pytest.raises(ValidationError) as exc_info:
         client.extract(file=b"x")
     assert exc_info.value.status_code == 400
     assert "missing file" in str(exc_info.value)
@@ -34,9 +34,19 @@ def test_401_raises_auth_error_sync(base_url: str, api_key: str) -> None:
     respx.post(f"{base_url}/v1/extract").mock(
         return_value=httpx.Response(401, json={"error": "unauthorized", "message": "invalid api key"}),
     )
-    with KreuzbergCloud(api_key=api_key, base_url=base_url) as client, pytest.raises(AuthError) as exc_info:
+    with XbergClient(api_key=api_key, base_url=base_url) as client, pytest.raises(AuthError) as exc_info:
         client.extract(file=b"x")
     assert exc_info.value.status_code == 401
+
+
+@respx.mock
+def test_403_raises_auth_error_sync(base_url: str, api_key: str) -> None:
+    respx.post(f"{base_url}/v1/extract").mock(
+        return_value=httpx.Response(403, json={"error": "forbidden", "message": "project access denied"}),
+    )
+    with XbergClient(api_key=api_key, base_url=base_url) as client, pytest.raises(AuthError) as exc_info:
+        client.extract(file=b"x")
+    assert exc_info.value.status_code == 403
 
 
 @respx.mock
@@ -45,7 +55,7 @@ def test_404_raises_not_found_error_sync(base_url: str, api_key: str) -> None:
     respx.get(f"{base_url}/v1/jobs/{job_id}").mock(
         return_value=httpx.Response(404, json={"error": "not_found", "message": "no such job"}),
     )
-    with KreuzbergCloud(api_key=api_key, base_url=base_url) as client, pytest.raises(NotFoundError):
+    with XbergClient(api_key=api_key, base_url=base_url) as client, pytest.raises(NotFoundError):
         client.get_job(job_id)
 
 
@@ -58,7 +68,7 @@ def test_429_raises_rate_limit_error_with_retry_after(base_url: str, api_key: st
             headers={"Retry-After": "12"},
         ),
     )
-    with KreuzbergCloud(api_key=api_key, base_url=base_url) as client, pytest.raises(RateLimitError) as exc_info:
+    with XbergClient(api_key=api_key, base_url=base_url) as client, pytest.raises(RateLimitError) as exc_info:
         client.extract(file=b"x")
     assert exc_info.value.retry_after == 12.0
 
@@ -68,7 +78,7 @@ def test_429_without_retry_after_header_has_none(base_url: str, api_key: str) ->
     respx.post(f"{base_url}/v1/extract").mock(
         return_value=httpx.Response(429, json={"message": "rate limited"}),
     )
-    with KreuzbergCloud(api_key=api_key, base_url=base_url) as client, pytest.raises(RateLimitError) as exc_info:
+    with XbergClient(api_key=api_key, base_url=base_url) as client, pytest.raises(RateLimitError) as exc_info:
         client.extract(file=b"x")
     assert exc_info.value.retry_after is None
 
@@ -78,7 +88,7 @@ def test_500_raises_server_error_sync(base_url: str, api_key: str) -> None:
     respx.post(f"{base_url}/v1/extract").mock(
         return_value=httpx.Response(500, json={"error": "internal_error", "message": "boom"}),
     )
-    with KreuzbergCloud(api_key=api_key, base_url=base_url) as client, pytest.raises(ServerError) as exc_info:
+    with XbergClient(api_key=api_key, base_url=base_url) as client, pytest.raises(ServerError) as exc_info:
         client.extract(file=b"x")
     assert exc_info.value.status_code == 500
 
@@ -88,7 +98,7 @@ def test_503_raises_server_error_sync(base_url: str, api_key: str) -> None:
     respx.post(f"{base_url}/v1/extract").mock(
         return_value=httpx.Response(503, json={"message": "unavailable"}),
     )
-    with KreuzbergCloud(api_key=api_key, base_url=base_url) as client, pytest.raises(ServerError):
+    with XbergClient(api_key=api_key, base_url=base_url) as client, pytest.raises(ServerError):
         client.extract(file=b"x")
 
 
@@ -97,10 +107,10 @@ def test_unknown_4xx_raises_base_error(base_url: str, api_key: str) -> None:
     respx.post(f"{base_url}/v1/extract").mock(
         return_value=httpx.Response(418, json={"message": "teapot"}),
     )
-    with KreuzbergCloud(api_key=api_key, base_url=base_url) as client, pytest.raises(KreuzbergCloudError) as exc_info:
+    with XbergClient(api_key=api_key, base_url=base_url) as client, pytest.raises(XbergError) as exc_info:
         client.extract(file=b"x")
     assert exc_info.value.status_code == 418
-    assert type(exc_info.value) is KreuzbergCloudError
+    assert type(exc_info.value) is XbergError
 
 
 @respx.mock
@@ -108,7 +118,7 @@ def test_non_json_error_body_falls_back_to_default_message(base_url: str, api_ke
     respx.post(f"{base_url}/v1/extract").mock(
         return_value=httpx.Response(500, content=b"<html>oops</html>"),
     )
-    with KreuzbergCloud(api_key=api_key, base_url=base_url) as client, pytest.raises(ServerError) as exc_info:
+    with XbergClient(api_key=api_key, base_url=base_url) as client, pytest.raises(ServerError) as exc_info:
         client.extract(file=b"x")
     assert "HTTP 500" in str(exc_info.value)
     assert exc_info.value.payload is None
@@ -120,7 +130,7 @@ async def test_401_raises_auth_error_async(base_url: str, api_key: str) -> None:
     respx.post(f"{base_url}/v1/extract").mock(
         return_value=httpx.Response(401, json={"message": "no creds"}),
     )
-    async with AsyncKreuzbergCloud(api_key=api_key, base_url=base_url) as client:
+    async with AsyncXbergClient(api_key=api_key, base_url=base_url) as client:
         with pytest.raises(AuthError):
             await client.extract(file=b"x")
 
@@ -135,7 +145,7 @@ async def test_429_raises_rate_limit_error_async(base_url: str, api_key: str) ->
             headers={"Retry-After": "5"},
         ),
     )
-    async with AsyncKreuzbergCloud(api_key=api_key, base_url=base_url) as client:
+    async with AsyncXbergClient(api_key=api_key, base_url=base_url) as client:
         with pytest.raises(RateLimitError) as exc_info:
             await client.extract(file=b"x")
     assert exc_info.value.retry_after == 5.0
@@ -147,7 +157,7 @@ async def test_500_raises_server_error_async(base_url: str, api_key: str) -> Non
     respx.post(f"{base_url}/v1/extract").mock(
         return_value=httpx.Response(502, json={"message": "bad gateway"}),
     )
-    async with AsyncKreuzbergCloud(api_key=api_key, base_url=base_url) as client:
+    async with AsyncXbergClient(api_key=api_key, base_url=base_url) as client:
         with pytest.raises(ServerError):
             await client.extract(file=b"x")
 
@@ -158,5 +168,5 @@ def test_400_on_get_job_raises_validation_error(base_url: str, api_key: str) -> 
     respx.get(f"{base_url}/v1/jobs/{job_id}").mock(
         return_value=httpx.Response(400, json={"message": "bad job id format"}),
     )
-    with KreuzbergCloud(api_key=api_key, base_url=base_url) as client, pytest.raises(ValidationError):
+    with XbergClient(api_key=api_key, base_url=base_url) as client, pytest.raises(ValidationError):
         client.get_job(job_id)

@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pytest
 
-from kreuzberg_cloud import ExtractionResult
+from xberg_io_sdk import ExtractionResult
 
 FIXTURES = Path(__file__).resolve().parents[3] / "spec" / "fixtures"
 
@@ -78,7 +78,7 @@ def test_table_page_number_and_markdown_present() -> None:
 
 
 def test_pdf_format_metadata_is_deserialized() -> None:
-    from kreuzberg_cloud._generated.types import UNSET
+    from xberg_io_sdk._generated_api.types import UNSET
 
     raw = load("extraction_result_pdf.json")
     result = ExtractionResult.from_dict(raw)
@@ -129,7 +129,7 @@ def test_xlsx_format_metadata_sheet_count() -> None:
 
     raw = load("extraction_result_xlsx_with_children.json")
     result = ExtractionResult.from_dict(raw)
-    from kreuzberg_cloud._generated.models.excel_metadata import ExcelMetadata
+    from xberg_io_sdk._generated_api.models.excel_metadata import ExcelMetadata
 
     assert isinstance(result.metadata.format_, ExcelMetadata)
     assert result.metadata.format_.sheet_count == 3

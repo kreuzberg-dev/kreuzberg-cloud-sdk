@@ -8,8 +8,8 @@ resolution-markers = [
 
 [manifest]
 members = [
-    "kreuzberg-cloud-sdk",
     "kreuzberg-cloud-sdk-workspace",
+    "xberg-io-sdk",
 ]
 
 [[package]]
@@ -267,7 +267,7 @@ name = "exceptiongroup"
 version = "1.3.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "typing-extensions", marker = "python_full_version < '3.13'" },
+    { name = "typing-extensions" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/50/79/66800aadf48771f6b62f7eb014e352e5d06856655206165d775e675a02c9/exceptiongroup-1.3.1.tar.gz", hash = "sha256:8b412432c6055b0b7d14c310000ae93352ed6754f70fa8f7c34141f91c4e3219", size = 30371, upload-time = "2025-11-21T23:01:54.787Z" }
 wheels = [
@@ -351,25 +351,6 @@ wheels = [
 ]
 
 [[package]]
-name = "kreuzberg-cloud-sdk"
-version = "0.3.1"
-source = { editable = "packages/python" }
-dependencies = [
-    { name = "attrs" },
-    { name = "httpx" },
-    { name = "python-dateutil" },
-    { name = "typing-extensions", marker = "python_full_version < '3.11'" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "attrs", specifier = ">=24.2" },
-    { name = "httpx", specifier = ">=0.28.1" },
-    { name = "python-dateutil", specifier = ">=2.9" },
-    { name = "typing-extensions", marker = "python_full_version < '3.11'", specifier = ">=4.12" },
-]
-
-[[package]]
 name = "kreuzberg-cloud-sdk-workspace"
 version = "0.0.0"
 source = { virtual = "." }
@@ -377,7 +358,6 @@ source = { virtual = "." }
 [package.dev-dependencies]
 dev = [
     { name = "covdefaults" },
-    { name = "kreuzberg-cloud-sdk" },
     { name = "mypy" },
     { name = "openapi-python-client" },
     { name = "prek" },
@@ -388,6 +368,7 @@ dev = [
     { name = "respx" },
     { name = "ruff" },
     { name = "validate-pyproject" },
+    { name = "xberg-io-sdk" },
 ]
 
 [package.metadata]
@@ -395,7 +376,6 @@ dev = [
 [package.metadata.requires-dev]
 dev = [
     { name = "covdefaults", specifier = ">=2.3.0" },
-    { name = "kreuzberg-cloud-sdk", editable = "packages/python" },
     { name = "mypy", specifier = ">=1.20.2" },
     { name = "openapi-python-client", specifier = ">=0.27" },
     { name = "prek", specifier = ">=0.3.9" },
@@ -406,6 +386,7 @@ dev = [
     { name = "respx", specifier = ">=0.22" },
     { name = "ruff", specifier = ">=0.15.12" },
     { name = "validate-pyproject", specifier = ">=0.24.1" },
+    { name = "xberg-io-sdk", editable = "packages/python" },
 ]
 
 [[package]]
@@ -1164,4 +1145,23 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/e7/d8/45a82408619c306d0083afcf6142617201b2647a82e9a7d4c902e837274c/validate_pyproject-0.25.tar.gz", hash = "sha256:e68c12d1cb0d8ddc269ffc42875a81727ddb7865000aa6d2f77d833b55c53f0b", size = 118662, upload-time = "2026-02-02T17:31:07.089Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/b7/ee/e9c95cda829131f71a8dff5ce0406059fd16e591c074414e31ada19ba7c3/validate_pyproject-0.25-py3-none-any.whl", hash = "sha256:f9d05e2686beff82f9ea954f582306b036ced3d3feb258c1110f2c2a495b1981", size = 54942, upload-time = "2026-02-02T17:31:05.489Z" },
+]
+
+[[package]]
+name = "xberg-io-sdk"
+version = "0.3.1"
+source = { editable = "packages/python" }
+dependencies = [
+    { name = "attrs" },
+    { name = "httpx" },
+    { name = "python-dateutil" },
+    { name = "typing-extensions", marker = "python_full_version < '3.11'" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "attrs", specifier = ">=24.2" },
+    { name = "httpx", specifier = ">=0.28.1" },
+    { name = "python-dateutil", specifier = ">=2.9" },
+    { name = "typing-extensions", marker = "python_full_version < '3.11'", specifier = ">=4.12" },
 ]

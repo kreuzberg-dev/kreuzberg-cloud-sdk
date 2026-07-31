@@ -1,0 +1,3079 @@
+openapi: 3.1.0
+info:
+  title: Xberg Pro API
+  description: Self-hosted, single-container document extraction API powered by Xberg.
+  license:
+    name: Proprietary
+  version: 1.0.0
+paths:
+  /auth/account:
+    delete:
+      tags:
+        - auth
+      summary: |-
+        `DELETE /auth/account` — session-JWT authenticated (verified directly here
+        rather than via the `/v1/*` middleware, since `/auth/*` is mounted at the
+        root outside that nest). Revokes API keys, soft-deletes owned projects, and
+        removes memberships for the authenticated `sub`. Pro has no
+        invitations/webhooks-by-owner concept to also clean up (unlike Enterprise's
+        `delete_account`).
+      operationId: delete_account
+      responses:
+        "204":
+          description: Account deleted successfully
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema: {}
+      security:
+        - bearer_auth: []
+  /auth/config:
+    get:
+      tags:
+        - auth
+      summary: |-
+        `GET /auth/config` — unauthenticated; tells the frontend which auth
+        methods this instance accepts.
+      operationId: get_auth_config
+      responses:
+        "200":
+          description: Authentication configuration
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthConfigResponse'
+  /auth/login:
+    post:
+      tags:
+        - auth
+      summary: '`POST /auth/login` — exchange a verified OIDC ID token for a Pro session JWT.'
+      description: |-
+        404s when OIDC login is disabled. On success, auto-provisions a "Default"
+        project (as OWNER) the first time this `sub` is seen — this *is* Pro's
+        signup path; there is no separate signup endpoint.
+      operationId: login
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+        required: true
+      responses:
+        "200":
+          description: Successful login
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        "401":
+          description: Invalid OIDC ID token
+          content:
+            application/json:
+              schema: {}
+        "403":
+          description: Account not permitted to sign in
+          content:
+            application/json:
+              schema: {}
+        "404":
+          description: OIDC login is disabled
+          content:
+            application/json:
+              schema: {}
+        "503":
+          description: Identity provider service unavailable
+          content:
+            application/json:
+              schema: {}
+  /healthz:
+    get:
+      tags:
+        - health
+      summary: GET /healthz — liveness + tier probe (unauthenticated).
+      operationId: healthz
+      responses:
+        "200":
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+  /v1/audit:
+    get:
+      tags:
+        - audit
+      summary: GET /v1/audit — list audit events for the caller's own project (admin or project owner).
+      description: |-
+        Supports optional `?action=` filtering and pagination via `?limit=` and
+        `?offset=` (limit default 50, clamped to 1..100; offset must be >= 0).
+      operationId: list_audit_logs
+      parameters:
+        - name: action
+          in: query
+          description: Optional action filter
+          required: false
+          schema:
+            type: string
+        - name: limit
+          in: query
+          description: Page size (default 50, max 100)
+          required: false
+          schema:
+            type: integer
+            format: int64
+        - name: offset
+          in: query
+          description: Pagination offset (default 0)
+          required: false
+          schema:
+            type: integer
+            format: int64
+      responses:
+        "200":
+          description: Audit entries for the project
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListAuditEntriesResponse'
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema: {}
+        "403":
+          description: Forbidden — not an admin or the project owner
+          content:
+            application/json:
+              schema: {}
+      security:
+        - bearer_auth: []
+  /v1/extract:
+    post:
+      tags:
+        - extract
+      summary: POST /v1/extract — submit a document for extraction.
+      description: |-
+        Accepts the canonical `ExtractRequest` superset (ADR-0066) but only
+        honors Pro's single-document subset: exactly one entry in `documents`,
+        no `urls`/`crawl_config`, and no `options.split_documents`.
+      operationId: extract
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExtractRequest'
+        required: true
+      responses:
+        "202":
+          description: Job accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExtractResponse'
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema: {}
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema: {}
+        "404":
+          description: Integration not found
+          content:
+            application/json:
+              schema: {}
+        "413":
+          description: Decoded document exceeds the configured upload limit
+          content:
+            application/json:
+              schema: {}
+      security:
+        - bearer_auth: []
+  /v1/jobs:
+    get:
+      tags:
+        - jobs
+      summary: GET /v1/jobs — list jobs for the authenticated project.
+      operationId: list_jobs
+      parameters:
+        - name: limit
+          in: query
+          description: Page size (default 50, max 100)
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: offset
+          in: query
+          description: Pagination offset (default 0)
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        "200":
+          description: Jobs for the project
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListJobsResponse'
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema: {}
+      security:
+        - bearer_auth: []
+  /v1/jobs/{id}:
+    get:
+      tags:
+        - jobs
+      summary: GET /v1/jobs/:id — fetch a single job by ID.
+      operationId: get_job
+      parameters:
+        - name: id
+          in: path
+          description: Job ID (UUID)
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Job metadata
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetJobResponse'
+        "400":
+          description: Invalid job ID
+          content:
+            application/json:
+              schema: {}
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema: {}
+        "404":
+          description: Job not found
+          content:
+            application/json:
+              schema: {}
+      security:
+        - bearer_auth: []
+  /v1/jobs/{id}/result:
+    get:
+      tags:
+        - jobs
+      summary: GET /v1/jobs/:id/result — fetch the canonical extraction result.
+      operationId: get_job_result
+      parameters:
+        - name: id
+          in: path
+          description: Job ID (UUID)
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Extraction result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobResult'
+        "400":
+          description: Invalid job ID
+          content:
+            application/json:
+              schema: {}
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema: {}
+        "404":
+          description: Job not found
+          content:
+            application/json:
+              schema: {}
+        "409":
+          description: Job has not reached a terminal successful state
+          content:
+            application/json:
+              schema: {}
+      security:
+        - bearer_auth: []
+  /v1/projects/{project_id}/rag-config:
+    get:
+      tags:
+        - projects
+      summary: GET /v1/projects/:project_id/rag-config — read a project's RAG configuration.
+      operationId: get_rag_config
+      parameters:
+        - name: project_id
+          in: path
+          description: Project ID (UUID)
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Project RAG configuration
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RagConfigResponse'
+        "400":
+          description: Invalid project ID
+          content:
+            application/json:
+              schema: {}
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema: {}
+        "404":
+          description: Project not found
+          content:
+            application/json:
+              schema: {}
+      security:
+        - bearer_auth: []
+    put:
+      tags:
+        - projects
+      summary: PUT /v1/projects/:project_id/rag-config — set a project's RAG configuration.
+      operationId: set_rag_config
+      parameters:
+        - name: project_id
+          in: path
+          description: Project ID (UUID)
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetRagConfigRequest'
+        required: true
+      responses:
+        "200":
+          description: Updated project RAG configuration
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RagConfigResponse'
+        "400":
+          description: Invalid project ID
+          content:
+            application/json:
+              schema: {}
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema: {}
+        "404":
+          description: Project not found
+          content:
+            application/json:
+              schema: {}
+      security:
+        - bearer_auth: []
+  /v1/rag/collections:
+    get:
+      tags:
+        - rag
+      summary: List RAG collections
+      description: Returns paginated list of collections ordered by creation time (newest first).
+      operationId: list_collections
+      parameters:
+        - name: limit
+          in: query
+          description: Maximum results per page (default 50, max 100)
+          required: false
+          schema:
+            type: integer
+            format: int32
+        - name: offset
+          in: query
+          description: Number of results to skip (default 0)
+          required: false
+          schema:
+            type: integer
+            format: int32
+      responses:
+        "200":
+          description: List of collections
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListCollectionsResponse'
+        "500":
+          description: Database error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearer_auth: []
+    post:
+      tags:
+        - rag
+      summary: Create a new RAG collection
+      description: |-
+        Creates a vector collection with the specified embedding and index configuration.
+        Collection names must be unique per project.
+        Returns 201 on success, 409 if a collection with that name already exists.
+      operationId: create_collection
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCollectionRequest'
+        required: true
+      responses:
+        "201":
+          description: Collection created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateCollectionResponse'
+        "400":
+          description: Invalid request parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "409":
+          description: Collection name already exists in this project
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "500":
+          description: Database error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearer_auth: []
+  /v1/rag/collections/{name}:
+    get:
+      tags:
+        - rag
+      summary: Get a RAG collection
+      description: Returns 404 if the collection does not exist or belongs to another project.
+      operationId: get_collection
+      parameters:
+        - name: name
+          in: path
+          description: Collection name
+          required: true
+          schema:
+            type: string
+          example: my-docs
+      responses:
+        "200":
+          description: Collection details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CollectionResponse'
+        "404":
+          description: Collection not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "500":
+          description: Database error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearer_auth: []
+    delete:
+      tags:
+        - rag
+      summary: Delete a RAG collection
+      description: |-
+        Marking the collection as deleted prevents new document uploads but
+        does not immediately remove data.
+        Returns 204 on success, 404 if the collection does not exist.
+      operationId: delete_collection
+      parameters:
+        - name: name
+          in: path
+          description: Collection name
+          required: true
+          schema:
+            type: string
+          example: my-docs
+      responses:
+        "204":
+          description: Collection deleted
+        "404":
+          description: Collection not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "500":
+          description: Database error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearer_auth: []
+  /v1/rag/collections/{name}/documents:
+    post:
+      tags:
+        - rag
+      summary: Create a document in a RAG collection
+      description: |-
+        Supports two ingest paths:
+        - **Text source** → server chunks, enriches, embeds → 202 async
+        - **Chunks source** → worker handles embedding and enrichment → 202 async
+
+        Quota checks apply: if the collection has `quota_max_documents` set and
+        the active document count would exceed it, returns 429.
+
+        **Note:** The synchronous BYO-vector path (200 with all embeddings supplied) ships in Phase 6c.
+        Currently all ingest requests return 202 with a job_id for polling.
+      operationId: create_document
+      parameters:
+        - name: name
+          in: path
+          description: Collection name
+          required: true
+          schema:
+            type: string
+          example: my-docs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateDocumentRequest'
+        required: true
+      responses:
+        "202":
+          description: Document ingest queued asynchronously
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateDocumentAsyncResponse'
+              example:
+                job_id: 01ARZ3NDEKTSV4RRFFQ69G5FAV
+                document_id: 550e8400-e29b-41d4-a716-446655440000
+                status: pending
+                poll: /v1/rag/jobs/01ARZ3NDEKTSV4RRFFQ69G5FAV
+        "404":
+          description: Collection not found or RAG disabled on project
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "429":
+          description: Collection quota exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "500":
+          description: Database or NATS error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearer_auth: []
+    delete:
+      tags:
+        - rag
+      summary: Delete documents from a RAG collection
+      description: Accepts either a list of document IDs or a metadata filter expression.
+      operationId: delete_documents
+      parameters:
+        - name: name
+          in: path
+          description: Collection name
+          required: true
+          schema:
+            type: string
+          example: my-docs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeleteDocumentsRequest'
+        required: true
+      responses:
+        "200":
+          description: Documents deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeleteDocumentsResponse'
+              example:
+                deleted_count: 5
+        "404":
+          description: Collection not found or RAG disabled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "500":
+          description: Database error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearer_auth: []
+  /v1/rag/collections/{name}/documents/{id}/reindex:
+    post:
+      tags:
+        - rag
+      summary: Reindex a document
+      description: |-
+        When `re_extract: true`, the worker re-pulls the source object from storage
+        and re-runs xberg extraction before re-chunking.
+      operationId: reindex_document
+      parameters:
+        - name: name
+          in: path
+          description: Collection name
+          required: true
+          schema:
+            type: string
+          example: my-docs
+        - name: id
+          in: path
+          description: Document ID
+          required: true
+          schema:
+            type: string
+            format: uuid
+          example: 550e8400-e29b-41d4-a716-446655440000
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReindexRequest'
+        required: true
+      responses:
+        "202":
+          description: Reindex job queued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateDocumentAsyncResponse'
+              example:
+                job_id: 01ARZ3NDEKTSV4RRFFQ69G5FAV
+                document_id: 550e8400-e29b-41d4-a716-446655440000
+                status: pending
+                poll: /v1/rag/jobs/01ARZ3NDEKTSV4RRFFQ69G5FAV
+        "404":
+          description: Document or collection not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "500":
+          description: Database or NATS error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearer_auth: []
+  /v1/rag/collections/{name}/migrate-embeddings:
+    post:
+      tags:
+        - rag
+      summary: Initiate embedding source migration
+      description: |-
+        Validates that the target version is greater than the current version
+        and that the target embedding source has the same dimension as the
+        current embedding source (cross-dimension migration is not supported).
+
+        Returns 202 with a job_id for polling progress.
+      operationId: migrate_embeddings
+      parameters:
+        - name: name
+          in: path
+          description: Collection name
+          required: true
+          schema:
+            type: string
+          example: my-docs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MigrateEmbeddingsRequest'
+        required: true
+      responses:
+        "202":
+          description: Migration queued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MigrateEmbeddingsResponse'
+        "404":
+          description: Collection not found or RAG disabled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "422":
+          description: Invalid migration parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearer_auth: []
+  /v1/rag/collections/{name}/migrate-embeddings/{job_id}:
+    get:
+      tags:
+        - rag
+      summary: Get migration job status
+      description: Returns the current status, progress details, or error information.
+      operationId: migrate_status
+      parameters:
+        - name: name
+          in: path
+          description: Collection name
+          required: true
+          schema:
+            type: string
+        - name: job_id
+          in: path
+          description: Migration job ID
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Migration status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MigrateStatusResponse'
+        "404":
+          description: Job not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearer_auth: []
+  /v1/rag/collections/{name}/retrieve:
+    post:
+      tags:
+        - rag
+      summary: Retrieve relevance-ranked chunks from a RAG collection
+      operationId: retrieve
+      parameters:
+        - name: name
+          in: path
+          description: Collection name
+          required: true
+          schema:
+            type: string
+          example: my-docs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RetrieveRequest'
+        required: true
+      responses:
+        "200":
+          description: Retrieve completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RetrieveResponse'
+        "404":
+          description: Collection not found or RAG disabled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "422":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "501":
+          description: Reranker kind not available in this deployment
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "503":
+          description: RAG service unavailable or retrieve limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "504":
+          description: Request deadline exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearer_auth: []
+  /v1/rag/jobs/{job_id}:
+    get:
+      tags:
+        - rag
+      summary: Poll async RAG operation status
+      description: |-
+        Returns the current job state, operation type, and any available progress details.
+        Status is determined by:
+        - For ingest/reindex: document status in vector_documents (pending→indexed or failed)
+        - For migrate: job status in NATS KV bucket (rag-migrate-status)
+
+        Returns 404 if the job_id does not exist or belongs to another project (RLS enforcement).
+      operationId: get_rag_job
+      parameters:
+        - name: job_id
+          in: path
+          description: Job ID (ULID)
+          required: true
+          schema:
+            type: string
+          example: 01ARZ3NDEKTSV4RRFFQ69G5FAV
+      responses:
+        "200":
+          description: Job status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RagJobStatusResponse'
+        "404":
+          description: Job not found or access denied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "500":
+          description: Database or NATS error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearer_auth: []
+  /v1/saved-presets:
+    get:
+      tags:
+        - saved-presets
+      summary: List saved presets
+      operationId: list_saved_presets
+      parameters:
+        - name: limit
+          in: query
+          description: Page size (default 50, clamped to 1-100)
+          required: false
+          schema:
+            type: integer
+            format: int64
+        - name: offset
+          in: query
+          description: Pagination offset (default 0)
+          required: false
+          schema:
+            type: integer
+            format: int64
+      responses:
+        "200":
+          description: Saved presets for the current project
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListSavedPresetsResponse'
+        "500":
+          description: Persistence error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearer_auth: []
+    post:
+      tags:
+        - saved-presets
+      summary: Create a saved preset
+      operationId: create_saved_preset
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSavedPresetRequest'
+        required: true
+      responses:
+        "201":
+          description: Preset created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateSavedPresetResponse'
+        "400":
+          description: Invalid request (bad name, schema, or call mode)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "500":
+          description: Persistence error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearer_auth: []
+  /v1/saved-presets/{id}:
+    get:
+      tags:
+        - saved-presets
+      summary: Get a saved preset
+      operationId: get_saved_preset
+      parameters:
+        - name: id
+          in: path
+          description: Preset ID (UUID)
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Saved preset details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SavedPresetDetail'
+        "404":
+          description: Preset not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "500":
+          description: Persistence error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearer_auth: []
+    delete:
+      tags:
+        - saved-presets
+      summary: Delete a saved preset
+      operationId: delete_saved_preset
+      parameters:
+        - name: id
+          in: path
+          description: Preset ID (UUID)
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Preset deleted
+        "500":
+          description: Persistence error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearer_auth: []
+    patch:
+      tags:
+        - saved-presets
+      summary: Update a saved preset
+      operationId: update_saved_preset
+      parameters:
+        - name: id
+          in: path
+          description: Preset ID (UUID)
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateSavedPresetRequest'
+        required: true
+      responses:
+        "200":
+          description: Preset updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UpdateSavedPresetResponse'
+        "400":
+          description: Invalid request (bad name, schema, or call mode)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "500":
+          description: Persistence error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearer_auth: []
+components:
+  schemas:
+    AuditEntry:
+      type: object
+      description: A single customer-facing audit log entry.
+      required:
+        - id
+        - actor
+        - action
+        - resource_type
+        - metadata
+        - created_at
+      properties:
+        action:
+          type: string
+          description: Action performed (e.g. `"job.submit"`, `"api_key.revoke"`).
+        actor:
+          type: string
+          description: Actor that performed the action (e.g. an API key prefix or user id).
+        created_at:
+          type: string
+          description: ISO 8601 event timestamp.
+        id:
+          type: string
+          description: Unique event identifier.
+        metadata:
+          description: Additional structured metadata describing the event.
+        resource_id:
+          type:
+            - string
+            - "null"
+          description: Identifier of the affected resource, when applicable.
+        resource_type:
+          type: string
+          description: Type of resource the action applied to (e.g. `"job"`, `"api_key"`).
+    AuthConfigResponse:
+      type: object
+      description: '`GET /auth/config` response: which auth methods this instance accepts.'
+      required:
+        - methods
+        - oidc
+      properties:
+        methods:
+          type: array
+          items:
+            type: string
+          description: Accepted authentication methods (`"api_key"`, optionally `"oidc"`).
+        oidc:
+          $ref: '#/components/schemas/OidcInfo'
+          description: |-
+            OIDC-specific detail, used by the frontend to decide whether to render
+            a "Sign in with Google" button.
+    CollectionChunkingConfig:
+      type: object
+      description: |-
+        Per-collection text chunking configuration.
+
+        Mirrors the tunable knobs of xberg's chunker. Every field is optional;
+        omitted fields fall back to the ingest pipeline's defaults. The API layer
+        converts this into xberg's native `ChunkingConfig` before persisting it
+        to the collection, so the ingest pipeline consumes the canonical type.
+      properties:
+        chunker_type:
+          type:
+            - string
+            - "null"
+          description: 'Chunker strategy: `text`, `markdown`, `yaml`, or `semantic`. Default `text`.'
+        max_characters:
+          type:
+            - integer
+            - "null"
+          format: int32
+          description: Maximum characters per chunk (must be greater than `overlap`). Default 1000.
+          minimum: 0
+        overlap:
+          type:
+            - integer
+            - "null"
+          format: int32
+          description: |-
+            Overlap between adjacent chunks in characters (must be less than
+            `max_characters`). Default 200.
+          minimum: 0
+        topic_threshold:
+          type:
+            - number
+            - "null"
+          format: float
+          description: |-
+            Cosine-similarity threshold (0.0–1.0) for the `semantic` chunker's topic
+            boundary detection. Ignored by other chunker types.
+        trim:
+          type:
+            - boolean
+            - "null"
+          description: Trim whitespace from chunk boundaries. Default true.
+      additionalProperties: false
+    CollectionResponse:
+      type: object
+      description: Response for collection retrieval / listing
+      required:
+        - id
+        - name
+        - embedding_dim
+        - distance_metric
+        - index_method
+      properties:
+        chunking_config:
+          oneOf:
+            - type: "null"
+            - $ref: '#/components/schemas/CollectionChunkingConfig'
+              description: Per-collection text chunking configuration
+        distance_metric:
+          type: string
+          description: Distance metric
+        embedding_dim:
+          type: integer
+          format: int32
+          description: Embedding dimension
+          minimum: 0
+        embedding_source:
+          type:
+            - string
+            - "null"
+          description: Embedding source for this collection
+        id:
+          type: string
+          description: Collection unique identifier
+        index_method:
+          type: string
+          description: Vector index method
+        name:
+          type: string
+          description: Collection name
+        quota_max_documents:
+          type:
+            - integer
+            - "null"
+          format: int64
+          description: Maximum documents quota
+          minimum: 0
+        rerank_default:
+          oneOf:
+            - type: "null"
+            - $ref: '#/components/schemas/RerankerSpec'
+              description: Default reranker spec for retrieve operations on this collection
+        stats:
+          oneOf:
+            - type: "null"
+            - $ref: '#/components/schemas/CollectionStatsResponse'
+              description: |-
+                Collection statistics. Populated on the single-collection detail view
+                (`GET /v1/rag/collections/{name}`); omitted from the list view, which is
+                intentionally lightweight and does not run per-collection counts.
+    CollectionStatsResponse:
+      type: object
+      description: Collection statistics response
+      required:
+        - document_count
+        - chunk_count
+      properties:
+        chunk_count:
+          type: integer
+          format: int64
+          description: Total chunks across all documents
+          minimum: 0
+        document_count:
+          type: integer
+          format: int64
+          description: Total documents in collection
+          minimum: 0
+        last_ingested_at:
+          type:
+            - string
+            - "null"
+          description: Last ingestion timestamp (RFC3339)
+    CreateCollectionRequest:
+      type: object
+      description: Request to create a new RAG collection.
+      required:
+        - name
+        - embedding_dim
+      properties:
+        chunking_config:
+          oneOf:
+            - type: "null"
+            - $ref: '#/components/schemas/CollectionChunkingConfig'
+              description: |-
+                Per-collection text chunking configuration.
+
+                Omit any field to inherit the ingest pipeline's built-in default
+                (max 1000 characters, 200-character overlap, text chunker).
+        distance_metric:
+          type: string
+          description: Distance metric for similarity search ("cosine", "l2", "inner_product")
+        embedding_dim:
+          type: integer
+          format: int32
+          description: Embedding dimension (e.g., 384 for mxbai-embed-large-v1)
+          minimum: 0
+        embedding_source:
+          type:
+            - string
+            - "null"
+          description: |-
+            Embedding source for the collection.
+
+            Omit to use the deployment-wide default (usually "managed_local").
+            When provided, overrides the deployment default.
+        index_method:
+          type:
+            - string
+            - "null"
+          description: |-
+            Vector index method ("diskann" or "hnsw").
+
+            Omit to inherit the deployment-wide default
+            (`XBERG_VECTORSTORE_DEFAULT_INDEX_METHOD` env var, Helm value
+            `vectorstore.defaultIndexMethod`). The API layer is responsible for
+            filling the default before persisting the collection.
+        label_classifier_threshold:
+          type:
+            - number
+            - "null"
+          format: float
+          description: |-
+            Confidence threshold (0.0–1.0) for classify_text. Default 0.5 when
+            None and label_vocabulary is Some.
+        label_vocabulary:
+          type:
+            - array
+            - "null"
+          items:
+            type: string
+          description: |-
+            Labels vocabulary for xberg's classify_text. When None, auto-
+            classification is disabled and labels remain pass-through-only.
+            Length cap: 100 strings; each up to 64 chars.
+        name:
+          type: string
+          description: Collection name (unique per project)
+        quota_max_documents:
+          type:
+            - integer
+            - "null"
+          format: int64
+          description: Maximum documents quota for this collection
+          minimum: 0
+        rerank_default:
+          oneOf:
+            - type: "null"
+            - $ref: '#/components/schemas/RerankerSpec'
+              description: |-
+                Default reranker spec for retrieve operations on this collection.
+
+                When present, this reranker is used as the default unless the
+                retrieve request overrides it. Can be a Preset (ONNX cross-encoder)
+                or Llm (platform-managed LLM).
+      additionalProperties: false
+    CreateCollectionResponse:
+      type: object
+      description: Response for collection creation
+      required:
+        - id
+        - name
+        - embedding_dim
+        - distance_metric
+        - index_method
+      properties:
+        chunking_config:
+          oneOf:
+            - type: "null"
+            - $ref: '#/components/schemas/CollectionChunkingConfig'
+              description: Per-collection text chunking configuration
+        distance_metric:
+          type: string
+          description: Distance metric
+        embedding_dim:
+          type: integer
+          format: int32
+          description: Embedding dimension
+          minimum: 0
+        embedding_source:
+          type:
+            - string
+            - "null"
+          description: Embedding source for this collection
+        id:
+          type: string
+          description: Collection unique identifier
+        index_method:
+          type: string
+          description: Vector index method
+        name:
+          type: string
+          description: Collection name
+        quota_max_documents:
+          type:
+            - integer
+            - "null"
+          format: int64
+          description: Maximum documents quota
+          minimum: 0
+        rerank_default:
+          oneOf:
+            - type: "null"
+            - $ref: '#/components/schemas/RerankerSpec'
+              description: Default reranker spec for retrieve operations on this collection
+    CreateDocumentAsyncResponse:
+      type: object
+      description: Response for asynchronous document creation
+      required:
+        - job_id
+        - document_id
+        - status
+        - poll
+      properties:
+        document_id:
+          type: string
+          format: uuid
+          description: The pending document ID (for reference)
+        job_id:
+          type: string
+          description: Job identifier for polling
+        poll:
+          type: string
+          description: Polling endpoint
+        status:
+          type: string
+          description: Lifecycle status
+    CreateDocumentChunkInput:
+      type: object
+      description: Caller-supplied chunk for bring-your-own-chunks ingest
+      required:
+        - content
+      properties:
+        content:
+          type: string
+          description: Chunk content (text)
+        embedding:
+          type:
+            - array
+            - "null"
+          items:
+            type: number
+            format: float
+          description: |-
+            Caller-supplied embedding vector. When present on every chunk in the
+            request, triggers synchronous write (200). When absent on any chunk,
+            the entire request goes async and the worker embeds all chunks.
+        external_id:
+          type:
+            - string
+            - "null"
+          description: External identifier for this chunk (optional)
+        metadata:
+          description: Metadata attached to this chunk
+        ordinal:
+          type:
+            - integer
+            - "null"
+          format: int32
+          description: Position in the document (0-indexed)
+          minimum: 0
+      additionalProperties: false
+    CreateDocumentRequest:
+      type: object
+      description: |-
+        OpenAPI schema for [`CreateDocumentRequest`].
+
+        This DTO keeps the published request schema as the flat JSON object accepted
+        by the handler while runtime deserialization still uses [`CreateDocumentRequest`].
+      required:
+        - kind
+      properties:
+        chunks:
+          type:
+            - array
+            - "null"
+          items:
+            $ref: '#/components/schemas/CreateDocumentChunkInput'
+          description: 'Pre-split chunks for `kind: "chunks"`'
+        enrichment_overrides:
+          description: Pre-computed enrichments to skip the server's pass
+        external_id:
+          type:
+            - string
+            - "null"
+          description: Caller-supplied external identifier for the document
+        kind:
+          type: string
+          description: 'Source variant: `"text"` or `"chunks"`'
+        metadata:
+          description: Caller-supplied metadata stored alongside the document
+        mime:
+          type:
+            - string
+            - "null"
+          description: MIME type of the source document for audit purposes
+        source_object_key:
+          type:
+            - string
+            - "null"
+          description: GCS/S3 object key for the source document
+        text:
+          type:
+            - string
+            - "null"
+          description: 'Raw text content for `kind: "text"`'
+        title:
+          type:
+            - string
+            - "null"
+          description: Human-readable document title
+        webhook:
+          oneOf:
+            - type: "null"
+            - $ref: '#/components/schemas/WebhookConfig'
+              description: Optional webhook for ingest completion/failure delivery
+    CreateDocumentResponse:
+      type: object
+      description: Response for synchronous document creation (BYO-vector fast path)
+      required:
+        - document_id
+        - collection
+        - chunk_count
+        - embedding_dim
+        - ingested_at
+      properties:
+        chunk_count:
+          type: integer
+          format: int32
+          description: Number of chunks created
+        collection:
+          type: string
+          description: Collection name
+        document_id:
+          type: string
+          format: uuid
+          description: Unique document identifier
+        embedding_dim:
+          type: integer
+          format: int32
+          description: Embedding dimension (from collection spec)
+        external_id:
+          type:
+            - string
+            - "null"
+          description: Caller-supplied external ID (if provided)
+        ingested_at:
+          type: string
+          description: Ingestion timestamp (RFC3339)
+    CreateDocumentSource:
+      oneOf:
+        - type: object
+          description: Full-text document — server runs chunking + enrichment + embedding (async)
+          required:
+            - text
+            - kind
+          properties:
+            enrichment_overrides:
+              description: Pre-computed enrichments (keywords, entities, labels) to skip server's pass
+            kind:
+              type: string
+              enum:
+                - text
+            text:
+              type: string
+              description: Raw text content
+        - type: object
+          description: Pre-chunked document — chunks may or may not have embeddings
+          required:
+            - chunks
+            - kind
+          properties:
+            chunks:
+              type: array
+              items:
+                $ref: '#/components/schemas/CreateDocumentChunkInput'
+              description: List of pre-split chunks
+            enrichment_overrides:
+              description: Pre-computed enrichments to skip server's pass
+            kind:
+              type: string
+              enum:
+                - chunks
+      description: Document source variant for ingest
+    CreateSavedPresetRequest:
+      type: object
+      description: Request to create a saved preset.
+      required:
+        - name
+        - schema
+        - preferred_call_mode
+      properties:
+        context_template:
+          type:
+            - string
+            - "null"
+          description: Optional context template.
+        description:
+          type:
+            - string
+            - "null"
+          description: Optional description of the preset.
+        emit_citations:
+          type: boolean
+          description: Whether to emit citations in results.
+        name:
+          type: string
+          description: Preset name (must be unique per project).
+        preferred_call_mode:
+          type: string
+          description: Preferred orchestration path (text_only, vision_first, etc.).
+        schema:
+          description: JSON Schema (Draft 2020-12) for the extraction result.
+        system_prompt:
+          type:
+            - string
+            - "null"
+          description: Optional custom system prompt override.
+    CreateSavedPresetResponse:
+      type: object
+      description: Response from creating a saved preset.
+      required:
+        - success
+        - id
+        - name
+        - message
+      properties:
+        id:
+          type: string
+          description: The newly created preset's id.
+        message:
+          type: string
+          description: Human-readable confirmation message.
+        name:
+          type: string
+          description: The preset's name (same value as the request).
+        success:
+          type: boolean
+          description: Always `true` on success (the endpoint returns an error status otherwise).
+    DeleteDocumentsRequest:
+      type: object
+      description: OpenAPI schema for [`DeleteDocumentsRequest`].
+      properties:
+        filter:
+          description: Vectorstore filter expression.
+        ids:
+          type:
+            - array
+            - "null"
+          items:
+            type: string
+            format: uuid
+          description: List of document UUIDs to delete.
+    DeleteDocumentsResponse:
+      type: object
+      description: Response for deletion operation
+      required:
+        - deleted_count
+      properties:
+        deleted_count:
+          type: integer
+          format: int64
+          description: Number of documents deleted
+          minimum: 0
+    DocumentInput:
+      type: object
+      description: |-
+        A single document to extract.
+
+        A document is sourced **either** inline (`data`, base64-encoded) **or** by
+        reference to a connected integration (`integration`). Exactly one of the
+        two must be present; supplying both or neither is a validation error.
+
+        A single-document extraction (Pro's primary use case) is simply a
+        `documents` vector of length one on [`ExtractRequest`].
+      required:
+        - filename
+        - mime_type
+      properties:
+        data:
+          type:
+            - string
+            - "null"
+          description: Base64-encoded document bytes. Mutually exclusive with `integration`.
+        document_id:
+          type:
+            - string
+            - "null"
+          description: |-
+            Optional client-supplied document identifier. When provided, this
+            extraction is recorded as a version of that logical document and the
+            response carries `document_id` + `version_sequence` on the matching
+            [`DocumentSubmission`]. Enterprise-only lineage feature; Pro leaves
+            this unset. Server mints a new identifier when absent. Typed as a string
+            to span Pro (ULID) and Enterprise (UUID) identifier forms; the concrete
+            format is validated per service.
+        filename:
+          type: string
+          description: Original filename.
+        integration:
+          oneOf:
+            - type: "null"
+            - $ref: '#/components/schemas/IntegrationInput'
+              description: |-
+                Reference to a document in a connected integration. Mutually exclusive
+                with `data`.
+        mime_type:
+          type: string
+          description: |-
+            MIME type of the document. For an integration-sourced document this is
+            a hint only — the receiving service prefers the connector-reported
+            type at fetch time.
+    DocumentSubmission:
+      type: object
+      description: Per-document submission detail included in [`ExtractResponse::documents`].
+      required:
+        - job_id
+      properties:
+        document_id:
+          type:
+            - string
+            - "null"
+          description: |-
+            Document lineage identifier, when the submission set `document_id`
+            or one was minted server-side. `None` for non-lineage jobs.
+        job_id:
+          type: string
+          description: Job ID created for this document.
+        version_sequence:
+          type:
+            - integer
+            - "null"
+          format: int32
+          description: |-
+            Version sequence number within the document's lineage, when lineage
+            tracking applies.
+    ErrorBody:
+      type: object
+      description: Error body containing code, message, and optional details.
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: string
+          description: Stable string error code (e.g., "rag.vector.dim_mismatch", "not_found")
+          example: rag.vector.dim_mismatch
+        details:
+          description: Optional detailed error information (context-specific)
+        message:
+          type: string
+          description: Human-readable error message
+          example: Caller-supplied embedding does not match collection dimension
+    ErrorResponse:
+      type: object
+      description: |-
+        Canonical error response body.
+
+        Wraps the nested error envelope required by all API error paths.
+      required:
+        - error
+      properties:
+        error:
+          $ref: '#/components/schemas/ErrorBody'
+          description: The nested error body with code, message, and optional details.
+    ExtractRequest:
+      type: object
+      description: |-
+        Request body for `POST /v1/extract`.
+
+        A superset of single-document (Pro) and batch/crawl (Enterprise)
+        submission: Pro fills `documents` with exactly one entry and leaves
+        `urls` empty; Enterprise fills either or both. `options` and `webhook`
+        apply to every document/URL in the request.
+      properties:
+        crawl_config:
+          description: |-
+            Crawl configuration applied to all `urls` (overridable per-URL).
+            Enterprise-only; Pro leaves this unset. Kept as opaque JSON — see
+            [`UrlInput::crawl_config`].
+        documents:
+          type: array
+          items:
+            $ref: '#/components/schemas/DocumentInput'
+          description: Documents to extract inline or via an integration reference.
+        options:
+          oneOf:
+            - type: "null"
+            - $ref: '#/components/schemas/ExtractionOptions'
+              description: Extraction options shared by every document/URL in this request.
+        urls:
+          type: array
+          items:
+            $ref: '#/components/schemas/UrlInput'
+          description: |-
+            URLs to crawl and extract documents from. Enterprise-only; Pro leaves
+            this empty.
+        webhook:
+          oneOf:
+            - type: "null"
+            - $ref: '#/components/schemas/WebhookConfig'
+              description: Webhook configuration for async result delivery.
+    ExtractResponse:
+      type: object
+      description: |-
+        Response body for `POST /v1/extract` (HTTP 202 Accepted).
+
+        `job_ids` is always populated — Pro returns a one-element vector for its
+        single-document submission, Enterprise returns one entry per submitted
+        document. `documents` and `crawl_job_ids` are Enterprise-only batch/crawl
+        detail and are omitted from the wire entirely when empty, so Pro's
+        payload stays lean.
+      required:
+        - status
+      properties:
+        crawl_job_ids:
+          type: array
+          items:
+            type: string
+          description: Crawl job IDs, one per URL group. Enterprise-only; empty on Pro.
+        documents:
+          type: array
+          items:
+            $ref: '#/components/schemas/DocumentSubmission'
+          description: |-
+            Detailed per-document submissions, including lineage when present.
+            Enterprise-only; empty on Pro.
+        job_ids:
+          type: array
+          items:
+            type: string
+          description: Job IDs created for directly submitted documents.
+        status:
+          type: string
+          description: Overall submission status (e.g. `"pending"`, `"processing"`).
+    ExtractionOptions:
+      type: object
+      description: Extraction options shared across every document in a request.
+      properties:
+        context:
+          type:
+            - object
+            - "null"
+          description: |-
+            Free-form context merged into the preset's context template before
+            the system prompt is sent to the model. Ignored when `preset` and
+            `saved_preset_id` are both unset.
+          additionalProperties:
+            type: string
+          propertyNames:
+            type: string
+        extraction_config:
+          description: |-
+            Extraction configuration as opaque JSON. Kept untyped here: the
+            concrete schema (`services/api::rest::types::ExtractionConfig` on
+            Enterprise, a raw `serde_json::Value` on Pro) is service-local and out
+            of scope for this convergence pass.
+        preset:
+          type:
+            - string
+            - "null"
+          description: |-
+            Curated preset identifier. Mutually exclusive with `saved_preset_id`
+            and with an inline schema in `extraction_config`.
+        saved_preset_id:
+          type:
+            - string
+            - "null"
+          description: |-
+            Saved preset ID (project-scoped, user-created). Mutually exclusive
+            with `preset`.
+        split_documents:
+          type:
+            - boolean
+            - "null"
+          description: |-
+            When true and a document is a PDF, enable multi-document boundary
+            detection and fan-out orchestration. Enterprise-only; Pro ignores it.
+    GetJobResponse:
+      type: object
+      description: Job metadata returned by `GET /v1/jobs/{id}`.
+      required:
+        - id
+        - filename
+        - mime_type
+        - status
+        - created_at
+        - cached
+      properties:
+        cached:
+          type: boolean
+        completed_at:
+          type:
+            - string
+            - "null"
+        created_at:
+          type: string
+        filename:
+          type: string
+        id:
+          type: string
+        images_extracted:
+          type:
+            - integer
+            - "null"
+          format: int32
+        mime_type:
+          type: string
+        pages_extracted:
+          type:
+            - integer
+            - "null"
+          format: int32
+        processing_duration_ms:
+          type:
+            - integer
+            - "null"
+          format: int64
+        status:
+          $ref: '#/components/schemas/JobStatus'
+        tables_extracted:
+          type:
+            - integer
+            - "null"
+          format: int32
+    HealthResponse:
+      type: object
+      description: Liveness + tier probe. The frontend reads `tier` for runtime feature gating.
+      required:
+        - status
+        - tier
+        - license
+        - rag
+      properties:
+        license:
+          $ref: '#/components/schemas/LicenseHealth'
+        rag:
+          $ref: '#/components/schemas/RagHealth'
+        status:
+          type: string
+        tier:
+          type: string
+    IncludeMask:
+      type: object
+      description: Mask of optional response fields.
+      properties:
+        content:
+          type: boolean
+          description: Include chunk content text. Default true.
+        document:
+          type: boolean
+          description: Include parent document summary. Default false.
+        score_breakdown:
+          type: boolean
+          description: Include primary-stage + rerank score breakdown. Default false.
+      additionalProperties: false
+    IntegrationInput:
+      type: object
+      description: |-
+        Reference to a document living in a connected integration (e.g. Google Drive).
+
+        No bytes are carried; the receiving service resolves them at fetch time
+        through the integration's source connector, scoped to the caller's project.
+      required:
+        - integration_id
+        - resource_id
+      properties:
+        integration_id:
+          type: string
+          description: The `integrations.id` (hyphenated UUID) the document is fetched through.
+        resource_id:
+          type: string
+          description: Connector-specific document identifier (e.g. a Google Drive file id).
+    JobResult:
+      type: object
+      description: |-
+        Canonical result payload for job-result retrieval
+        (`GET /v1/jobs/{id}/result` on Pro; the result-bearing portion of
+        `GET /v1/jobs/{id}` on Enterprise).
+
+        `results` holds the extracted document(s) produced by *this* job, in
+        discovery order — a one-element vector for the common single-document case.
+        The two tiers model multi-document splits differently, and this DTO carries
+        both: Pro may inline several `ExtractedDocument`s in `results`, while
+        Enterprise spawns child jobs and lists their IDs in `child_job_ids` (each
+        retrieved via `GET /v1/jobs/{child_id}`).
+
+        **Known incompatibility (flagged for review):** neither service currently
+        emits this exact shape on the wire. Pro's `results/{job_id}.json` is the
+        raw `xberg::ExtractionResult` envelope (no `job_id`/`status` wrapper).
+        Enterprise's worker writes a NATS-KV-backed wrapper
+        (`{job_id, project_id, status, completed_at, result}`) whose `result` is
+        `messages::results::ExtractionResult` — a narrower, independently
+        evolving shape, distinct from both `xberg::ExtractionResult` and this
+        crate's [`crate::ExtractionResult`] (`xberg::types::ExtractedDocument`).
+        Adopting `JobResult` requires each service to translate its internal
+        representation at the HTTP boundary; this DTO intentionally reuses
+        `crate::ExtractionResult` (already the crate's public per-document result
+        alias) rather than introducing a fourth type also named
+        `ExtractionResult`.
+      required:
+        - job_id
+        - status
+      properties:
+        child_job_ids:
+          type: array
+          items:
+            type: string
+          description: |-
+            Child job IDs when this job was split into multiple jobs (Enterprise
+            boundary splitting). Each is retrievable via `GET /v1/jobs/{id}`. Empty
+            when the job produced no child jobs (always empty on Pro).
+        completed_at:
+          type:
+            - string
+            - "null"
+          description: ISO 8601 completion timestamp, when available.
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/JobResultError'
+          description: Non-fatal per-document errors.
+        job_id:
+          type: string
+          description: The job this result belongs to.
+        results:
+          type: array
+          items: {}
+          description: |-
+            Extracted documents, present once the job reaches a terminal
+            successful state (`completed` or `partial_success`).
+
+            Documented as opaque JSON: the per-document payload is
+            `xberg::types::ExtractedDocument`, a deeply-nested engine type whose
+            full schema graph isn't registered as OpenAPI components. Typing it as
+            `serde_json::Value` here keeps the spec self-contained (and codegen-able)
+            without dragging the engine's entire schema into the API surface. Wire
+            serialization is unchanged — `value_type` only affects schema generation.
+        status:
+          $ref: '#/components/schemas/JobStatus'
+          description: Job status at the time the result was read.
+    JobResultError:
+      type: object
+      description: |-
+        A non-fatal error attached to one document within a [`JobResult`].
+
+        Used when a job processed multiple documents (e.g. via `split_documents`)
+        and some, but not all, failed. Fields mirror `xberg`'s per-item error shape
+        so Pro's stored errors translate without loss; Enterprise leaves the fields
+        it does not populate unset.
+      required:
+        - error_type
+        - message
+      properties:
+        code:
+          type:
+            - integer
+            - "null"
+          format: int64
+          description: Numeric error code, when the producing engine assigns one.
+        error_type:
+          type: string
+          description: Machine-readable error kind (e.g. `"unsupported_mime_type"`).
+        index:
+          type:
+            - integer
+            - "null"
+          format: int64
+          description: |-
+            Zero-based index of the input document this error applies to, used to
+            correlate with `results` in a multi-document job. Unset when the error
+            is not attributable to a specific document.
+        message:
+          type: string
+          description: Human-readable error message.
+        source:
+          type:
+            - string
+            - "null"
+          description: Origin of the error (e.g. the failing stage or component).
+    JobStatus:
+      type: string
+      description: |-
+        Lifecycle status of an extraction job.
+
+        Mirrors `domain::jobs::DomainJobStatus` and the Enterprise-local
+        `services/api::rest::jobs::JobStatus` enum. Defined independently here
+        rather than depending on `crates/domain`: `domain` pulls in the database,
+        storage, and NATS stacks, which would be an inappropriate dependency
+        weight for a thin wire-types crate.
+
+        Wire form is `snake_case` (`"completed"`, `"partial_success"`), matching
+        Enterprise's current serialization. **Pro migration note:** Pro currently
+        emits UPPERCASE status strings, so adopting this enum lower-cases them — a
+        breaking wire change for existing Pro clients (see ADR-0066).
+      enum:
+        - awaiting_upload
+        - pending
+        - processing
+        - chunking
+        - aggregating
+        - completed
+        - partial_success
+        - failed
+        - cancelled
+    JobSummary:
+      type: object
+      description: Summary of a job, as returned by `GET /v1/jobs` (list).
+      required:
+        - id
+        - filename
+        - mime_type
+        - status
+        - created_at
+      properties:
+        completed_at:
+          type:
+            - string
+            - "null"
+          description: |-
+            ISO 8601 completion timestamp, present once the job reaches a
+            terminal state.
+        created_at:
+          type: string
+          description: ISO 8601 creation timestamp.
+        filename:
+          type: string
+          description: Original filename.
+        id:
+          type: string
+          description: Unique job identifier.
+        mime_type:
+          type: string
+          description: MIME type of the submitted document.
+        status:
+          $ref: '#/components/schemas/JobStatus'
+          description: Current job status.
+    LatencyBreakdown:
+      type: object
+      description: Latency breakdown (milliseconds) for a single retrieve call.
+      required:
+        - retrieve_ms
+        - total_ms
+      properties:
+        rerank_ms:
+          type:
+            - integer
+            - "null"
+          format: int64
+          description: |-
+            Reranker call (when active). `None` when rerank was off or
+            fell back to primary order.
+          minimum: 0
+        retrieve_ms:
+          type: integer
+          format: int64
+          description: Primary-stage retrieve (vector / fts / hybrid).
+          minimum: 0
+        total_ms:
+          type: integer
+          format: int64
+          description: End-to-end including response serialization.
+          minimum: 0
+    LicenseHealth:
+      type: object
+      description: License info summary for the health response.
+      required:
+        - state
+      properties:
+        expires_at:
+          type:
+            - string
+            - "null"
+          description: 'Optional: expiry timestamp if available'
+        features:
+          type:
+            - array
+            - "null"
+          items:
+            type: string
+          description: 'Optional: features list if licensed'
+        state:
+          type: string
+          description: '"licensed", "expired", "invalid", or "unlicensed"'
+    ListAuditEntriesResponse:
+      type: object
+      description: |-
+        Response for the customer-facing audit read endpoint (`GET /v1/audit`).
+
+        The list field is named `entries` (Pro's current response names it
+        `events`) — a breaking rename for existing Pro consumers, per ADR-0066.
+      required:
+        - entries
+        - total
+        - limit
+        - offset
+      properties:
+        entries:
+          type: array
+          items:
+            $ref: '#/components/schemas/AuditEntry'
+          description: Audit entries in the current page, most recent first.
+        limit:
+          type: integer
+          format: int64
+          description: Page size used.
+        offset:
+          type: integer
+          format: int64
+          description: Offset used for pagination.
+        total:
+          type: integer
+          format: int64
+          description: |-
+            Total number of audit entries matching the query. Services that cannot
+            cheaply compute a distinct total may set this to the page length. (Pro
+            has no `total` field today; this is new behavior on convergence.)
+    ListCollectionsResponse:
+      type: object
+      description: Response for listing collections (paginated)
+      required:
+        - collections
+        - total
+        - limit
+        - offset
+      properties:
+        collections:
+          type: array
+          items:
+            $ref: '#/components/schemas/CollectionResponse'
+          description: List of collections
+        limit:
+          type: integer
+          format: int32
+          description: Maximum results per page
+        offset:
+          type: integer
+          format: int32
+          description: Number of results skipped
+        total:
+          type: integer
+          format: int32
+          description: Total number of collections for this project
+    ListJobsResponse:
+      type: object
+      description: Response for `GET /v1/jobs` (paginated job list).
+      required:
+        - jobs
+        - total
+        - limit
+        - offset
+      properties:
+        jobs:
+          type: array
+          items:
+            $ref: '#/components/schemas/JobSummary'
+          description: Jobs in the current page, most recent first.
+        limit:
+          type: integer
+          format: int64
+          description: Page size used.
+        offset:
+          type: integer
+          format: int64
+          description: Offset used for pagination.
+        total:
+          type: integer
+          format: int64
+          description: Total number of jobs for the project.
+    ListSavedPresetsResponse:
+      type: object
+      description: Response from listing saved presets.
+      required:
+        - presets
+        - total
+        - page
+        - limit
+      properties:
+        limit:
+          type: integer
+          format: int64
+          description: Page size used.
+        page:
+          type: integer
+          format: int64
+          description: Current page (0-indexed).
+        presets:
+          type: array
+          items:
+            $ref: '#/components/schemas/SavedPresetSummary'
+          description: List of saved presets for the current project.
+        total:
+          type: integer
+          format: int64
+          description: Total count of presets in the project.
+    LoginRequest:
+      type: object
+      description: Login request with an OIDC ID token (e.g. from Google/Firebase sign-in).
+      required:
+        - id_token
+      properties:
+        id_token:
+          type: string
+          description: ID token from the configured OIDC identity provider.
+          example: eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...
+    LoginResponse:
+      type: object
+      description: |-
+        Successful login response. Shape matches Xberg Enterprise backend's
+        `LoginResponse` (`services/backend/src/handlers/auth.rs`) so the shared
+        frontend auth action and generated TypeScript client work unchanged
+        against either product.
+      required:
+        - token
+        - user
+        - pending_invitations
+      properties:
+        pending_invitations:
+          type: integer
+          format: int32
+          description: Always `0` for Pro — there is no invitation system to defer against.
+          example: 0
+        project:
+          oneOf:
+            - type: "null"
+            - $ref: '#/components/schemas/ProjectInfo'
+              description: |-
+                The user's active project. Always present for Pro (unlike Enterprise,
+                Pro has no pending-invitation state — every login has an active project
+                by the time this response is built, auto-provisioning one if needed).
+        token:
+          type: string
+          description: Session JWT (valid for `jwt_expiration_secs`, default 7 days).
+          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        user:
+          $ref: '#/components/schemas/UserInfo'
+          description: Authenticated user information.
+    MigrateEmbeddingsRequest:
+      type: object
+      description: Request to migrate a collection's embedding source.
+      required:
+        - target_embedding_source
+        - target_embedding_version
+      properties:
+        target_embedding_source:
+          type: string
+          description: Target embedding source (e.g. "preset:quality", "preset:fast").
+        target_embedding_version:
+          type: integer
+          format: int32
+          description: Target embedding version (must be > collection's current embedding_version).
+          minimum: 0
+        webhook:
+          oneOf:
+            - type: "null"
+            - $ref: '#/components/schemas/WebhookConfig'
+              description: Optional webhook for migration completion/failure delivery.
+      additionalProperties: false
+    MigrateEmbeddingsResponse:
+      type: object
+      description: Response to a migrate embeddings request.
+      required:
+        - job_id
+        - collection_id
+        - from_source
+        - to_source
+        - from_version
+        - to_version
+        - status
+        - poll
+      properties:
+        collection_id:
+          type: string
+          format: uuid
+          description: Collection being migrated.
+        from_source:
+          type: string
+          description: Current embedding source.
+        from_version:
+          type: integer
+          format: int32
+          description: Current embedding version.
+          minimum: 0
+        job_id:
+          type: string
+          description: Job ID for polling progress.
+        poll:
+          type: string
+          description: 'Poll endpoint: `/v1/rag/collections/{name}/migrate-embeddings/{job_id}`.'
+        status:
+          $ref: '#/components/schemas/MigrateStatus'
+          description: Current migration status.
+        to_source:
+          type: string
+          description: Target embedding source.
+        to_version:
+          type: integer
+          format: int32
+          description: Target embedding version.
+          minimum: 0
+    MigrateProgress:
+      type: object
+      description: Detailed progress of an ongoing or completed migration.
+      required:
+        - documents_total
+        - documents_dual_written
+        - current_phase
+      properties:
+        current_phase:
+          type: string
+          description: Current phase of migration.
+        documents_dual_written:
+          type: integer
+          format: int64
+          description: Documents successfully dual-written to the new version.
+          minimum: 0
+        documents_total:
+          type: integer
+          format: int64
+          description: Total documents to migrate.
+          minimum: 0
+    MigrateStatus:
+      type: string
+      description: Current status of a migration job.
+      enum:
+        - pending
+        - running
+        - completed
+        - failed
+    MigrateStatusResponse:
+      type: object
+      description: Status response for migration progress polling.
+      required:
+        - job_id
+        - status
+      properties:
+        error:
+          type:
+            - string
+            - "null"
+          description: Error message (only when failed).
+        job_id:
+          type: string
+          description: Job ID.
+        progress:
+          oneOf:
+            - type: "null"
+            - $ref: '#/components/schemas/MigrateProgress'
+              description: Progress details (only available when running or completed).
+        status:
+          $ref: '#/components/schemas/MigrateStatus'
+          description: Current status.
+    OidcInfo:
+      type: object
+      description: OIDC login configuration, as visible to an unauthenticated caller.
+      required:
+        - enabled
+      properties:
+        enabled:
+          type: boolean
+          description: Whether OIDC login is enabled at all.
+        issuer:
+          type:
+            - string
+            - "null"
+          description: The configured OIDC issuer URL, or `None`.
+        provider:
+          type:
+            - string
+            - "null"
+          description: |-
+            Provider label derived from the configured issuer (`"google"`,
+            `"firebase"`, `"oidc"`), or `None` when disabled or running in mock
+            mode without a configured issuer.
+    PrimaryScore:
+      oneOf:
+        - type: object
+          description: Vector similarity score.
+          required:
+            - score
+            - kind
+          properties:
+            kind:
+              type: string
+              enum:
+                - vector
+            score:
+              type: number
+              format: float
+              description: Score value.
+        - type: object
+          description: Full-text rank score.
+          required:
+            - score
+            - kind
+          properties:
+            kind:
+              type: string
+              enum:
+                - full_text
+            score:
+              type: number
+              format: float
+              description: Score value.
+        - type: object
+          description: RRF-fused vector + full-text.
+          required:
+            - vector
+            - full_text
+            - rrf
+            - kind
+          properties:
+            full_text:
+              type: number
+              format: float
+              description: Full-text component.
+            kind:
+              type: string
+              enum:
+                - hybrid
+            rrf:
+              type: number
+              format: float
+              description: Reciprocal-rank-fusion combined score.
+            vector:
+              type: number
+              format: float
+              description: Vector component.
+      description: JSON-friendly mirror of vectorstore's internal `PrimaryScore`.
+    ProjectInfo:
+      type: object
+      description: Project information in the login response.
+      required:
+        - id
+        - name
+        - role
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Project UUID.
+          example: 550e8400-e29b-41d4-a716-446655440000
+        name:
+          type: string
+          description: Project name.
+          example: Default
+        role:
+          type: string
+          description: |-
+            User role for this session (`OWNER` or `MEMBER`). See
+            [`compute_role`] for how this is derived.
+          example: OWNER
+    RagConfigResponse:
+      type: object
+      description: |-
+        A project's RAG configuration, as returned by `GET .../rag-config` and
+        `PUT .../rag-config`.
+
+        A plain, sqlx-free mirror of `common::ProjectRagConfig` — `api-types` must
+        not depend on `sqlx`/`tokio-postgres`, so the shape is duplicated here
+        rather than shared.
+      required:
+        - enabled
+      properties:
+        default_collection:
+          type:
+            - string
+            - "null"
+          description: Default vector collection for RAG operations.
+        enabled:
+          type: boolean
+          description: Whether RAG is enabled for this project.
+    RagHealth:
+      type: object
+      description: RAG readiness summary for the health response.
+      required:
+        - enabled
+      properties:
+        enabled:
+          type: boolean
+          description: |-
+            Whether the in-process RAG runtime is wired. Mirrors
+            `crate::rag::rag_feature_licensed` at boot time — `false` means every
+            `/v1/rag/*` request 404s with `rag.disabled` regardless of any
+            individual project's own RAG config.
+    RagJobKind:
+      type: string
+      description: Operation type for RAG async jobs
+      enum:
+        - ingest
+        - reindex
+        - migrate
+    RagJobProgress:
+      type: object
+      description: Progress details for long-running operations (migrate only)
+      required:
+        - documents_total
+        - documents_processed
+        - current_phase
+      properties:
+        current_phase:
+          type: string
+          description: 'Current processing phase (for migrate: "dual_write"|"index_build"|"swap"|"cleanup")'
+        documents_processed:
+          type: integer
+          format: int64
+          description: Documents successfully processed
+          minimum: 0
+        documents_total:
+          type: integer
+          format: int64
+          description: Total documents to process
+          minimum: 0
+    RagJobState:
+      type: string
+      description: Job lifecycle state
+      enum:
+        - pending
+        - running
+        - completed
+        - failed
+    RagJobStatusResponse:
+      type: object
+      description: |-
+        Unified RAG async job status response covering ingest, reindex, and migrate operations.
+
+        The response shape varies depending on the operation type (`kind`):
+        - **ingest**: status field reflects document ingestion progress (pending, indexed, failed)
+        - **reindex**: status field reflects re-chunking and re-embedding progress
+        - **migrate**: status and progress fields reflect embedding migration state
+      required:
+        - job_id
+        - kind
+        - state
+        - created_at
+      properties:
+        collection_id:
+          type:
+            - string
+            - "null"
+          format: uuid
+          description: Associated collection ID (for migrate only; absent for ingest/reindex)
+        created_at:
+          type: string
+          description: Timestamp when job was submitted (RFC3339)
+        document_id:
+          type:
+            - string
+            - "null"
+          format: uuid
+          description: Associated document ID (for ingest/reindex only; absent for migrate)
+        error:
+          type:
+            - string
+            - "null"
+          description: Error message if state = failed
+        job_id:
+          type: string
+          description: Job identifier (ULID) for this async operation
+        kind:
+          $ref: '#/components/schemas/RagJobKind'
+          description: 'Operation type: "ingest", "reindex", or "migrate"'
+        progress:
+          oneOf:
+            - type: "null"
+            - $ref: '#/components/schemas/RagJobProgress'
+              description: Progress details (only for migrate operations; null for ingest/reindex)
+        state:
+          $ref: '#/components/schemas/RagJobState'
+          description: Current job state
+    ReindexRequest:
+      type: object
+      description: Request to reindex a document (re-chunk, re-enrich, re-embed)
+      properties:
+        re_extract:
+          type: boolean
+          description: If true, re-extract from source object via xberg before re-chunking
+        webhook:
+          oneOf:
+            - type: "null"
+            - $ref: '#/components/schemas/WebhookConfig'
+              description: Optional webhook for reindex completion/failure delivery.
+      additionalProperties: false
+    RerankerKind:
+      type: string
+      description: |-
+        Wire-shape mirror of the internal `RerankerKind` — the response shape stays
+        stable even when we add variants internally.
+      enum:
+        - preset
+        - llm
+    RerankerSpec:
+      oneOf:
+        - type: object
+          description: Local ONNX cross-encoder preset.
+          required:
+            - name
+            - type
+          properties:
+            name:
+              type: string
+              description: 'Preset name: `fast | balanced | quality | multilingual`.'
+            type:
+              type: string
+              enum:
+                - preset
+        - type: object
+          description: Platform-managed LLM reranker (provider + API key from Helm env).
+          required:
+            - type
+          properties:
+            model:
+              type:
+                - string
+                - "null"
+              description: |-
+                Optional model override (e.g. `"gemini-1.5-pro"`). When
+                `None`, the platform default is used.
+            type:
+              type: string
+              enum:
+                - llm
+      description: |-
+        Caller-specified reranker. The Llm variant carries an optional
+        model override that picks from the platform-supported set.
+    RetrieveMode:
+      type: string
+      description: Retrieve mode discriminant.
+      enum:
+        - vector
+        - full_text
+        - hybrid
+    RetrieveRequest:
+      type: object
+      description: Retrieve request body.
+      properties:
+        candidate_multiplier:
+          type:
+            - integer
+            - "null"
+          format: int32
+          description: |-
+            1..=20, default 4. Ignored when rerank is inactive. The store
+            pulls `top_k * candidate_multiplier` candidates from the
+            primary stage so the reranker has more to choose from.
+          minimum: 0
+        filter:
+          description: Filter expression (deserialized by the vectorstore Filter IR).
+        group_by_document:
+          type: boolean
+          description: Collapse to one chunk per document.
+        include:
+          $ref: '#/components/schemas/IncludeMask'
+          description: Optional response field mask.
+        mode:
+          $ref: '#/components/schemas/RetrieveMode'
+          description: Retrieve mode. Defaults to `hybrid`.
+        query:
+          type:
+            - string
+            - "null"
+          description: |-
+            Text query. Required for full_text and hybrid modes; optional
+            for vector mode when `query_vector` is supplied.
+        query_vector:
+          type:
+            - array
+            - "null"
+          items:
+            type: number
+            format: float
+          description: |-
+            BYO query vector. Length must equal the collection's
+            `embedding_dim`. Forbidden when `mode = full_text`.
+        rerank:
+          oneOf:
+            - type: "null"
+            - $ref: '#/components/schemas/RerankerSpec'
+              description: |-
+                Three-state rerank: absent (collection default) | null
+                (disable) | present (override). The OpenAPI schema documents
+                this as `Option<RerankerSpec>` — callers control the third
+                state by simply omitting the field.
+        top_k:
+          type: integer
+          format: int32
+          description: Number of top results to return. `1..=200`, default 10.
+          minimum: 0
+      additionalProperties: false
+    RetrieveResponse:
+      type: object
+      description: Retrieve response body.
+      required:
+        - mode
+        - latency_breakdown
+        - chunks
+      properties:
+        chunks:
+          type: array
+          items:
+            $ref: '#/components/schemas/RetrievedChunk'
+          description: Result chunks (relevance-ordered).
+        latency_breakdown:
+          $ref: '#/components/schemas/LatencyBreakdown'
+          description: Latency breakdown.
+        mode:
+          $ref: '#/components/schemas/RetrieveMode'
+          description: Mode used.
+        rerank_applied:
+          oneOf:
+            - type: "null"
+            - $ref: '#/components/schemas/RerankerKind'
+              description: |-
+                Which reranker (if any) was actually applied. `None` if rerank
+                was off; also `None` if rerank was active but fell back to the
+                primary order — in that case `chunks[i].score_breakdown.rerank_fallback`
+                records the reason.
+    RetrievedChunk:
+      type: object
+      description: Single retrieved chunk in the response.
+      required:
+        - id
+        - document_id
+        - ordinal
+        - score
+        - chunk_metadata
+      properties:
+        chunk_metadata:
+          description: Chunk-level metadata.
+        content:
+          type:
+            - string
+            - "null"
+          description: Chunk content. Present iff `include.content`.
+        document:
+          description: Parent document summary. Present iff `include.document`.
+        document_id:
+          type: string
+          format: uuid
+          description: Parent document ID.
+        external_id:
+          type:
+            - string
+            - "null"
+          description: Caller-supplied external_id, if any.
+        id:
+          type: string
+          format: uuid
+          description: Chunk ID.
+        ordinal:
+          type: integer
+          format: int32
+          description: Position within document.
+          minimum: 0
+        score:
+          type: number
+          format: float
+          description: Effective score after rerank (or primary score when rerank off).
+        score_breakdown:
+          oneOf:
+            - type: "null"
+            - $ref: '#/components/schemas/ScoreBreakdown'
+              description: Score detail. Present iff `include.score_breakdown`.
+    SavedPresetDetail:
+      type: object
+      description: Response when retrieving a saved preset.
+      required:
+        - id
+        - name
+        - schema
+        - preferred_call_mode
+        - emit_citations
+        - created_at
+        - updated_at
+      properties:
+        context_template:
+          type:
+            - string
+            - "null"
+          description: Optional context template.
+        created_at:
+          type: string
+          description: ISO 8601 creation timestamp.
+        description:
+          type:
+            - string
+            - "null"
+          description: Optional description.
+        emit_citations:
+          type: boolean
+          description: Whether citations are emitted.
+        id:
+          type: string
+          description: Unique preset ID.
+        name:
+          type: string
+          description: Preset name.
+        preferred_call_mode:
+          type: string
+          description: Preferred call mode.
+        schema:
+          description: JSON Schema for the extraction result.
+        system_prompt:
+          type:
+            - string
+            - "null"
+          description: Optional custom system prompt.
+        updated_at:
+          type: string
+          description: ISO 8601 last update timestamp.
+    SavedPresetSummary:
+      type: object
+      description: Lightweight projection of a saved preset (for listings).
+      required:
+        - id
+        - name
+        - preferred_call_mode
+        - created_at
+      properties:
+        created_at:
+          type: string
+          description: ISO 8601 creation timestamp.
+        description:
+          type:
+            - string
+            - "null"
+          description: Optional description.
+        id:
+          type: string
+          description: Unique preset ID.
+        name:
+          type: string
+          description: Preset name.
+        preferred_call_mode:
+          type: string
+          description: Preferred call mode.
+    ScoreBreakdown:
+      type: object
+      description: Score detail for a single returned chunk.
+      required:
+        - primary
+        - rank_primary
+        - rank_final
+      properties:
+        primary:
+          $ref: '#/components/schemas/PrimaryScore'
+          description: Primary-stage score discriminant + value(s).
+        rank_final:
+          type: integer
+          format: int32
+          description: |-
+            Rank position after reranking (1-indexed). Equal to
+            `rank_primary` when rerank was off or fell back.
+          minimum: 0
+        rank_primary:
+          type: integer
+          format: int32
+          description: Rank position in the primary-stage result set (1-indexed).
+          minimum: 0
+        rerank:
+          type:
+            - number
+            - "null"
+          format: float
+          description: Reranker score when rerank was applied. `None` otherwise.
+        rerank_fallback:
+          type:
+            - string
+            - "null"
+          description: |-
+            Reason rerank was skipped or fell back, if applicable.
+            Values: `"timeout"`.
+    SetRagConfigRequest:
+      type: object
+      description: Request to set a project's RAG configuration (`PUT .../rag-config`).
+      required:
+        - enabled
+      properties:
+        default_collection:
+          type:
+            - string
+            - "null"
+          description: Default vector collection for RAG operations.
+        enabled:
+          type: boolean
+          description: Whether RAG should be enabled for this project.
+    UpdateSavedPresetRequest:
+      type: object
+      description: Request to update a saved preset.
+      required:
+        - name
+        - schema
+        - preferred_call_mode
+        - emit_citations
+      properties:
+        context_template:
+          type:
+            - string
+            - "null"
+          description: Optional context template.
+        description:
+          type:
+            - string
+            - "null"
+          description: Optional description of the preset.
+        emit_citations:
+          type: boolean
+          description: Whether to emit citations in results.
+        name:
+          type: string
+          description: Preset name.
+        preferred_call_mode:
+          type: string
+          description: Preferred orchestration path (text_only, vision_first, etc.).
+        schema:
+          description: JSON Schema (Draft 2020-12) for the extraction result.
+        system_prompt:
+          type:
+            - string
+            - "null"
+          description: Optional custom system prompt override.
+    UpdateSavedPresetResponse:
+      type: object
+      description: Response from updating a saved preset.
+      required:
+        - success
+        - message
+      properties:
+        message:
+          type: string
+          description: Human-readable confirmation message.
+        success:
+          type: boolean
+          description: Always `true` on success (the endpoint returns an error status otherwise).
+    UrlInput:
+      type: object
+      description: |-
+        A seed URL for crawl-based extraction. Enterprise-only; Pro leaves
+        [`ExtractRequest::urls`] empty.
+      required:
+        - url
+      properties:
+        crawl_config:
+          description: |-
+            Per-URL crawl configuration override, merged with the request-level
+            `crawl_config`. Kept as opaque JSON here: the concrete crawl
+            configuration schema is service-local
+            (`services/api::rest::types::CrawlConfig`) and is out of scope for
+            this convergence pass.
+        url:
+          type: string
+          description: URL to crawl and extract documents from.
+    UserInfo:
+      type: object
+      description: User information in the login response.
+      required:
+        - user_id
+      properties:
+        default_project_id:
+          type:
+            - string
+            - "null"
+          format: uuid
+          description: The user's active project id.
+          example: 550e8400-e29b-41d4-a716-446655440000
+        email:
+          type:
+            - string
+            - "null"
+          description: User email address.
+          example: user@example.com
+        name:
+          type:
+            - string
+            - "null"
+          description: User display name.
+          example: Jane Doe
+        user_id:
+          type: string
+          description: User id from the identity provider (OIDC `sub`).
+          example: user-id-abc123
+    WebhookConfig:
+      type: object
+      description: Webhook configuration for async delivery of job results.
+      required:
+        - url
+      properties:
+        metadata:
+          type:
+            - object
+            - "null"
+          description: Optional key-value metadata included in the webhook payload.
+          additionalProperties:
+            type: string
+          propertyNames:
+            type: string
+        secret:
+          type:
+            - string
+            - "null"
+          description: Optional HMAC-SHA256 secret for signing the webhook payload.
+        url:
+          type: string
+          description: URL to deliver results to.
+  securitySchemes:
+    bearer_auth:
+      type: http
+      scheme: bearer
+security:
+  - bearer_auth: []
+tags:
+  - name: extract
+    description: Document extraction endpoints
+  - name: jobs
+    description: Job status and result endpoints
+  - name: audit
+    description: Customer-facing audit log endpoint
+  - name: auth
+    description: OIDC/Google human login endpoints
+  - name: projects
+    description: Project management endpoints
+  - name: saved-presets
+    description: User-created extraction schema preset CRUD
+  - name: health
+    description: Health check endpoint
+  - name: rag
+    description: RAG ingest, document lifecycle, and collection migration endpoints

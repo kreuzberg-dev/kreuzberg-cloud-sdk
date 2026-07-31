@@ -6,9 +6,9 @@ import httpx
 import pytest
 import respx
 
-from kreuzberg_cloud import AsyncKreuzbergCloud, KreuzbergCloud
-from kreuzberg_cloud import TimeoutError as ClientTimeoutError
 from tests.conftest import make_extract_response, make_extraction_result, make_job_payload
+from xberg_io_sdk import AsyncXbergClient, XbergClient, XbergError
+from xberg_io_sdk import TimeoutError as ClientTimeoutError
 
 
 @respx.mock
@@ -31,7 +31,7 @@ def test_extract_and_wait_sync_returns_extraction_result(base_url: str, api_key:
         ],
     )
 
-    with KreuzbergCloud(api_key=api_key, base_url=base_url) as client:
+    with XbergClient(api_key=api_key, base_url=base_url) as client:
         job = client.extract_and_wait(file=b"data", poll_interval=0.01, timeout=2.0, backoff="constant")
 
     assert job.status == "completed"
@@ -53,7 +53,7 @@ async def test_extract_and_wait_async_returns_extraction_result(base_url: str, a
         ),
     )
 
-    async with AsyncKreuzbergCloud(api_key=api_key, base_url=base_url) as client:
+    async with AsyncXbergClient(api_key=api_key, base_url=base_url) as client:
         job = await client.extract_and_wait(file=b"data", poll_interval=0.01, timeout=2.0)
 
     assert job.status == "completed"
@@ -62,7 +62,7 @@ async def test_extract_and_wait_async_returns_extraction_result(base_url: str, a
 
 @pytest.mark.asyncio
 @respx.mock
-async def test_extract_and_wait_async_propagates_failed_status(base_url: str, api_key: str) -> None:
+async def test_extract_and_wait_async_raises_on_failed_status(base_url: str, api_key: str) -> None:
     job_id = "33333333-3333-3333-3333-333333333333"
     respx.post(f"{base_url}/v1/extract").mock(
         return_value=httpx.Response(202, json=make_extract_response(job_ids=[job_id])),
@@ -71,10 +71,9 @@ async def test_extract_and_wait_async_propagates_failed_status(base_url: str, ap
         return_value=httpx.Response(200, json=make_job_payload(job_id=job_id, status="failed")),
     )
 
-    async with AsyncKreuzbergCloud(api_key=api_key, base_url=base_url) as client:
-        job = await client.extract_and_wait(file=b"data", poll_interval=0.01, timeout=2.0)
-
-    assert job.status == "failed"
+    async with AsyncXbergClient(api_key=api_key, base_url=base_url) as client:
+        with pytest.raises(XbergError, match="failed"):
+            await client.extract_and_wait(file=b"data", poll_interval=0.01, timeout=2.0)
 
 
 @pytest.mark.asyncio
@@ -88,7 +87,7 @@ async def test_extract_and_wait_async_times_out(base_url: str, api_key: str) -> 
         return_value=httpx.Response(200, json=make_job_payload(job_id=job_id, status="processing")),
     )
 
-    async with AsyncKreuzbergCloud(api_key=api_key, base_url=base_url) as client:
+    async with AsyncXbergClient(api_key=api_key, base_url=base_url) as client:
         with pytest.raises(ClientTimeoutError):
             await client.extract_and_wait(file=b"data", poll_interval=0.02, timeout=0.1)
 
@@ -105,7 +104,7 @@ def test_extract_and_wait_sync_passes_options_through(base_url: str, api_key: st
 
     options = {"extraction_config": {"chunk_content": True}}
 
-    with KreuzbergCloud(api_key=api_key, base_url=base_url) as client:
+    with XbergClient(api_key=api_key, base_url=base_url) as client:
         client.extract_and_wait(file=b"data", options=options, poll_interval=0.01, timeout=2.0)
 
     body = extract_route.calls.last.request.content

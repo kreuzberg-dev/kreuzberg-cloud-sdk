@@ -8,9 +8,9 @@ import httpx
 import pytest
 import respx
 
-from kreuzberg_cloud import AsyncKreuzbergCloud, KreuzbergCloud
-from kreuzberg_cloud import TimeoutError as ClientTimeoutError
 from tests.conftest import make_extraction_result, make_job_payload
+from xberg_io_sdk import AsyncXbergClient, XbergClient, XbergError
+from xberg_io_sdk import TimeoutError as ClientTimeoutError
 
 
 @respx.mock
@@ -20,7 +20,7 @@ def test_get_job_sync_returns_typed_job(base_url: str, api_key: str) -> None:
         return_value=httpx.Response(200, json=make_job_payload(job_id=job_id, status="processing")),
     )
 
-    with KreuzbergCloud(api_key=api_key, base_url=base_url) as client:
+    with XbergClient(api_key=api_key, base_url=base_url) as client:
         job = client.get_job(job_id)
 
     assert str(job.id) == job_id
@@ -39,7 +39,7 @@ def test_wait_for_job_sync_returns_immediately_when_completed(base_url: str, api
     )
 
     start = time.monotonic()
-    with KreuzbergCloud(api_key=api_key, base_url=base_url) as client:
+    with XbergClient(api_key=api_key, base_url=base_url) as client:
         job = client.wait_for_job(job_id, poll_interval=0.01, timeout=5.0)
     elapsed = time.monotonic() - start
 
@@ -62,7 +62,7 @@ def test_wait_for_job_sync_polls_until_terminal(base_url: str, api_key: str) -> 
         ],
     )
 
-    with KreuzbergCloud(api_key=api_key, base_url=base_url) as client:
+    with XbergClient(api_key=api_key, base_url=base_url) as client:
         job = client.wait_for_job(job_id, poll_interval=0.01, timeout=5.0, backoff="constant")
 
     assert job.status == "completed"
@@ -70,16 +70,20 @@ def test_wait_for_job_sync_polls_until_terminal(base_url: str, api_key: str) -> 
 
 
 @respx.mock
-def test_wait_for_job_sync_returns_failed_status_without_raising(base_url: str, api_key: str) -> None:
+def test_wait_for_job_sync_raises_on_failed_terminal_status(base_url: str, api_key: str) -> None:
     job_id = "44444444-4444-4444-4444-444444444444"
     respx.get(f"{base_url}/v1/jobs/{job_id}").mock(
-        return_value=httpx.Response(200, json=make_job_payload(job_id=job_id, status="failed")),
+        return_value=httpx.Response(
+            200,
+            json=make_job_payload(job_id=job_id, status="failed"),
+        ),
     )
 
-    with KreuzbergCloud(api_key=api_key, base_url=base_url) as client:
-        job = client.wait_for_job(job_id, poll_interval=0.01, timeout=1.0)
-
-    assert job.status == "failed"
+    with (
+        XbergClient(api_key=api_key, base_url=base_url) as client,
+        pytest.raises(XbergError, match="failed"),
+    ):
+        client.wait_for_job(job_id, poll_interval=0.01, timeout=1.0)
 
 
 @respx.mock
@@ -90,7 +94,7 @@ def test_wait_for_job_sync_times_out_when_never_terminal(base_url: str, api_key:
     )
 
     with (
-        KreuzbergCloud(api_key=api_key, base_url=base_url) as client,
+        XbergClient(api_key=api_key, base_url=base_url) as client,
         pytest.raises(ClientTimeoutError, match="terminal status"),
     ):
         client.wait_for_job(job_id, poll_interval=0.05, timeout=0.15)
@@ -107,7 +111,7 @@ async def test_wait_for_job_async_polls_until_terminal(base_url: str, api_key: s
         ],
     )
 
-    async with AsyncKreuzbergCloud(api_key=api_key, base_url=base_url) as client:
+    async with AsyncXbergClient(api_key=api_key, base_url=base_url) as client:
         job = await client.wait_for_job(job_id, poll_interval=0.01, timeout=2.0)
 
     assert job.status == "completed"
@@ -122,7 +126,7 @@ async def test_wait_for_job_async_times_out(base_url: str, api_key: str) -> None
         return_value=httpx.Response(200, json=make_job_payload(job_id=job_id, status="processing")),
     )
 
-    async with AsyncKreuzbergCloud(api_key=api_key, base_url=base_url) as client:
+    async with AsyncXbergClient(api_key=api_key, base_url=base_url) as client:
         with pytest.raises(ClientTimeoutError):
             await client.wait_for_job(job_id, poll_interval=0.02, timeout=0.1)
 
@@ -146,11 +150,11 @@ def test_wait_for_job_exponential_backoff_increases_interval(
     def _record_sleep(seconds: float) -> None:
         sleeps.append(seconds)
 
-    from kreuzberg_cloud import client as client_module
+    from xberg_io_sdk import client as client_module
 
     monkeypatch.setattr(client_module.time, "sleep", _record_sleep)
 
-    with KreuzbergCloud(api_key=api_key, base_url=base_url) as client:
+    with XbergClient(api_key=api_key, base_url=base_url) as client:
         client.wait_for_job(job_id, poll_interval=0.5, timeout=10.0, backoff="exponential")
 
     assert len(sleeps) == 2
@@ -172,11 +176,11 @@ def test_wait_for_job_constant_backoff_keeps_interval_steady(
     )
 
     sleeps: list[float] = []
-    from kreuzberg_cloud import client as client_module
+    from xberg_io_sdk import client as client_module
 
     monkeypatch.setattr(client_module.time, "sleep", sleeps.append)
 
-    with KreuzbergCloud(api_key=api_key, base_url=base_url) as client:
+    with XbergClient(api_key=api_key, base_url=base_url) as client:
         client.wait_for_job(job_id, poll_interval=0.25, timeout=10.0, backoff="constant")
 
     assert sleeps == [pytest.approx(0.25), pytest.approx(0.25)]
@@ -197,7 +201,7 @@ async def test_wait_for_jobs_async_runs_in_parallel(base_url: str, api_key: str)
             ),
         )
 
-    async with AsyncKreuzbergCloud(api_key=api_key, base_url=base_url) as client:
+    async with AsyncXbergClient(api_key=api_key, base_url=base_url) as client:
         jobs = await client.wait_for_jobs(job_ids, poll_interval=0.01, timeout=2.0)
 
     assert {str(j.id) for j in jobs} == set(job_ids)
@@ -223,7 +227,7 @@ def test_extract_and_wait_sync_returns_completed_job(base_url: str, api_key: str
         ],
     )
 
-    with KreuzbergCloud(api_key=api_key, base_url=base_url) as client:
+    with XbergClient(api_key=api_key, base_url=base_url) as client:
         job = client.extract_and_wait(file=b"x", poll_interval=0.01, timeout=5.0, backoff="constant")
 
     assert job.status == "completed"

@@ -3,11 +3,11 @@ build-backend = "hatchling.build"
 requires = ["hatchling>=1.27"]
 
 [project]
-name = "kreuzberg-cloud-sdk"
+name = "xberg-io-sdk"
 version = "0.3.1"
-description = "Official Python client for the Xberg Enterprise document-processing API."
+description = "Official Python client for the Xberg Enterprise and Xberg Pro document-processing APIs."
 readme = "README.md"
-keywords = ["client", "cloud", "document-extraction", "kreuzberg", "openapi", "sdk"]
+keywords = ["client", "cloud", "document-extraction", "openapi", "sdk", "xberg"]
 license = "MIT"
 license-files = ["LICENSE"]
 maintainers = [{ name = "Kreuzberg, Inc.", email = "contact@xberg.io" }]
@@ -40,5 +40,5 @@ urls.Issues = "https://github.com/xberg-io/sdks/issues"
 urls.Repository = "https://github.com/xberg-io/sdks"
 
 [tool.hatch]
-build.targets.sdist.include = ["src/kreuzberg_cloud/**", "README.md", "LICENSE", "pyproject.toml"]
-build.targets.wheel.packages = ["src/kreuzberg_cloud"]
+build.targets.sdist.include = ["src/xberg_io_sdk/**", "README.md", "LICENSE", "pyproject.toml"]
+build.targets.wheel.packages = ["src/xberg_io_sdk"]

@@ -1,4 +1,4 @@
-"""Tests for ``KreuzbergCloud.extract`` / ``AsyncKreuzbergCloud.extract`` and batch variants."""
+"""Tests for ``XbergClient.extract`` / ``AsyncXbergClient.extract`` and batch variants."""
 
 from __future__ import annotations
 
@@ -9,8 +9,8 @@ import httpx
 import pytest
 import respx
 
-from kreuzberg_cloud import AsyncKreuzbergCloud, ExtractionOptions, KreuzbergCloud
 from tests.conftest import TEST_API_KEY, make_extract_response, make_job_payload
+from xberg_io_sdk import AsyncXbergClient, ExtractionOptions, XbergClient
 
 
 @respx.mock
@@ -23,7 +23,7 @@ def test_extract_sync_happy_path_with_bytes(base_url: str, api_key: str) -> None
         return_value=httpx.Response(200, json=make_job_payload(job_id=job_id, status="pending")),
     )
 
-    with KreuzbergCloud(api_key=api_key, base_url=base_url) as client:
+    with XbergClient(api_key=api_key, base_url=base_url) as client:
         job = client.extract(file=b"%PDF-1.4 fake")
 
     assert extract_route.called
@@ -42,7 +42,7 @@ def test_extract_sync_sends_multipart_with_file_and_webhook_fields(base_url: str
         return_value=httpx.Response(200, json=make_job_payload(job_id=job_id, status="pending")),
     )
 
-    with KreuzbergCloud(api_key=api_key, base_url=base_url) as client:
+    with XbergClient(api_key=api_key, base_url=base_url) as client:
         client.extract(file=b"data")
 
     assert route.called
@@ -68,7 +68,7 @@ def test_extract_sync_serializes_options_as_json_part(base_url: str, api_key: st
 
     options = {"extraction_config": {"chunk_content": True}}
 
-    with KreuzbergCloud(api_key=api_key, base_url=base_url) as client:
+    with XbergClient(api_key=api_key, base_url=base_url) as client:
         client.extract(file=b"data", options=options)
 
     body = route.calls.last.request.content
@@ -88,7 +88,7 @@ def test_extract_sync_accepts_extraction_options_model(base_url: str, api_key: s
 
     options = ExtractionOptions()
 
-    with KreuzbergCloud(api_key=api_key, base_url=base_url) as client:
+    with XbergClient(api_key=api_key, base_url=base_url) as client:
         client.extract(file=b"data", options=options)
 
     body = route.calls.last.request.content
@@ -108,7 +108,7 @@ def test_extract_sync_accepts_binaryio_input(base_url: str, api_key: str) -> Non
     stream = io.BytesIO(b"hello")
     stream.name = "doc.pdf"
 
-    with KreuzbergCloud(api_key=api_key, base_url=base_url) as client:
+    with XbergClient(api_key=api_key, base_url=base_url) as client:
         job = client.extract(file=stream)
 
     assert str(job.id) == job_id
@@ -129,7 +129,7 @@ def test_extract_sync_accepts_path_input(tmp_path: object, base_url: str, api_ke
         return_value=httpx.Response(200, json=make_job_payload(job_id=job_id, status="pending")),
     )
 
-    with KreuzbergCloud(api_key=api_key, base_url=base_url) as client:
+    with XbergClient(api_key=api_key, base_url=base_url) as client:
         client.extract(file=target)
 
     body = route.calls.last.request.content
@@ -147,33 +147,32 @@ def test_extract_sends_authorization_header(base_url: str, api_key: str) -> None
         return_value=httpx.Response(200, json=make_job_payload(job_id=job_id)),
     )
 
-    with KreuzbergCloud(api_key=api_key, base_url=base_url) as client:
+    with XbergClient(api_key=api_key, base_url=base_url) as client:
         client.extract(file=b"x")
 
     assert route.calls.last.request.headers["authorization"] == f"Bearer {TEST_API_KEY}"
 
 
 @respx.mock
-def test_extract_batch_sync_issues_one_request_per_file(base_url: str, api_key: str) -> None:
+def test_extract_batch_sync_sends_single_multipart_request(base_url: str, api_key: str) -> None:
     job_ids = [
         "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
         "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
     ]
     extract_route = respx.post(f"{base_url}/v1/extract").mock(
-        side_effect=[
-            httpx.Response(202, json=make_extract_response(job_ids=[job_ids[0]])),
-            httpx.Response(202, json=make_extract_response(job_ids=[job_ids[1]])),
-        ],
+        return_value=httpx.Response(202, json=make_extract_response(job_ids=job_ids)),
     )
     for job_id in job_ids:
         respx.get(f"{base_url}/v1/jobs/{job_id}").mock(
             return_value=httpx.Response(200, json=make_job_payload(job_id=job_id, status="pending")),
         )
 
-    with KreuzbergCloud(api_key=api_key, base_url=base_url) as client:
+    with XbergClient(api_key=api_key, base_url=base_url) as client:
         jobs = client.extract_batch([b"a", b"b"])
 
-    assert extract_route.call_count == 2
+    assert extract_route.call_count == 1
+    body = extract_route.calls.last.request.content
+    assert body.count(b'name="file"') == 2
     assert [str(j.id) for j in jobs] == job_ids
 
 
@@ -188,7 +187,7 @@ async def test_extract_async_happy_path(base_url: str, api_key: str) -> None:
         return_value=httpx.Response(200, json=make_job_payload(job_id=job_id, status="pending")),
     )
 
-    async with AsyncKreuzbergCloud(api_key=api_key, base_url=base_url) as client:
+    async with AsyncXbergClient(api_key=api_key, base_url=base_url) as client:
         job = await client.extract(file=b"data")
 
     assert str(job.id) == job_id
@@ -196,24 +195,25 @@ async def test_extract_async_happy_path(base_url: str, api_key: str) -> None:
 
 @pytest.mark.asyncio
 @respx.mock
-async def test_extract_batch_async_runs_in_parallel(base_url: str, api_key: str) -> None:
+async def test_extract_batch_async_single_request_fetches_jobs_in_parallel(base_url: str, api_key: str) -> None:
     job_ids = [
         "dddddddd-dddd-dddd-dddd-dddddddddddd",
         "eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee",
         "ffffffff-ffff-ffff-ffff-ffffffffffff",
     ]
     extract_route = respx.post(f"{base_url}/v1/extract").mock(
-        side_effect=[httpx.Response(202, json=make_extract_response(job_ids=[jid])) for jid in job_ids],
+        return_value=httpx.Response(202, json=make_extract_response(job_ids=job_ids)),
     )
     for jid in job_ids:
         respx.get(f"{base_url}/v1/jobs/{jid}").mock(
             return_value=httpx.Response(200, json=make_job_payload(job_id=jid, status="pending")),
         )
 
-    async with AsyncKreuzbergCloud(api_key=api_key, base_url=base_url) as client:
+    async with AsyncXbergClient(api_key=api_key, base_url=base_url) as client:
         jobs = await client.extract_batch([b"a", b"b", b"c"])
 
-    assert extract_route.call_count == 3
+    assert extract_route.call_count == 1
+    assert extract_route.calls.last.request.content.count(b'name="file"') == 3
     assert {str(j.id) for j in jobs} == set(job_ids)
 
 
@@ -223,7 +223,7 @@ def test_extract_response_with_unexpected_shape_raises(base_url: str, api_key: s
         return_value=httpx.Response(202, json={"unexpected": "shape"}),
     )
 
-    with KreuzbergCloud(api_key=api_key, base_url=base_url) as client, pytest.raises(ValueError, match="job_ids"):
+    with XbergClient(api_key=api_key, base_url=base_url) as client, pytest.raises(ValueError, match="job_ids"):
         client.extract(file=b"x")
 
 
@@ -239,7 +239,7 @@ def test_extract_options_dict_round_trip_is_correct_json(base_url: str, api_key:
 
     options = {"extraction_config": {"detect_languages": True, "force_ocr": False}}
 
-    with KreuzbergCloud(api_key=api_key, base_url=base_url) as client:
+    with XbergClient(api_key=api_key, base_url=base_url) as client:
         client.extract(file=b"x", options=options)
 
     body = route.calls.last.request.content.decode("utf-8", errors="replace")

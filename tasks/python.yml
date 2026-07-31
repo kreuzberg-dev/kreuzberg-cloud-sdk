@@ -1,33 +1,67 @@
 version: "3"
 
+# The Python SDK ships ONE package (`xberg_io_sdk`) with ONE dual-target client,
+# generated from TWO OpenAPI specs kept as separate schema sets (never merged;
+# see xberg-enterprise ADR-0072):
+#   - spec/api/openapi.yaml  -> src/xberg_io_sdk/_generated_api  (Xberg Enterprise)
+#   - spec/pro/openapi.yaml  -> src/xberg_io_sdk/_generated_pro  (Xberg Pro)
 vars:
   PKG_DIR: packages/python
-  GENERATED_DIR: packages/python/src/kreuzberg_cloud/_generated
+  SRC_DIR: packages/python/src/xberg_io_sdk
+  GEN_API: packages/python/src/xberg_io_sdk/_generated_api
+  GEN_PRO: packages/python/src/xberg_io_sdk/_generated_pro
+  API_SPEC: spec/api/openapi.yaml
+  PRO_SPEC: spec/pro/openapi.yaml
 
 tasks:
   generate:
-    desc: "Regenerate Python client from spec/openapi.yaml using openapi-python-client"
+    desc: "Regenerate both Python schema sets (Enterprise + Pro) via openapi-python-client"
     cmds:
-      - rm -rf {{.GENERATED_DIR}}
-      - mkdir -p {{.GENERATED_DIR}}
+      - task: _generate-one
+        vars: { SPEC: "{{.API_SPEC}}", OUT: "{{.GEN_API}}" }
+      - task: _generate-one
+        vars: { SPEC: "{{.PRO_SPEC}}", OUT: "{{.GEN_PRO}}" }
+      # FormatMetadata discriminator patch — API spec only. Guarded so it is a
+      # no-op when the target spec has no FormatMetadata schema (e.g. Pro).
+      - task: _patch-format-metadata
+        vars: { SPEC: "{{.API_SPEC}}", OUT: "{{.GEN_API}}" }
+      - task: _patch-format-metadata
+        vars: { SPEC: "{{.PRO_SPEC}}", OUT: "{{.GEN_PRO}}" }
+
+  _generate-one:
+    internal: true
+    cmds:
+      - rm -rf {{.OUT}}
+      - mkdir -p {{.OUT}}
       - uv run -m openapi_python_client generate
-        --path spec/openapi.yaml
+        --path {{.SPEC}}
         --config {{.PKG_DIR}}/openapi-python-client.yaml
-        --output-path {{.GENERATED_DIR}}/_pkg
+        --output-path {{.OUT}}/_pkg
         --overwrite
         --meta none
-      - mv {{.GENERATED_DIR}}/_pkg/* {{.GENERATED_DIR}}/
-      - rmdir {{.GENERATED_DIR}}/_pkg
-      - touch {{.GENERATED_DIR}}/__init__.py
+      - mv {{.OUT}}/_pkg/* {{.OUT}}/
+      - rmdir {{.OUT}}/_pkg
+      - touch {{.OUT}}/__init__.py
+
+  _patch-format-metadata:
+    internal: true
+    cmds:
       - |
         uv run python - <<'PY'
         from pathlib import Path
 
         from ruamel.yaml import YAML
 
-        spec = YAML(typ="safe").load(Path("spec/openapi.yaml"))
-        mapping = spec["components"]["schemas"]["FormatMetadata"]["discriminator"]["mapping"]
-        generated = Path("{{.GENERATED_DIR}}/models/metadata.py")
+        spec = YAML(typ="safe").load(Path("{{.SPEC}}"))
+        schemas = (spec.get("components") or {}).get("schemas") or {}
+        format_metadata = schemas.get("FormatMetadata")
+        generated = Path("{{.OUT}}/models/metadata.py")
+        # Guard: skip when the spec has no FormatMetadata discriminator or the
+        # generated model file was not produced (e.g. the Pro schema set).
+        if format_metadata is None or "discriminator" not in format_metadata or not generated.exists():
+            print("FormatMetadata patch skipped for {{.OUT}} (no discriminator / no model)")  # noqa: T201
+            raise SystemExit(0)
+        mapping = format_metadata["discriminator"]["mapping"]
         text = generated.read_text()
         format_parser = "        def _parse_format_(\n"
         start = text.index(format_parser)
@@ -52,6 +86,7 @@ tasks:
             )
             text = text[:insert_at] + block + text[insert_at:]
         generated.write_text(text)
+        print("FormatMetadata patch applied to {{.OUT}}")  # noqa: T201
         PY
 
   install:
@@ -73,7 +108,7 @@ tasks:
   test:cov:
     desc: "Run Python tests with coverage"
     cmds:
-      - uv run pytest {{.PKG_DIR}}/tests --cov=kreuzberg_cloud --cov-report=term --cov-report=html
+      - uv run pytest {{.PKG_DIR}}/tests --cov=xberg_io_sdk --cov-report=term --cov-report=html
 
   lint:
     desc: "Lint Python sources (ruff + mypy)"

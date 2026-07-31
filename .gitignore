@@ -44,7 +44,8 @@ pubspec.lock
 # NOTE: packages/dart/lib/src/_generated/ is intentionally NOT gitignored —
 # pub.dev archives only include git-tracked files, so the generated tree must
 # ship inside the package.
-packages/python/src/kreuzberg_cloud/_generated/
+packages/python/src/xberg_io_sdk/_generated_api/
+packages/python/src/xberg_io_sdk/_generated_pro/
 packages/typescript/src/_generated/
 packages/go/v1/generated.go
 
