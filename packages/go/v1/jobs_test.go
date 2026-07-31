@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -183,12 +184,20 @@ func TestWaitForJob_FailedStatusReturnsError(t *testing.T) {
 
 func TestWaitForJob_ExponentialBackoffIncreases(t *testing.T) {
 	t.Parallel()
-	var timestamps []time.Time
+	// ~keep The handler goroutine records poll timestamps concurrently with the
+	// test goroutine's read, so guard the slice with a mutex to stay -race clean.
+	var (
+		mu         sync.Mutex
+		timestamps []time.Time
+	)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		mu.Lock()
 		timestamps = append(timestamps, time.Now())
+		count := len(timestamps)
+		mu.Unlock()
 		status := "processing"
 		extra := ""
-		if len(timestamps) >= 4 {
+		if count >= 4 {
 			status = "completed"
 			extra = `,"result":{"content":"done"}`
 		}
@@ -200,19 +209,24 @@ func TestWaitForJob_ExponentialBackoffIncreases(t *testing.T) {
 	}))
 	defer server.Close()
 	client := mustClient(t, xberg.WithBaseURL(server.URL))
+	// ~keep Base interval is 50ms so the exponential step (50ms -> 100ms) dwarfs
+	// scheduling jitter under `go test -race`; a 10ms base flaked when jitter
+	// exceeded the tiny gap difference.
 	if _, err := client.WaitForJob(context.Background(), jobUUID, &xberg.WaitOptions{
-		Timeout:      2 * time.Second,
-		PollInterval: 10 * time.Millisecond,
+		Timeout:      5 * time.Second,
+		PollInterval: 50 * time.Millisecond,
 		Backoff:      xberg.BackoffExponential,
 	}); err != nil {
 		t.Fatalf("WaitForJob: %v", err)
 	}
+	mu.Lock()
+	defer mu.Unlock()
 	if len(timestamps) < 4 {
 		t.Fatalf("got %d polls, want >=4", len(timestamps))
 	}
 	gap1 := timestamps[1].Sub(timestamps[0])
 	gap2 := timestamps[2].Sub(timestamps[1])
-	if gap2 < gap1 {
+	if gap2 <= gap1 {
 		t.Errorf("expected exponential growth, gap1=%v gap2=%v", gap1, gap2)
 	}
 }
