@@ -47,7 +47,8 @@ pubspec.lock
 packages/python/src/xberg_io_sdk/_generated_api/
 packages/python/src/xberg_io_sdk/_generated_pro/
 packages/typescript/src/_generated/
-packages/go/v1/generated.go
+packages/go/v1/generated_api.go
+packages/go/v1/generated_pro.go
 
 # Editor
 .idea/

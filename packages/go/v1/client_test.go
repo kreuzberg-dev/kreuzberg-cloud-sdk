@@ -1,4 +1,4 @@
-package kreuzbergcloud
+package xberg
 
 import (
 	"context"

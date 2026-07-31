@@ -1,4 +1,4 @@
-package kreuzbergcloud_test
+package xberg_test
 
 import (
 	"context"
@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	kreuzbergcloud "github.com/xberg-io/sdks/go/v1"
+	xberg "github.com/xberg-io/sdks/packages/go/v1"
 )
 
 func TestCreateSandboxKey_ReturnsParsedKey(t *testing.T) {
@@ -31,7 +31,7 @@ func TestCreateSandboxKey_ReturnsParsedKey(t *testing.T) {
 		}`))
 	}))
 	defer server.Close()
-	client := mustClient(t, kreuzbergcloud.WithBaseURL(server.URL))
+	client := mustClient(t, xberg.WithBaseURL(server.URL))
 	key, err := client.CreateSandboxKey(context.Background())
 	if err != nil {
 		t.Fatalf("CreateSandboxKey: %v", err)
@@ -58,9 +58,9 @@ func TestFromSandbox_ReturnsClientWithKey(t *testing.T) {
 			_, _ = w.Write([]byte(`{
 				"api_key":"sb-xyz","expires_at":"2025-12-21T11:00:00Z","pages_remaining":10
 			}`))
-		case "/v1/jobs/some-id":
+		case "/v1/jobs/550e8400-e29b-41d4-a716-446655440000":
 			_, _ = w.Write([]byte(`{
-				"id":"some-id","filename":"a.pdf","status":"completed",
+				"id":"550e8400-e29b-41d4-a716-446655440000","filename":"a.pdf","status":"completed",
 				"created_at":"2025-12-21T10:00:00Z","result":{"content":"ok"}
 			}`))
 		default:
@@ -68,11 +68,11 @@ func TestFromSandbox_ReturnsClientWithKey(t *testing.T) {
 		}
 	}))
 	defer server.Close()
-	client, err := kreuzbergcloud.FromSandbox(context.Background(), kreuzbergcloud.WithBaseURL(server.URL))
+	client, err := xberg.FromSandbox(context.Background(), xberg.WithBaseURL(server.URL))
 	if err != nil {
 		t.Fatalf("FromSandbox: %v", err)
 	}
-	if _, err := client.GetJob(context.Background(), "some-id"); err != nil {
+	if _, err := client.GetJob(context.Background(), "550e8400-e29b-41d4-a716-446655440000"); err != nil {
 		t.Fatalf("GetJob: %v", err)
 	}
 	if len(seen) != 2 {
@@ -84,7 +84,7 @@ func TestFromSandbox_ReturnsClientWithKey(t *testing.T) {
 	if !strings.HasSuffix(seen[0], "|") {
 		t.Errorf("first call %q should be anonymous", seen[0])
 	}
-	if seen[1] != "/v1/jobs/some-id|Bearer sb-xyz" {
+	if seen[1] != "/v1/jobs/550e8400-e29b-41d4-a716-446655440000|Bearer sb-xyz" {
 		t.Errorf("second call = %q, want bearer sb-xyz", seen[1])
 	}
 }
@@ -97,9 +97,9 @@ func TestCreateSandboxKey_RateLimitedReturnsRateLimitError(t *testing.T) {
 		fmt.Fprintf(w, `{"error":"too fast"}`)
 	}))
 	defer server.Close()
-	client := mustClient(t, kreuzbergcloud.WithBaseURL(server.URL))
+	client := mustClient(t, xberg.WithBaseURL(server.URL))
 	_, err := client.CreateSandboxKey(context.Background())
-	var rate *kreuzbergcloud.RateLimitError
+	var rate *xberg.RateLimitError
 	if !asError(err, &rate) {
 		t.Fatalf("expected RateLimitError, got %T: %v", err, err)
 	}
@@ -114,7 +114,7 @@ func TestCreateSandboxKey_RejectsEmptyAPIKey(t *testing.T) {
 		_, _ = w.Write([]byte(`{"api_key":"","expires_at":"2025-12-21T11:00:00Z","pages_remaining":0}`))
 	}))
 	defer server.Close()
-	client := mustClient(t, kreuzbergcloud.WithBaseURL(server.URL))
+	client := mustClient(t, xberg.WithBaseURL(server.URL))
 	_, err := client.CreateSandboxKey(context.Background())
 	if err == nil {
 		t.Errorf("expected error for empty api_key, got nil")

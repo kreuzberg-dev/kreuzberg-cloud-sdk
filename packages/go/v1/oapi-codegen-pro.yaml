@@ -1,0 +1,76 @@
+# Xberg Pro schema set. Generated from spec/pro/openapi.yaml into the shared
+# `xberg` package. Every schema shared with the Enterprise spec is excluded
+# here (it is already declared in generated_api.go), so this file carries only
+# the Pro-only models (auth/login, saved presets, job result, RAG config).
+# include-operation-ids is likewise pinned to the Pro-only operations so no
+# shared operation param/body types are emitted twice in the same package.
+# The two schema sets are never merged — mirrors xberg-enterprise ADR-0072.
+package: xberg
+output: generated_pro.go
+generate:
+  models: true
+output-options:
+  skip-prune: true
+  include-operation-ids:
+    - create_saved_preset
+    - delete_account
+    - delete_saved_preset
+    - get_auth_config
+    - get_job_result
+    - get_rag_config
+    - get_saved_preset
+    - list_audit_logs
+    - list_saved_presets
+    - login
+    - set_rag_config
+    - update_saved_preset
+  exclude-schemas:
+    - AuditEntry
+    - CollectionChunkingConfig
+    - CollectionResponse
+    - CollectionStatsResponse
+    - CreateCollectionRequest
+    - CreateCollectionResponse
+    - CreateDocumentAsyncResponse
+    - CreateDocumentChunkInput
+    - CreateDocumentRequest
+    - CreateDocumentResponse
+    - CreateDocumentSource
+    - DeleteDocumentsRequest
+    - DeleteDocumentsResponse
+    - DocumentInput
+    - DocumentSubmission
+    - ErrorBody
+    - ErrorResponse
+    - ExtractionOptions
+    - ExtractRequest
+    - ExtractResponse
+    - HealthResponse
+    - IncludeMask
+    - IntegrationInput
+    - JobStatus
+    - JobSummary
+    - LatencyBreakdown
+    - ListAuditEntriesResponse
+    - ListCollectionsResponse
+    - ListJobsResponse
+    - MigrateEmbeddingsRequest
+    - MigrateEmbeddingsResponse
+    - MigrateProgress
+    - MigrateStatus
+    - MigrateStatusResponse
+    - PrimaryScore
+    - RagJobKind
+    - RagJobProgress
+    - RagJobState
+    - RagJobStatusResponse
+    - ReindexRequest
+    - RerankerKind
+    - RerankerSpec
+    - RetrievedChunk
+    - RetrieveMode
+    - RetrieveRequest
+    - RetrieveResponse
+    - ScoreBreakdown
+    - UrlInput
+    - WebhookConfig

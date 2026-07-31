@@ -1,9 +1,10 @@
-package kreuzbergcloud
+package xberg
 
 import (
 	"context"
 	"errors"
 	"fmt"
+	"net/url"
 	"sync"
 	"time"
 )
@@ -18,27 +19,69 @@ const (
 )
 
 // GetJob fetches the current status of a single job by ID.
-func (c *Client) GetJob(ctx context.Context, jobID string) (*Job, error) {
+//
+// Part of the shared surface (Enterprise + Pro).
+func (c *Client) GetJob(ctx context.Context, jobID string) (*JobResponse, error) {
 	if jobID == "" {
-		return nil, fmt.Errorf("xberg-enterprise: GetJob requires a non-empty jobID")
+		return nil, fmt.Errorf("xberg: GetJob requires a non-empty jobID")
 	}
-	var job Job
-	spec := requestSpec{method: methodGet, path: "/v1/jobs/" + jobID}
-	if err := c.doJSON(ctx, spec, &job); err != nil {
+	var job JobResponse
+	if err := c.getJSON(ctx, "/v1/jobs/"+url.PathEscape(jobID), &job); err != nil {
 		return nil, err
 	}
 	return &job, nil
 }
 
-// WaitForJob polls GET /v1/jobs/{id} until the job reaches a terminal status
-// or the configured timeout elapses. The returned [JobResult] is the same
-// payload exposed via Job.Result on success; on a "failed" terminal status
-// it returns a typed error wrapping the server-supplied message.
+// ListJobs lists jobs via GET /v1/jobs (paginated). A non-positive limit or
+// offset is omitted from the query string.
+//
+// Part of the shared surface (Enterprise + Pro).
+func (c *Client) ListJobs(ctx context.Context, limit, offset int) (*ListJobsResponse, error) {
+	path := "/v1/jobs" + pageQuery(limit, offset)
+	var out ListJobsResponse
+	if err := c.getJSON(ctx, path, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+// Audit fetches audit-log entries via GET /v1/audit. An empty action or a
+// non-positive limit/offset is omitted from the query string.
+//
+// Part of the shared surface (Enterprise + Pro).
+func (c *Client) Audit(ctx context.Context, action string, limit, offset int) (*ListAuditEntriesResponse, error) {
+	q := url.Values{}
+	if action != "" {
+		q.Set("action", action)
+	}
+	if limit > 0 {
+		q.Set("limit", fmt.Sprintf("%d", limit))
+	}
+	if offset > 0 {
+		q.Set("offset", fmt.Sprintf("%d", offset))
+	}
+	path := "/v1/audit"
+	if encoded := q.Encode(); encoded != "" {
+		path += "?" + encoded
+	}
+	var out ListAuditEntriesResponse
+	if err := c.getJSON(ctx, path, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+// WaitForJob polls GET /v1/jobs/{id} until the job reaches a terminal status or
+// the configured timeout elapses. It returns the terminal [JobResponse] on a
+// successful state (completed / partial_success); a failed or cancelled job
+// yields an error wrapping the server-supplied message.
+//
+// Part of the shared surface (Enterprise + Pro).
 func (c *Client) WaitForJob(
 	ctx context.Context,
 	jobID string,
 	opts *WaitOptions,
-) (*JobResult, error) {
+) (*JobResponse, error) {
 	options := normaliseWaitOptions(opts)
 	start := time.Now()
 	deadline := start.Add(options.Timeout)
@@ -49,7 +92,7 @@ func (c *Client) WaitForJob(
 			return nil, err
 		}
 		if IsTerminalStatus(job.Status) {
-			return jobResultFromTerminal(job)
+			return jobFromTerminal(jobID, job)
 		}
 		if !time.Now().Before(deadline) {
 			return nil, &TimeoutError{JobID: jobID, Elapsed: time.Since(start)}
@@ -72,15 +115,17 @@ func (c *Client) WaitForJob(
 // WaitForJobs concurrently waits for a slice of job IDs and returns their
 // results in submission order. Errors from individual jobs are propagated
 // immediately — the first error cancels the remaining waits.
+//
+// Part of the shared surface (Enterprise + Pro).
 func (c *Client) WaitForJobs(
 	ctx context.Context,
 	jobIDs []string,
 	opts *WaitOptions,
-) ([]*JobResult, error) {
+) ([]*JobResponse, error) {
 	if len(jobIDs) == 0 {
 		return nil, nil
 	}
-	results := make([]*JobResult, len(jobIDs))
+	results := make([]*JobResponse, len(jobIDs))
 	errs := make([]error, len(jobIDs))
 	groupCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
@@ -112,14 +157,16 @@ func (c *Client) WaitForJobs(
 }
 
 // ExtractAndWait is a convenience wrapper that submits a single document and
-// blocks until extraction completes, returning the final [JobResult]. The
+// blocks until extraction completes, returning the terminal [JobResponse]. The
 // extraction options and wait policy can be overridden via opts; either field
 // may be nil to accept defaults.
+//
+// Part of the shared surface (Enterprise + Pro).
 func (c *Client) ExtractAndWait(
 	ctx context.Context,
 	file FileSource,
 	opts *ExtractAndWaitOptions,
-) (*JobResult, error) {
+) (*JobResponse, error) {
 	var extraction *ExtractionOptions
 	var wait *WaitOptions
 	if opts != nil {
@@ -130,7 +177,7 @@ func (c *Client) ExtractAndWait(
 	if err != nil {
 		return nil, err
 	}
-	return c.WaitForJob(ctx, job.ID, wait)
+	return c.WaitForJob(ctx, job.Id.String(), wait)
 }
 
 func normaliseWaitOptions(opts *WaitOptions) WaitOptions {
@@ -160,29 +207,46 @@ func nextPollInterval(current time.Duration) time.Duration {
 	return next
 }
 
-// jobResultFromTerminal converts a terminal Job into a JobResult or error.
-func jobResultFromTerminal(job *Job) (*JobResult, error) {
+// jobFromTerminal returns a terminal job or maps a failed/cancelled state to an
+// error carrying the server-supplied detail when present.
+func jobFromTerminal(jobID string, job *JobResponse) (*JobResponse, error) {
 	switch job.Status {
 	case JobStatusCompleted, JobStatusPartialSuccess:
-		if job.Result == nil {
-			return nil, fmt.Errorf(
-				"xberg-enterprise: job %s reported %s but no result body",
-				job.ID, job.Status,
-			)
-		}
-		return job.Result, nil
+		return job, nil
 	case JobStatusFailed:
-		message := "job failed"
-		if job.Result != nil && job.Result.Content != "" {
-			message = job.Result.Content
+		if detail := jobFailureDetail(job); detail != "" {
+			return nil, fmt.Errorf("xberg: job %s failed: %s", jobID, detail)
 		}
-		return nil, fmt.Errorf("xberg-enterprise: job %s failed: %s", job.ID, message)
+		return nil, fmt.Errorf("xberg: job %s failed", jobID)
 	case JobStatusCancelled:
-		return nil, fmt.Errorf("xberg-enterprise: job %s was canceled", job.ID)
+		return nil, fmt.Errorf("xberg: job %s was cancelled", jobID)
 	default:
 		return nil, fmt.Errorf(
-			"xberg-enterprise: job %s reached unrecognized terminal status %q",
-			job.ID, job.Status,
+			"xberg: job %s reached unrecognized terminal status %q", jobID, job.Status,
 		)
 	}
+}
+
+// jobFailureDetail best-effort extracts a human-readable failure message from a
+// terminal job's inlined extraction result.
+func jobFailureDetail(job *JobResponse) string {
+	if job.Result != nil && job.Result.Content != "" {
+		return job.Result.Content
+	}
+	return ""
+}
+
+// pageQuery builds a "?limit=&offset=" suffix, omitting non-positive values.
+func pageQuery(limit, offset int) string {
+	q := url.Values{}
+	if limit > 0 {
+		q.Set("limit", fmt.Sprintf("%d", limit))
+	}
+	if offset > 0 {
+		q.Set("offset", fmt.Sprintf("%d", offset))
+	}
+	if encoded := q.Encode(); encoded != "" {
+		return "?" + encoded
+	}
+	return ""
 }

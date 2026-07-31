@@ -1,8 +1,9 @@
-package kreuzbergcloud_test
+package xberg_test
 
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"mime"
 	"mime/multipart"
@@ -11,42 +12,59 @@ import (
 	"strings"
 	"testing"
 
-	kreuzbergcloud "github.com/xberg-io/sdks/go/v1"
+	xberg "github.com/xberg-io/sdks/packages/go/v1"
 )
+
+// UUID fixtures for extract tests — the generated JobResponse types its id as a
+// UUID, and Extract fetches each returned job via GetJob.
+const (
+	extractJobA = "aaaaaaaa-1111-1111-1111-111111111111"
+	extractJobB = "bbbbbbbb-2222-2222-2222-222222222222"
+	extractJobC = "cccccccc-3333-3333-3333-333333333333"
+)
+
+// jobBody renders a minimal terminal GET /v1/jobs/{id} response body.
+func jobBody(id, filename, status string) string {
+	return fmt.Sprintf(
+		`{"id":%q,"filename":%q,"status":%q,"created_at":"2025-12-21T10:00:00Z"}`,
+		id, filename, status,
+	)
+}
 
 func TestExtract_SubmitsSingleFileAndReturnsJob(t *testing.T) {
 	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/v1/extract" {
-			t.Errorf("path = %q, want /v1/extract", r.URL.Path)
+		switch {
+		case r.Method == http.MethodPost && r.URL.Path == "/v1/extract":
+			if got := r.Header.Get("Authorization"); got != "Bearer test-key" {
+				t.Errorf("Authorization = %q, want %q", got, "Bearer test-key")
+			}
+			w.WriteHeader(http.StatusAccepted)
+			fmt.Fprintf(w, `{"job_ids":[%q],"status":"pending"}`, extractJobA)
+		case r.Method == http.MethodGet && r.URL.Path == "/v1/jobs/"+extractJobA:
+			_, _ = w.Write([]byte(jobBody(extractJobA, "invoice.pdf", "pending")))
+		default:
+			t.Errorf("unexpected request %s %s", r.Method, r.URL.Path)
 		}
-		if r.Method != http.MethodPost {
-			t.Errorf("method = %q, want POST", r.Method)
-		}
-		if got := r.Header.Get("Authorization"); got != "Bearer test-key" {
-			t.Errorf("Authorization = %q, want %q", got, "Bearer test-key")
-		}
-		w.WriteHeader(http.StatusAccepted)
-		_, _ = w.Write([]byte(`{"job_ids":["job-1"],"status":"pending"}`))
 	}))
 	defer server.Close()
 
-	client := mustClient(t, kreuzbergcloud.WithBaseURL(server.URL), kreuzbergcloud.WithAPIKey("test-key"))
+	client := mustClient(t, xberg.WithBaseURL(server.URL), xberg.WithAPIKey("test-key"))
 	job, err := client.Extract(
 		context.Background(),
-		kreuzbergcloud.FileSource{Name: "invoice.pdf", Reader: strings.NewReader("hello")},
+		xberg.FileSource{Name: "invoice.pdf", Reader: strings.NewReader("hello")},
 		nil,
 	)
 	if err != nil {
 		t.Fatalf("Extract: %v", err)
 	}
-	if job.ID != "job-1" {
-		t.Errorf("Job.ID = %q, want job-1", job.ID)
+	if job.Id.String() != extractJobA {
+		t.Errorf("Job.Id = %q, want %s", job.Id.String(), extractJobA)
 	}
 	if job.Filename != "invoice.pdf" {
 		t.Errorf("Job.Filename = %q, want invoice.pdf", job.Filename)
 	}
-	if job.Status != "pending" {
+	if job.Status != xberg.JobStatusPending {
 		t.Errorf("Job.Status = %q, want pending", job.Status)
 	}
 }
@@ -61,6 +79,11 @@ func TestExtract_MultipartBodyShape(t *testing.T) {
 	}
 	var got capture
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			id := strings.TrimPrefix(r.URL.Path, "/v1/jobs/")
+			_, _ = w.Write([]byte(jobBody(id, "f.pdf", "pending")))
+			return
+		}
 		mediaType, params, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
 		if err != nil || !strings.HasPrefix(mediaType, "multipart/") {
 			t.Errorf("content-type = %q, want multipart/...", r.Header.Get("Content-Type"))
@@ -86,22 +109,21 @@ func TestExtract_MultipartBodyShape(t *testing.T) {
 			}
 		}
 		w.WriteHeader(http.StatusAccepted)
-		_, _ = w.Write([]byte(`{"job_ids":["a","b"],"status":"pending"}`))
+		fmt.Fprintf(w, `{"job_ids":[%q,%q],"status":"pending"}`, extractJobA, extractJobB)
 	}))
 	defer server.Close()
 
-	client := mustClient(t, kreuzbergcloud.WithBaseURL(server.URL))
-	disable := false
+	client := mustClient(t, xberg.WithBaseURL(server.URL))
 	_, err := client.ExtractBatch(
 		context.Background(),
-		[]kreuzbergcloud.FileSource{
+		[]xberg.FileSource{
 			{Name: "a.pdf", Reader: strings.NewReader("aaaa")},
 			{Name: "b.png", Reader: strings.NewReader("bbbb")},
 		},
-		&kreuzbergcloud.ExtractionOptions{
-			ExtractionConfig: &kreuzbergcloud.ExtractionConfig{
-				OutputFormat: "markdown",
-				DisableOCR:   &disable,
+		&xberg.ExtractionOptions{
+			ExtractionConfig: map[string]any{
+				"output_format": "markdown",
+				"disable_ocr":   false,
 			},
 		},
 	)
@@ -133,7 +155,7 @@ func TestExtract_MultipartBodyShape(t *testing.T) {
 
 func TestExtractBatch_RejectsEmptySlice(t *testing.T) {
 	t.Parallel()
-	client := mustClient(t, kreuzbergcloud.WithBaseURL("https://example.test"))
+	client := mustClient(t, xberg.WithBaseURL("https://example.test"))
 	if _, err := client.ExtractBatch(context.Background(), nil, nil); err == nil {
 		t.Errorf("ExtractBatch(nil) returned nil error")
 	}
@@ -141,10 +163,10 @@ func TestExtractBatch_RejectsEmptySlice(t *testing.T) {
 
 func TestExtractBatch_RejectsMissingFilename(t *testing.T) {
 	t.Parallel()
-	client := mustClient(t, kreuzbergcloud.WithBaseURL("https://example.test"))
+	client := mustClient(t, xberg.WithBaseURL("https://example.test"))
 	_, err := client.ExtractBatch(
 		context.Background(),
-		[]kreuzbergcloud.FileSource{{Name: "", Reader: strings.NewReader("x")}},
+		[]xberg.FileSource{{Name: "", Reader: strings.NewReader("x")}},
 		nil,
 	)
 	if err == nil {
@@ -154,10 +176,10 @@ func TestExtractBatch_RejectsMissingFilename(t *testing.T) {
 
 func TestExtractBatch_RejectsMissingReader(t *testing.T) {
 	t.Parallel()
-	client := mustClient(t, kreuzbergcloud.WithBaseURL("https://example.test"))
+	client := mustClient(t, xberg.WithBaseURL("https://example.test"))
 	_, err := client.ExtractBatch(
 		context.Background(),
-		[]kreuzbergcloud.FileSource{{Name: "x.pdf", Reader: nil}},
+		[]xberg.FileSource{{Name: "x.pdf", Reader: nil}},
 		nil,
 	)
 	if err == nil {
@@ -165,17 +187,30 @@ func TestExtractBatch_RejectsMissingReader(t *testing.T) {
 	}
 }
 
-func TestExtractBatch_ReturnsJobIDsInOrder(t *testing.T) {
+func TestExtractBatch_ReturnsJobsInOrder(t *testing.T) {
 	t.Parallel()
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	ids := []string{extractJobA, extractJobB, extractJobC}
+	files := []string{"1.pdf", "2.pdf", "3.pdf"}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			id := strings.TrimPrefix(r.URL.Path, "/v1/jobs/")
+			idx := 0
+			for i, candidate := range ids {
+				if candidate == id {
+					idx = i
+				}
+			}
+			_, _ = w.Write([]byte(jobBody(id, files[idx], "pending")))
+			return
+		}
 		w.WriteHeader(http.StatusAccepted)
-		_, _ = w.Write([]byte(`{"job_ids":["x","y","z"],"status":"pending"}`))
+		fmt.Fprintf(w, `{"job_ids":[%q,%q,%q],"status":"pending"}`, ids[0], ids[1], ids[2])
 	}))
 	defer server.Close()
-	client := mustClient(t, kreuzbergcloud.WithBaseURL(server.URL))
+	client := mustClient(t, xberg.WithBaseURL(server.URL))
 	jobs, err := client.ExtractBatch(
 		context.Background(),
-		[]kreuzbergcloud.FileSource{
+		[]xberg.FileSource{
 			{Name: "1.pdf", Reader: strings.NewReader("1")},
 			{Name: "2.pdf", Reader: strings.NewReader("2")},
 			{Name: "3.pdf", Reader: strings.NewReader("3")},
@@ -185,14 +220,12 @@ func TestExtractBatch_ReturnsJobIDsInOrder(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ExtractBatch: %v", err)
 	}
-	want := []string{"x", "y", "z"}
-	wantFiles := []string{"1.pdf", "2.pdf", "3.pdf"}
 	for i, job := range jobs {
-		if job.ID != want[i] {
-			t.Errorf("jobs[%d].ID = %q, want %q", i, job.ID, want[i])
+		if job.Id.String() != ids[i] {
+			t.Errorf("jobs[%d].Id = %q, want %q", i, job.Id.String(), ids[i])
 		}
-		if job.Filename != wantFiles[i] {
-			t.Errorf("jobs[%d].Filename = %q, want %q", i, job.Filename, wantFiles[i])
+		if job.Filename != files[i] {
+			t.Errorf("jobs[%d].Filename = %q, want %q", i, job.Filename, files[i])
 		}
 	}
 }
@@ -201,13 +234,13 @@ func TestExtractBatch_ServerReturnsMismatchedJobCount(t *testing.T) {
 	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusAccepted)
-		_, _ = w.Write([]byte(`{"job_ids":["only-one"],"status":"pending"}`))
+		fmt.Fprintf(w, `{"job_ids":[%q],"status":"pending"}`, extractJobA)
 	}))
 	defer server.Close()
-	client := mustClient(t, kreuzbergcloud.WithBaseURL(server.URL))
+	client := mustClient(t, xberg.WithBaseURL(server.URL))
 	_, err := client.ExtractBatch(
 		context.Background(),
-		[]kreuzbergcloud.FileSource{
+		[]xberg.FileSource{
 			{Name: "a.pdf", Reader: strings.NewReader("aa")},
 			{Name: "b.pdf", Reader: strings.NewReader("bb")},
 		},
@@ -222,6 +255,11 @@ func TestExtract_OptionsAreOptional(t *testing.T) {
 	t.Parallel()
 	var receivedOptions bool
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			id := strings.TrimPrefix(r.URL.Path, "/v1/jobs/")
+			_, _ = w.Write([]byte(jobBody(id, "a.pdf", "pending")))
+			return
+		}
 		_, params, _ := mime.ParseMediaType(r.Header.Get("Content-Type"))
 		reader := multipart.NewReader(r.Body, params["boundary"])
 		for {
@@ -237,13 +275,13 @@ func TestExtract_OptionsAreOptional(t *testing.T) {
 			}
 		}
 		w.WriteHeader(http.StatusAccepted)
-		_, _ = w.Write([]byte(`{"job_ids":["nooptions"],"status":"pending"}`))
+		fmt.Fprintf(w, `{"job_ids":[%q],"status":"pending"}`, extractJobA)
 	}))
 	defer server.Close()
-	client := mustClient(t, kreuzbergcloud.WithBaseURL(server.URL))
+	client := mustClient(t, xberg.WithBaseURL(server.URL))
 	if _, err := client.Extract(
 		context.Background(),
-		kreuzbergcloud.FileSource{Name: "a.pdf", Reader: strings.NewReader("a")},
+		xberg.FileSource{Name: "a.pdf", Reader: strings.NewReader("a")},
 		nil,
 	); err != nil {
 		t.Fatalf("Extract: %v", err)
@@ -260,16 +298,16 @@ func TestExtract_PropagatesAPIError(t *testing.T) {
 		_ = json.NewEncoder(w).Encode(map[string]string{"error": "no document"})
 	}))
 	defer server.Close()
-	client := mustClient(t, kreuzbergcloud.WithBaseURL(server.URL))
+	client := mustClient(t, xberg.WithBaseURL(server.URL))
 	_, err := client.Extract(
 		context.Background(),
-		kreuzbergcloud.FileSource{Name: "x.pdf", Reader: strings.NewReader("x")},
+		xberg.FileSource{Name: "x.pdf", Reader: strings.NewReader("x")},
 		nil,
 	)
 	if err == nil {
 		t.Fatalf("expected error, got nil")
 	}
-	var validation *kreuzbergcloud.ValidationError
+	var validation *xberg.ValidationError
 	if !asError(err, &validation) {
 		t.Fatalf("expected ValidationError, got %T: %v", err, err)
 	}

@@ -1,19 +1,19 @@
-package kreuzbergcloud_test
+package xberg_test
 
 import (
 	"errors"
 	"testing"
 
-	kreuzbergcloud "github.com/xberg-io/sdks/go/v1"
+	xberg "github.com/xberg-io/sdks/packages/go/v1"
 )
 
 // mustClient builds a Client with the given options, failing the test on
 // configuration errors. Used to keep test bodies focused on assertions.
-func mustClient(t *testing.T, opts ...kreuzbergcloud.Option) *kreuzbergcloud.Client {
+func mustClient(t *testing.T, opts ...xberg.Option) *xberg.Client {
 	t.Helper()
-	client, err := kreuzbergcloud.New(opts...)
+	client, err := xberg.New(opts...)
 	if err != nil {
-		t.Fatalf("kreuzbergcloud.New: %v", err)
+		t.Fatalf("xberg.New: %v", err)
 	}
 	return client
 }

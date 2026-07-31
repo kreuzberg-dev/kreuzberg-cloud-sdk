@@ -1,4 +1,4 @@
-package kreuzbergcloud_test
+package xberg_test
 
 import (
 	"context"
@@ -10,33 +10,37 @@ import (
 	"testing"
 	"time"
 
-	kreuzbergcloud "github.com/xberg-io/sdks/go/v1"
+	xberg "github.com/xberg-io/sdks/packages/go/v1"
 )
+
+// jobUUID is a valid UUID used across job fixtures — the generated JobResponse
+// types its id as a UUID, so non-UUID fixture ids fail to decode.
+const jobUUID = "550e8400-e29b-41d4-a716-446655440000"
 
 func TestGetJob_ReturnsParsedJob(t *testing.T) {
 	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/v1/jobs/job-1" {
-			t.Errorf("path = %q, want /v1/jobs/job-1", r.URL.Path)
+		if r.URL.Path != "/v1/jobs/"+jobUUID {
+			t.Errorf("path = %q, want /v1/jobs/%s", r.URL.Path, jobUUID)
 		}
-		_, _ = w.Write([]byte(`{
-			"id":"job-1",
+		fmt.Fprintf(w, `{
+			"id":%q,
 			"filename":"a.pdf",
 			"status":"completed",
 			"created_at":"2025-12-21T10:00:00Z",
 			"result":{"content":"hello world"}
-		}`))
+		}`, jobUUID)
 	}))
 	defer server.Close()
-	client := mustClient(t, kreuzbergcloud.WithBaseURL(server.URL))
-	job, err := client.GetJob(context.Background(), "job-1")
+	client := mustClient(t, xberg.WithBaseURL(server.URL))
+	job, err := client.GetJob(context.Background(), jobUUID)
 	if err != nil {
 		t.Fatalf("GetJob: %v", err)
 	}
-	if job.ID != "job-1" {
-		t.Errorf("ID = %q, want job-1", job.ID)
+	if job.Id.String() != jobUUID {
+		t.Errorf("Id = %q, want %s", job.Id.String(), jobUUID)
 	}
-	if job.Status != "completed" {
+	if job.Status != xberg.JobStatusCompleted {
 		t.Errorf("Status = %q, want completed", job.Status)
 	}
 	if job.Result == nil || job.Result.Content != "hello world" {
@@ -49,7 +53,7 @@ func TestGetJob_ReturnsParsedJob(t *testing.T) {
 
 func TestGetJob_RejectsEmptyID(t *testing.T) {
 	t.Parallel()
-	client := mustClient(t, kreuzbergcloud.WithBaseURL("https://example.test"))
+	client := mustClient(t, xberg.WithBaseURL("https://example.test"))
 	_, err := client.GetJob(context.Background(), "")
 	if err == nil {
 		t.Errorf("GetJob(\"\") returned nil error")
@@ -63,9 +67,9 @@ func TestGetJob_NotFound(t *testing.T) {
 		_, _ = w.Write([]byte(`{"error":"Job not found"}`))
 	}))
 	defer server.Close()
-	client := mustClient(t, kreuzbergcloud.WithBaseURL(server.URL))
+	client := mustClient(t, xberg.WithBaseURL(server.URL))
 	_, err := client.GetJob(context.Background(), "missing")
-	var notFound *kreuzbergcloud.NotFoundError
+	var notFound *xberg.NotFoundError
 	if !asError(err, &notFound) {
 		t.Fatalf("expected NotFoundError, got %T: %v", err, err)
 	}
@@ -74,25 +78,33 @@ func TestGetJob_NotFound(t *testing.T) {
 	}
 }
 
+// jobStatusHandler serves GET /v1/jobs/{id} returning the given status, adding
+// a result body on terminal-success statuses.
+func jobStatusHandler(status string) http.HandlerFunc {
+	return func(w http.ResponseWriter, _ *http.Request) {
+		extra := ""
+		if status == "completed" || status == "partial_success" {
+			extra = `,"result":{"content":"done"}`
+		}
+		fmt.Fprintf(
+			w,
+			`{"id":%q,"filename":"a.pdf","status":%q,"created_at":"2025-12-21T10:00:00Z"%s}`,
+			jobUUID, status, extra,
+		)
+	}
+}
+
 func TestWaitForJob_ImmediateCompletion(t *testing.T) {
 	t.Parallel()
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = w.Write([]byte(`{
-			"id":"j",
-			"filename":"a.pdf",
-			"status":"completed",
-			"created_at":"2025-12-21T10:00:00Z",
-			"result":{"content":"done"}
-		}`))
-	}))
+	server := httptest.NewServer(jobStatusHandler("completed"))
 	defer server.Close()
-	client := mustClient(t, kreuzbergcloud.WithBaseURL(server.URL))
-	result, err := client.WaitForJob(context.Background(), "j", nil)
+	client := mustClient(t, xberg.WithBaseURL(server.URL))
+	job, err := client.WaitForJob(context.Background(), jobUUID, nil)
 	if err != nil {
 		t.Fatalf("WaitForJob: %v", err)
 	}
-	if result.Content != "done" {
-		t.Errorf("Content = %q, want done", result.Content)
+	if job.Result == nil || job.Result.Content != "done" {
+		t.Errorf("Result.Content = %v, want done", job.Result)
 	}
 }
 
@@ -109,22 +121,22 @@ func TestWaitForJob_PollsUntilTerminal(t *testing.T) {
 		}
 		fmt.Fprintf(
 			w,
-			`{"id":"j","filename":"a.pdf","status":%q,"created_at":"2025-12-21T10:00:00Z"%s}`,
-			status, extra,
+			`{"id":%q,"filename":"a.pdf","status":%q,"created_at":"2025-12-21T10:00:00Z"%s}`,
+			jobUUID, status, extra,
 		)
 	}))
 	defer server.Close()
-	client := mustClient(t, kreuzbergcloud.WithBaseURL(server.URL))
-	result, err := client.WaitForJob(context.Background(), "j", &kreuzbergcloud.WaitOptions{
+	client := mustClient(t, xberg.WithBaseURL(server.URL))
+	job, err := client.WaitForJob(context.Background(), jobUUID, &xberg.WaitOptions{
 		Timeout:      2 * time.Second,
 		PollInterval: 5 * time.Millisecond,
-		Backoff:      kreuzbergcloud.BackoffConstant,
+		Backoff:      xberg.BackoffConstant,
 	})
 	if err != nil {
 		t.Fatalf("WaitForJob: %v", err)
 	}
-	if result.Content != "finished" {
-		t.Errorf("Content = %q, want finished", result.Content)
+	if job.Result == nil || job.Result.Content != "finished" {
+		t.Errorf("Result.Content = %v, want finished", job.Result)
 	}
 	if got := calls.Load(); got < 3 {
 		t.Errorf("server saw %d calls, want >=3", got)
@@ -133,38 +145,34 @@ func TestWaitForJob_PollsUntilTerminal(t *testing.T) {
 
 func TestWaitForJob_TimesOut(t *testing.T) {
 	t.Parallel()
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = w.Write([]byte(`{
-			"id":"j","filename":"a.pdf","status":"processing","created_at":"2025-12-21T10:00:00Z"
-		}`))
-	}))
+	server := httptest.NewServer(jobStatusHandler("processing"))
 	defer server.Close()
-	client := mustClient(t, kreuzbergcloud.WithBaseURL(server.URL))
-	_, err := client.WaitForJob(context.Background(), "j", &kreuzbergcloud.WaitOptions{
+	client := mustClient(t, xberg.WithBaseURL(server.URL))
+	_, err := client.WaitForJob(context.Background(), jobUUID, &xberg.WaitOptions{
 		Timeout:      40 * time.Millisecond,
 		PollInterval: 5 * time.Millisecond,
-		Backoff:      kreuzbergcloud.BackoffConstant,
+		Backoff:      xberg.BackoffConstant,
 	})
-	var timeout *kreuzbergcloud.TimeoutError
+	var timeout *xberg.TimeoutError
 	if !asError(err, &timeout) {
 		t.Fatalf("expected TimeoutError, got %T: %v", err, err)
 	}
-	if timeout.JobID != "j" {
-		t.Errorf("TimeoutError.JobID = %q, want j", timeout.JobID)
+	if timeout.JobID != jobUUID {
+		t.Errorf("TimeoutError.JobID = %q, want %s", timeout.JobID, jobUUID)
 	}
 }
 
 func TestWaitForJob_FailedStatusReturnsError(t *testing.T) {
 	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = w.Write([]byte(`{
-			"id":"j","filename":"a.pdf","status":"failed","created_at":"2025-12-21T10:00:00Z",
+		fmt.Fprintf(w, `{
+			"id":%q,"filename":"a.pdf","status":"failed","created_at":"2025-12-21T10:00:00Z",
 			"result":{"content":"OCR engine crashed"}
-		}`))
+		}`, jobUUID)
 	}))
 	defer server.Close()
-	client := mustClient(t, kreuzbergcloud.WithBaseURL(server.URL))
-	_, err := client.WaitForJob(context.Background(), "j", nil)
+	client := mustClient(t, xberg.WithBaseURL(server.URL))
+	_, err := client.WaitForJob(context.Background(), jobUUID, nil)
 	if err == nil {
 		t.Fatalf("expected error for failed job")
 	}
@@ -186,16 +194,16 @@ func TestWaitForJob_ExponentialBackoffIncreases(t *testing.T) {
 		}
 		fmt.Fprintf(
 			w,
-			`{"id":"j","filename":"a.pdf","status":%q,"created_at":"2025-12-21T10:00:00Z"%s}`,
-			status, extra,
+			`{"id":%q,"filename":"a.pdf","status":%q,"created_at":"2025-12-21T10:00:00Z"%s}`,
+			jobUUID, status, extra,
 		)
 	}))
 	defer server.Close()
-	client := mustClient(t, kreuzbergcloud.WithBaseURL(server.URL))
-	if _, err := client.WaitForJob(context.Background(), "j", &kreuzbergcloud.WaitOptions{
+	client := mustClient(t, xberg.WithBaseURL(server.URL))
+	if _, err := client.WaitForJob(context.Background(), jobUUID, &xberg.WaitOptions{
 		Timeout:      2 * time.Second,
 		PollInterval: 10 * time.Millisecond,
-		Backoff:      kreuzbergcloud.BackoffExponential,
+		Backoff:      xberg.BackoffExponential,
 	}); err != nil {
 		t.Fatalf("WaitForJob: %v", err)
 	}
@@ -211,6 +219,11 @@ func TestWaitForJob_ExponentialBackoffIncreases(t *testing.T) {
 
 func TestWaitForJobs_ParallelCompletion(t *testing.T) {
 	t.Parallel()
+	ids := []string{
+		"11111111-1111-1111-1111-111111111111",
+		"22222222-2222-2222-2222-222222222222",
+		"33333333-3333-3333-3333-333333333333",
+	}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		id := strings.TrimPrefix(r.URL.Path, "/v1/jobs/")
 		fmt.Fprintf(
@@ -220,15 +233,15 @@ func TestWaitForJobs_ParallelCompletion(t *testing.T) {
 		)
 	}))
 	defer server.Close()
-	client := mustClient(t, kreuzbergcloud.WithBaseURL(server.URL))
-	results, err := client.WaitForJobs(context.Background(), []string{"a", "b", "c"}, nil)
+	client := mustClient(t, xberg.WithBaseURL(server.URL))
+	results, err := client.WaitForJobs(context.Background(), ids, nil)
 	if err != nil {
 		t.Fatalf("WaitForJobs: %v", err)
 	}
-	want := []string{"result-a", "result-b", "result-c"}
 	for i, result := range results {
-		if result.Content != want[i] {
-			t.Errorf("results[%d].Content = %q, want %q", i, result.Content, want[i])
+		want := "result-" + ids[i]
+		if result.Result == nil || result.Result.Content != want {
+			t.Errorf("results[%d].Result = %v, want content %q", i, result.Result, want)
 		}
 	}
 }
@@ -239,28 +252,28 @@ func TestExtractAndWait_HappyPath(t *testing.T) {
 		switch {
 		case r.Method == http.MethodPost && r.URL.Path == "/v1/extract":
 			w.WriteHeader(http.StatusAccepted)
-			_, _ = w.Write([]byte(`{"job_ids":["jobxyz"],"status":"pending"}`))
-		case r.Method == http.MethodGet && r.URL.Path == "/v1/jobs/jobxyz":
-			_, _ = w.Write([]byte(`{
-				"id":"jobxyz","filename":"a.pdf","status":"completed",
+			fmt.Fprintf(w, `{"job_ids":[%q],"status":"pending"}`, jobUUID)
+		case r.Method == http.MethodGet && r.URL.Path == "/v1/jobs/"+jobUUID:
+			fmt.Fprintf(w, `{
+				"id":%q,"filename":"a.pdf","status":"completed",
 				"created_at":"2025-12-21T10:00:00Z","result":{"content":"the text"}
-			}`))
+			}`, jobUUID)
 		default:
 			t.Errorf("unexpected request %s %s", r.Method, r.URL.Path)
 		}
 	}))
 	defer server.Close()
-	client := mustClient(t, kreuzbergcloud.WithBaseURL(server.URL))
-	result, err := client.ExtractAndWait(
+	client := mustClient(t, xberg.WithBaseURL(server.URL))
+	job, err := client.ExtractAndWait(
 		context.Background(),
-		kreuzbergcloud.FileSource{Name: "a.pdf", Reader: strings.NewReader("hello")},
+		xberg.FileSource{Name: "a.pdf", Reader: strings.NewReader("hello")},
 		nil,
 	)
 	if err != nil {
 		t.Fatalf("ExtractAndWait: %v", err)
 	}
-	if result.Content != "the text" {
-		t.Errorf("Content = %q, want 'the text'", result.Content)
+	if job.Result == nil || job.Result.Content != "the text" {
+		t.Errorf("Result.Content = %v, want 'the text'", job.Result)
 	}
 }
 
@@ -271,13 +284,13 @@ func TestExtractAndWait_PropagatesExtractError(t *testing.T) {
 		_, _ = w.Write([]byte(`{"error":"bad input"}`))
 	}))
 	defer server.Close()
-	client := mustClient(t, kreuzbergcloud.WithBaseURL(server.URL))
+	client := mustClient(t, xberg.WithBaseURL(server.URL))
 	_, err := client.ExtractAndWait(
 		context.Background(),
-		kreuzbergcloud.FileSource{Name: "a.pdf", Reader: strings.NewReader("hello")},
+		xberg.FileSource{Name: "a.pdf", Reader: strings.NewReader("hello")},
 		nil,
 	)
-	var validation *kreuzbergcloud.ValidationError
+	var validation *xberg.ValidationError
 	if !asError(err, &validation) {
 		t.Fatalf("expected ValidationError, got %T: %v", err, err)
 	}

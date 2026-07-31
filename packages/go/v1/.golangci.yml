@@ -37,6 +37,10 @@ linters:
         - fieldalignment
     misspell:
       locale: US
+      # `cancelled` is the server-side JobStatus enum value (British spelling),
+      # not a typo — it appears in status comparisons and messages.
+      ignore-rules:
+        - cancelled
     nakedret:
       max-func-lines: 30
     revive:
@@ -65,10 +69,10 @@ linters:
     rules:
       - linters: [goconst, gocyclo, gosec, errcheck]
         path: _test\.go
-      - path: generated\.go
+      - path: generated_.*\.go
         linters: [revive, govet, staticcheck, gosec, gocyclo, goconst]
     paths:
-      - generated.go
+      - generated_.*\.go
 
 issues:
   max-issues-per-linter: 0

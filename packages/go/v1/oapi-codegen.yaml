@@ -1,9 +1,0 @@
-# NOTE: oapi-codegen does not yet support OpenAPI 3.1 (issue #373). The
-
-package: kreuzbergcloud
-output: generated.go
-generate:
-  models: true
-  client: true
-output-options:
-  skip-prune: false

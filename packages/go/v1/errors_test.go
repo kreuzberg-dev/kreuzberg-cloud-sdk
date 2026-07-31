@@ -1,4 +1,4 @@
-package kreuzbergcloud_test
+package xberg_test
 
 import (
 	"context"
@@ -8,16 +8,16 @@ import (
 	"testing"
 	"time"
 
-	kreuzbergcloud "github.com/xberg-io/sdks/go/v1"
+	xberg "github.com/xberg-io/sdks/packages/go/v1"
 )
 
 func TestError_AuthErrorOn401(t *testing.T) {
 	t.Parallel()
 	server := newStatusServer(http.StatusUnauthorized, `{"error":"missing token"}`, nil)
 	defer server.Close()
-	client := mustClient(t, kreuzbergcloud.WithBaseURL(server.URL))
+	client := mustClient(t, xberg.WithBaseURL(server.URL))
 	_, err := client.GetJob(context.Background(), "any")
-	var auth *kreuzbergcloud.AuthError
+	var auth *xberg.AuthError
 	if !asError(err, &auth) {
 		t.Fatalf("expected AuthError, got %T: %v", err, err)
 	}
@@ -30,9 +30,9 @@ func TestError_AuthErrorOn403(t *testing.T) {
 	t.Parallel()
 	server := newStatusServer(http.StatusForbidden, `{"error":"forbidden"}`, nil)
 	defer server.Close()
-	client := mustClient(t, kreuzbergcloud.WithBaseURL(server.URL))
+	client := mustClient(t, xberg.WithBaseURL(server.URL))
 	_, err := client.GetJob(context.Background(), "any")
-	var auth *kreuzbergcloud.AuthError
+	var auth *xberg.AuthError
 	if !asError(err, &auth) {
 		t.Fatalf("expected AuthError, got %T: %v", err, err)
 	}
@@ -42,9 +42,9 @@ func TestError_ValidationErrorOn400(t *testing.T) {
 	t.Parallel()
 	server := newStatusServer(http.StatusBadRequest, `{"error":"bad"}`, nil)
 	defer server.Close()
-	client := mustClient(t, kreuzbergcloud.WithBaseURL(server.URL))
+	client := mustClient(t, xberg.WithBaseURL(server.URL))
 	_, err := client.GetJob(context.Background(), "any")
-	var validation *kreuzbergcloud.ValidationError
+	var validation *xberg.ValidationError
 	if !asError(err, &validation) {
 		t.Fatalf("expected ValidationError, got %T: %v", err, err)
 	}
@@ -54,9 +54,9 @@ func TestError_ValidationErrorOn422(t *testing.T) {
 	t.Parallel()
 	server := newStatusServer(http.StatusUnprocessableEntity, `{"error":"unprocessable"}`, nil)
 	defer server.Close()
-	client := mustClient(t, kreuzbergcloud.WithBaseURL(server.URL))
+	client := mustClient(t, xberg.WithBaseURL(server.URL))
 	_, err := client.GetJob(context.Background(), "any")
-	var validation *kreuzbergcloud.ValidationError
+	var validation *xberg.ValidationError
 	if !asError(err, &validation) {
 		t.Fatalf("expected ValidationError, got %T: %v", err, err)
 	}
@@ -66,9 +66,9 @@ func TestError_NotFoundErrorOn404(t *testing.T) {
 	t.Parallel()
 	server := newStatusServer(http.StatusNotFound, `{"error":"missing"}`, nil)
 	defer server.Close()
-	client := mustClient(t, kreuzbergcloud.WithBaseURL(server.URL))
+	client := mustClient(t, xberg.WithBaseURL(server.URL))
 	_, err := client.GetJob(context.Background(), "any")
-	var notFound *kreuzbergcloud.NotFoundError
+	var notFound *xberg.NotFoundError
 	if !asError(err, &notFound) {
 		t.Fatalf("expected NotFoundError, got %T: %v", err, err)
 	}
@@ -82,9 +82,9 @@ func TestError_RateLimitErrorOn429WithRetryAfter(t *testing.T) {
 		http.Header{"Retry-After": []string{"3"}},
 	)
 	defer server.Close()
-	client := mustClient(t, kreuzbergcloud.WithBaseURL(server.URL))
+	client := mustClient(t, xberg.WithBaseURL(server.URL))
 	_, err := client.GetJob(context.Background(), "any")
-	var rate *kreuzbergcloud.RateLimitError
+	var rate *xberg.RateLimitError
 	if !asError(err, &rate) {
 		t.Fatalf("expected RateLimitError, got %T: %v", err, err)
 	}
@@ -97,9 +97,9 @@ func TestError_ServerErrorOn500(t *testing.T) {
 	t.Parallel()
 	server := newStatusServer(http.StatusInternalServerError, `{"error":"oops"}`, nil)
 	defer server.Close()
-	client := mustClient(t, kreuzbergcloud.WithBaseURL(server.URL))
+	client := mustClient(t, xberg.WithBaseURL(server.URL))
 	_, err := client.GetJob(context.Background(), "any")
-	var srv *kreuzbergcloud.ServerError
+	var srv *xberg.ServerError
 	if !asError(err, &srv) {
 		t.Fatalf("expected ServerError, got %T: %v", err, err)
 	}
@@ -109,9 +109,9 @@ func TestError_BasePropertiesAccessibleViaUnwrap(t *testing.T) {
 	t.Parallel()
 	server := newStatusServer(http.StatusBadRequest, `{"error":"bad"}`, nil)
 	defer server.Close()
-	client := mustClient(t, kreuzbergcloud.WithBaseURL(server.URL))
+	client := mustClient(t, xberg.WithBaseURL(server.URL))
 	_, err := client.GetJob(context.Background(), "any")
-	var apiErr *kreuzbergcloud.APIError
+	var apiErr *xberg.APIError
 	if !asError(err, &apiErr) {
 		t.Fatalf("errors.As to *APIError failed: %v", err)
 	}
@@ -125,11 +125,11 @@ func TestError_BasePropertiesAccessibleViaUnwrap(t *testing.T) {
 
 func TestError_TimeoutErrorIsDistinctFromContextCancel(t *testing.T) {
 	t.Parallel()
-	timeoutErr := &kreuzbergcloud.TimeoutError{JobID: "j", Elapsed: time.Second}
+	timeoutErr := &xberg.TimeoutError{JobID: "j", Elapsed: time.Second}
 	if !strings.Contains(timeoutErr.Error(), "timed out") {
 		t.Errorf("TimeoutError.Error() = %q, want to mention 'timed out'", timeoutErr.Error())
 	}
-	if asError(timeoutErr, new(*kreuzbergcloud.APIError)) {
+	if asError(timeoutErr, new(*xberg.APIError)) {
 		t.Errorf("TimeoutError should not unwrap to *APIError")
 	}
 }

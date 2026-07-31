@@ -1,4 +1,4 @@
-package kreuzbergcloud
+package xberg
 
 import (
 	"context"
@@ -15,7 +15,7 @@ func (c *Client) CreateSandboxKey(ctx context.Context) (*SandboxKey, error) {
 		return nil, err
 	}
 	if key.APIKey == "" {
-		return nil, fmt.Errorf("xberg-enterprise: sandbox key endpoint returned empty api_key")
+		return nil, fmt.Errorf("xberg: sandbox key endpoint returned empty api_key")
 	}
 	return &key, nil
 }

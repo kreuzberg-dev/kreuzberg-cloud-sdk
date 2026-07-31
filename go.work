@@ -1,6 +1,3 @@
 go 1.26
 
-use (
-	./go
-	./packages/go/v1
-)
+use ./packages/go/v1

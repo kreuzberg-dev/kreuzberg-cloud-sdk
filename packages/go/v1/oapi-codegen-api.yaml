@@ -1,0 +1,11 @@
+# Xberg Enterprise schema set. Generated from spec/api/openapi.yaml into the
+# shared `xberg` package. This file carries the shared models (jobs, extraction,
+# audit, RAG) plus the Enterprise-only models (diff, presets, uploads, usage).
+# The Pro schema set (oapi-codegen-pro.yaml) excludes every schema defined here
+# to avoid duplicate type declarations in the same package.
+package: xberg
+output: generated_api.go
+generate:
+  models: true
+output-options:
+  skip-prune: true

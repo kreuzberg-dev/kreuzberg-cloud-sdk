@@ -1,4 +1,4 @@
-package kreuzbergcloud
+package xberg
 
 import (
 	"bytes"
@@ -11,49 +11,55 @@ import (
 	"strings"
 )
 
-// Extract submits a single document for asynchronous extraction and returns
-// the queued [Job]. Use [Client.WaitForJob] (or [Client.ExtractAndWait] for a
-// one-shot helper) to obtain the extraction result.
+// Extract submits a single document for asynchronous extraction and returns the
+// queued [JobResponse]. Use [Client.WaitForJob] (or [Client.ExtractAndWait] for
+// a one-shot helper) to obtain the extraction result.
+//
+// Part of the shared surface (Enterprise + Pro).
 func (c *Client) Extract(
 	ctx context.Context,
 	file FileSource,
 	opts *ExtractionOptions,
-) (*Job, error) {
+) (*JobResponse, error) {
 	jobs, err := c.ExtractBatch(ctx, []FileSource{file}, opts)
 	if err != nil {
 		return nil, err
 	}
 	if len(jobs) == 0 {
-		return nil, fmt.Errorf("xberg-enterprise: server accepted extract request but returned no job IDs")
+		return nil, fmt.Errorf("xberg: server accepted extract request but returned no job IDs")
 	}
 	return jobs[0], nil
 }
 
-// ExtractBatch submits multiple documents in a single multipart request.
-// Each file becomes one Job in the response, in submission order.
+// ExtractBatch submits multiple documents in a single multipart request. The
+// server returns one job ID per file (in submission order); each is then
+// fetched via [Client.GetJob] so callers receive fully-typed [JobResponse]
+// values, mirroring the Python SDK.
+//
+// Part of the shared surface (Enterprise + Pro).
 func (c *Client) ExtractBatch(
 	ctx context.Context,
 	files []FileSource,
 	opts *ExtractionOptions,
-) ([]*Job, error) {
+) ([]*JobResponse, error) {
 	if len(files) == 0 {
-		return nil, fmt.Errorf("xberg-enterprise: ExtractBatch requires at least one file")
+		return nil, fmt.Errorf("xberg: ExtractBatch requires at least one file")
 	}
 	for i, f := range files {
 		if f.Name == "" {
-			return nil, fmt.Errorf("xberg-enterprise: file %d: Name must not be empty", i)
+			return nil, fmt.Errorf("xberg: file %d: Name must not be empty", i)
 		}
 		if f.Reader == nil {
-			return nil, fmt.Errorf("xberg-enterprise: file %d (%s): Reader must not be nil", i, f.Name)
+			return nil, fmt.Errorf("xberg: file %d (%s): Reader must not be nil", i, f.Name)
 		}
 	}
 	body, contentType, err := buildMultipartBody(files, opts)
 	if err != nil {
 		return nil, err
 	}
-	var resp extractResponse
+	var resp ExtractResponse
 	spec := requestSpec{
-		method:          "POST",
+		method:          methodPost,
 		path:            "/v1/extract",
 		body:            bytes.NewReader(body),
 		bodyContentType: contentType,
@@ -64,19 +70,23 @@ func (c *Client) ExtractBatch(
 	if err := c.doJSON(ctx, spec, &resp); err != nil {
 		return nil, err
 	}
-	if len(resp.JobIDs) != len(files) {
-		return nil, fmt.Errorf(
-			"xberg-enterprise: expected %d job IDs, got %d",
-			len(files), len(resp.JobIDs),
-		)
+	jobIDs := []string{}
+	if resp.JobIds != nil {
+		jobIDs = *resp.JobIds
 	}
-	jobs := make([]*Job, len(resp.JobIDs))
-	for i, id := range resp.JobIDs {
-		filename := ""
-		if i < len(files) {
-			filename = files[i].Name
+	if len(jobIDs) == 0 {
+		return nil, fmt.Errorf("xberg: extract response contained no job IDs")
+	}
+	if len(jobIDs) != len(files) {
+		return nil, fmt.Errorf("xberg: expected %d job IDs, got %d", len(files), len(jobIDs))
+	}
+	jobs := make([]*JobResponse, len(jobIDs))
+	for i, id := range jobIDs {
+		job, err := c.GetJob(ctx, id)
+		if err != nil {
+			return nil, err
 		}
-		jobs[i] = &Job{ID: id, Filename: filename, Status: resp.Status}
+		jobs[i] = job
 	}
 	return jobs, nil
 }
@@ -103,11 +113,11 @@ func buildMultipartBody(
 		header.Set("Content-Type", sniffContentType(file.Name))
 		part, err := writer.CreatePart(header)
 		if err != nil {
-			return nil, "", fmt.Errorf("xberg-enterprise: creating multipart part: %w", err)
+			return nil, "", fmt.Errorf("xberg: creating multipart part: %w", err)
 		}
 		if _, err := io.Copy(part, file.Reader); err != nil {
 			return nil, "", fmt.Errorf(
-				"xberg-enterprise: copying file %q into multipart body: %w",
+				"xberg: copying file %q into multipart body: %w",
 				file.Name, err,
 			)
 		}
@@ -115,17 +125,17 @@ func buildMultipartBody(
 	if opts != nil {
 		encoded, err := json.Marshal(opts)
 		if err != nil {
-			return nil, "", fmt.Errorf("xberg-enterprise: encoding options: %w", err)
+			return nil, "", fmt.Errorf("xberg: encoding options: %w", err)
 		}
 		if err := writer.WriteField("options", string(encoded)); err != nil {
-			return nil, "", fmt.Errorf("xberg-enterprise: writing options field: %w", err)
+			return nil, "", fmt.Errorf("xberg: writing options field: %w", err)
 		}
 	}
 	if err := writer.WriteField("webhook", `{"url":""}`); err != nil {
-		return nil, "", fmt.Errorf("xberg-enterprise: writing webhook field: %w", err)
+		return nil, "", fmt.Errorf("xberg: writing webhook field: %w", err)
 	}
 	if err := writer.Close(); err != nil {
-		return nil, "", fmt.Errorf("xberg-enterprise: closing multipart writer: %w", err)
+		return nil, "", fmt.Errorf("xberg: closing multipart writer: %w", err)
 	}
 	return buf.Bytes(), writer.FormDataContentType(), nil
 }

@@ -1,4 +1,4 @@
-# kreuzbergcloud
+# Xberg Go SDK
 
 <div align="center">
 
@@ -8,9 +8,7 @@
 
 <div align="center" style="display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin: 20px 0;">
 
-<a href="https://pypi.org/project/kreuzberg-cloud-sdk/"><img src="https://img.shields.io/pypi/v/kreuzberg-cloud-sdk?label=PyPI&color=007ec6" alt="PyPI"></a>
-<a href="https://www.npmjs.com/package/@kreuzberg/cloud"><img src="https://img.shields.io/npm/v/%40kreuzberg%2Fcloud?label=npm&color=007ec6" alt="npm"></a>
-<a href="https://pkg.go.dev/github.com/xberg-io/sdks/go/v1"><img src="https://img.shields.io/badge/Go-pkg.go.dev-007ec6?logo=go&logoColor=white" alt="Go Reference"></a>
+<a href="https://pkg.go.dev/github.com/xberg-io/sdks/packages/go/v1"><img src="https://img.shields.io/badge/Go-pkg.go.dev-007ec6?logo=go&logoColor=white" alt="Go Reference"></a>
 <a href="https://github.com/xberg-io/sdks/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License"></a>
 <a href="https://enterprise.xberg.io"><img src="https://img.shields.io/badge/docs-enterprise.xberg.io-007ec6" alt="Documentation"></a>
 <a href="https://github.com/xberg-io/sdks/actions/workflows/validate.yml"><img src="https://github.com/xberg-io/sdks/actions/workflows/validate.yml/badge.svg" alt="CI"></a>
@@ -23,21 +21,44 @@
 
 </div>
 
-Official Go client for the [Xberg Enterprise](https://enterprise.xberg.io)
-document-processing API.
+Official Go client for the [Xberg Enterprise](https://enterprise.xberg.io) and
+Xberg Pro document-processing APIs. One `Client` speaks to either product.
 
 ```sh
-go get github.com/xberg-io/sdks/go/v1
+go get github.com/xberg-io/sdks/packages/go/v1
 ```
 
 Requires Go 1.26+.
 
-> **Status.** This is a hand-written interim client covering the operations
-> the v1 docs Quickstart needs: `Extract`, `ExtractBatch`, `GetJob`,
-> `WaitForJob`, `WaitForJobs`, `ExtractAndWait`, and `CreateSandboxKey`. It
-> will be replaced with generated bindings when
-> [oapi-codegen](https://github.com/oapi-codegen/oapi-codegen) gains OpenAPI
-> 3.1 support; the public surface above will be preserved.
+## Dual-target client
+
+The shared surface — extraction, jobs, audit, and the RAG API — is written once
+and works against either product. Tier-specific methods are capability-gated:
+they probe the connected instance (`GET /healthz`'s `tier`, or an explicit
+target set via `WithTarget`) and return a typed `*TierError` instead of a raw
+404 when invoked against the wrong tier.
+
+- **Enterprise** defaults the base URL to `https://api.xberg.io`.
+- **Pro** ships no default base URL and requires `WithBaseURL`.
+
+```go
+// Enterprise (default base URL):
+client, _ := xberg.New(xberg.WithAPIKey(os.Getenv("XBERG_API_KEY")))
+
+// Pro (explicit base URL required):
+pro, _ := xberg.New(
+    xberg.WithTarget(xberg.TargetPro),
+    xberg.WithBaseURL("https://pro.example.com"),
+    xberg.WithAPIKey(os.Getenv("XBERG_API_KEY")),
+)
+```
+
+Shared methods: `Extract`, `ExtractBatch`, `GetJob`, `ListJobs`, `WaitForJob`,
+`WaitForJobs`, `ExtractAndWait`, `Audit`, and the RAG surface (`ListRagCollections`,
+`RagRetrieve`, …). Pro-only: `AuthConfig`, `Login`, saved presets, `GetJobResult`,
+`GetRagConfig`/`SetRagConfig`. Enterprise-only: `Versions`, `Diff`, `Presets`,
+uploads (`PresignUpload`/`ConfirmUpload`), `Usage`. The out-of-band sandbox
+(`CreateSandboxKey`/`FromSandbox`) is Enterprise onboarding.
 
 ## Quickstart — explicit API key
 
@@ -50,13 +71,13 @@ import (
     "log"
     "os"
 
-    kreuzbergcloud "github.com/xberg-io/sdks/go/v1"
+    xberg "github.com/xberg-io/sdks/packages/go/v1"
 )
 
 func main() {
     ctx := context.Background()
-    client, err := kreuzbergcloud.New(
-        kreuzbergcloud.WithAPIKey(os.Getenv("XBERG_API_KEY")),
+    client, err := xberg.New(
+        xberg.WithAPIKey(os.Getenv("XBERG_API_KEY")),
     )
     if err != nil {
         log.Fatal(err)
@@ -67,15 +88,17 @@ func main() {
     }
     defer file.Close()
 
-    result, err := client.ExtractAndWait(
+    job, err := client.ExtractAndWait(
         ctx,
-        kreuzbergcloud.FileSource{Name: "invoice.pdf", Reader: file},
+        xberg.FileSource{Name: "invoice.pdf", Reader: file},
         nil,
     )
     if err != nil {
         log.Fatal(err)
     }
-    fmt.Println(result.Content)
+    if job.Result != nil {
+        fmt.Println(job.Result.Content)
+    }
 }
 ```
 
@@ -90,27 +113,27 @@ import (
     "log"
     "os"
 
-    kreuzbergcloud "github.com/xberg-io/sdks/go/v1"
+    xberg "github.com/xberg-io/sdks/packages/go/v1"
 )
 
 func main() {
     ctx := context.Background()
-    client, err := kreuzbergcloud.New(
-        kreuzbergcloud.WithAPIKey(os.Getenv("XBERG_API_KEY")),
+    client, err := xberg.New(
+        xberg.WithAPIKey(os.Getenv("XBERG_API_KEY")),
     )
     if err != nil {
         log.Fatal(err)
     }
 
     paths := []string{"invoice-a.pdf", "invoice-b.pdf"}
-    var sources []kreuzbergcloud.FileSource
+    var sources []xberg.FileSource
     for _, path := range paths {
         f, err := os.Open(path)
         if err != nil {
             log.Fatal(err)
         }
         defer f.Close()
-        sources = append(sources, kreuzbergcloud.FileSource{Name: path, Reader: f})
+        sources = append(sources, xberg.FileSource{Name: path, Reader: f})
     }
 
     jobs, err := client.ExtractBatch(ctx, sources, nil)
@@ -119,14 +142,18 @@ func main() {
     }
     ids := make([]string, len(jobs))
     for i, job := range jobs {
-        ids[i] = job.ID
+        ids[i] = job.Id.String()
     }
     results, err := client.WaitForJobs(ctx, ids, nil)
     if err != nil {
         log.Fatal(err)
     }
-    for i, result := range results {
-        fmt.Printf("%s -> %d chars\n", paths[i], len(result.Content))
+    for i, job := range results {
+        length := 0
+        if job.Result != nil {
+            length = len(job.Result.Content)
+        }
+        fmt.Printf("%s -> %d chars\n", paths[i], length)
     }
 }
 ```
@@ -146,12 +173,12 @@ import (
     "log"
     "os"
 
-    kreuzbergcloud "github.com/xberg-io/sdks/go/v1"
+    xberg "github.com/xberg-io/sdks/packages/go/v1"
 )
 
 func main() {
     ctx := context.Background()
-    client, err := kreuzbergcloud.FromSandbox(ctx)
+    client, err := xberg.FromSandbox(ctx)
     if err != nil {
         log.Fatal(err)
     }
@@ -160,15 +187,17 @@ func main() {
         log.Fatal(err)
     }
     defer file.Close()
-    result, err := client.ExtractAndWait(
+    job, err := client.ExtractAndWait(
         ctx,
-        kreuzbergcloud.FileSource{Name: "invoice.pdf", Reader: file},
+        xberg.FileSource{Name: "invoice.pdf", Reader: file},
         nil,
     )
     if err != nil {
         log.Fatal(err)
     }
-    fmt.Println(result.Content)
+    if job.Result != nil {
+        fmt.Println(job.Result.Content)
+    }
 }
 ```
 
@@ -180,16 +209,17 @@ discriminate:
 ```go
 import "errors"
 
-result, err := client.ExtractAndWait(ctx, file, nil)
-var rateLimited *kreuzbergcloud.RateLimitError
+job, err := client.ExtractAndWait(ctx, file, nil)
+var rateLimited *xberg.RateLimitError
 if errors.As(err, &rateLimited) {
     time.Sleep(rateLimited.RetryAfter)
 }
 ```
 
 The full hierarchy is `APIError` (base) plus `AuthError`, `ValidationError`,
-`NotFoundError`, `RateLimitError`, `ServerError`, and `TimeoutError` (for
-`WaitForJob` deadline expiry, distinct from context cancellation).
+`NotFoundError`, `RateLimitError`, `ServerError`, `TimeoutError` (for
+`WaitForJob` deadline expiry, distinct from context cancellation), and
+`TierError` (a tier-specific method called against the wrong product tier).
 
 ## Documentation
 

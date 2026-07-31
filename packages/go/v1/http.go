@@ -1,6 +1,7 @@
-package kreuzbergcloud
+package xberg
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -47,129 +48,36 @@ func (c *Client) doJSON(ctx context.Context, spec requestSpec, out any) error {
 	defer closeQuietly(body)
 	if out == nil {
 		if _, copyErr := io.Copy(io.Discard, body); copyErr != nil {
-			return fmt.Errorf("xberg-enterprise: discarding response body: %w", copyErr)
+			return fmt.Errorf("xberg: discarding response body: %w", copyErr)
 		}
 		return nil
 	}
 	if err := json.NewDecoder(body).Decode(out); err != nil {
-		return fmt.Errorf("xberg-enterprise: decoding response: %w", err)
+		return fmt.Errorf("xberg: decoding response: %w", err)
 	}
 	return nil
 }
 
-// doRaw issues spec and returns the response body bytes plus the HTTP
-// status for 2xx responses. Use this when the caller needs to
-// distinguish between 200-class success codes (e.g. 200 vs 202).
-// Non-2xx responses are still converted into typed errors via
-// [classifyHTTPError], identical to [Client.do].
-func (c *Client) doRaw(
-	ctx context.Context,
-	spec requestSpec,
-) ([]byte, int, error) {
-	rc, status, err := c.doWithStatus(ctx, spec)
-	if err != nil {
-		return nil, 0, err
-	}
-	defer closeQuietly(rc)
-	body, readErr := io.ReadAll(rc)
-	if readErr != nil {
-		return nil, status, fmt.Errorf(
-			"xberg-enterprise: reading response body: %w", readErr,
-		)
-	}
-	return body, status, nil
+// getJSON issues a GET to path and decodes the 2xx JSON response into out.
+func (c *Client) getJSON(ctx context.Context, path string, out any) error {
+	return c.doJSON(ctx, requestSpec{method: methodGet, path: path}, out)
 }
 
-// doWithStatus mirrors [Client.do] but propagates the HTTP status
-// alongside the body reader. Status is only meaningful when err == nil.
-func (c *Client) doWithStatus(
-	ctx context.Context,
-	spec requestSpec,
-) (io.ReadCloser, int, error) {
-	attempt := 0
-	for {
-		body, status, err := c.doOnceWithStatus(ctx, spec)
-		if err == nil {
-			return body, status, nil
+// callJSON issues method to path with an optional JSON-encoded body and decodes
+// the 2xx JSON response into out. A nil body sends no request payload; a nil out
+// discards the response body. Bodies are buffered so retries can rewind them.
+func (c *Client) callJSON(ctx context.Context, method, path string, body, out any) error {
+	spec := requestSpec{method: method, path: path}
+	if body != nil {
+		encoded, err := json.Marshal(body)
+		if err != nil {
+			return fmt.Errorf("xberg: encoding request body: %w", err)
 		}
-		if attempt >= c.cfg.retries || !shouldRetry(err) || ctx.Err() != nil {
-			return nil, 0, err
-		}
-		delay := nextBackoff(attempt, retryAfter(err))
-		select {
-		case <-ctx.Done():
-			return nil, 0, ctx.Err()
-		case <-time.After(delay):
-		}
-		if spec.body != nil {
-			if spec.rewindBody == nil {
-				return nil, 0, err
-			}
-			rewound, rewindErr := spec.rewindBody()
-			if rewindErr != nil {
-				return nil, 0, fmt.Errorf(
-					"xberg-enterprise: rewinding body for retry: %w",
-					rewindErr,
-				)
-			}
-			spec.body = rewound
-		}
-		attempt++
+		spec.body = bytes.NewReader(encoded)
+		spec.bodyContentType = contentTypeJSON
+		spec.rewindBody = func() (io.Reader, error) { return bytes.NewReader(encoded), nil }
 	}
-}
-
-// doOnceWithStatus is the per-attempt counterpart to [Client.doOnce]
-// that exposes the HTTP status code.
-func (c *Client) doOnceWithStatus(
-	ctx context.Context,
-	spec requestSpec,
-) (io.ReadCloser, int, error) {
-	cancel := func() {}
-	if c.cfg.timeout > 0 {
-		ctx, cancel = context.WithTimeout(ctx, c.cfg.timeout)
-	}
-	rc, status, err := c.doOnceWithCancelStatus(ctx, spec, cancel)
-	return rc, status, err
-}
-
-// doOnceWithCancelStatus mirrors [Client.doOnceWithCancel] but returns
-// the HTTP status alongside the response body.
-func (c *Client) doOnceWithCancelStatus(
-	ctx context.Context,
-	spec requestSpec,
-	cancel context.CancelFunc,
-) (io.ReadCloser, int, error) {
-	url := c.urlFor(spec.path)
-	req, err := http.NewRequestWithContext(ctx, spec.method, url, spec.body)
-	if err != nil {
-		cancel()
-		return nil, 0, fmt.Errorf("xberg-enterprise: building request: %w", err)
-	}
-	if spec.bodyContentType != "" {
-		req.Header.Set("Content-Type", spec.bodyContentType)
-	}
-	req.Header.Set("Accept", contentTypeJSON)
-	if err := c.authorize(ctx, req); err != nil {
-		cancel()
-		return nil, 0, err
-	}
-	resp, err := c.cfg.httpClient.Do(req)
-	if err != nil {
-		cancel()
-		return nil, 0, fmt.Errorf(
-			"xberg-enterprise: %s %s: %w", spec.method, url, err,
-		)
-	}
-	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
-		return &cancellingReadCloser{rc: resp.Body, cancel: cancel}, resp.StatusCode, nil
-	}
-	defer closeQuietly(resp.Body)
-	defer cancel()
-	body, readErr := io.ReadAll(resp.Body)
-	if readErr != nil {
-		return nil, 0, fmt.Errorf("xberg-enterprise: reading error response body: %w", readErr)
-	}
-	return nil, 0, classifyHTTPError(resp.StatusCode, body, resp.Header)
+	return c.doJSON(ctx, spec, out)
 }
 
 // do executes spec and returns the response body for 2xx responses. The
@@ -196,7 +104,7 @@ func (c *Client) do(ctx context.Context, spec requestSpec) (io.ReadCloser, error
 			}
 			rewound, rewindErr := spec.rewindBody()
 			if rewindErr != nil {
-				return nil, fmt.Errorf("xberg-enterprise: rewinding body for retry: %w", rewindErr)
+				return nil, fmt.Errorf("xberg: rewinding body for retry: %w", rewindErr)
 			}
 			spec.body = rewound
 		}
@@ -227,7 +135,7 @@ func (c *Client) doOnceWithCancel(
 	req, err := http.NewRequestWithContext(ctx, spec.method, url, spec.body)
 	if err != nil {
 		cancel()
-		return nil, fmt.Errorf("xberg-enterprise: building request: %w", err)
+		return nil, fmt.Errorf("xberg: building request: %w", err)
 	}
 	if spec.bodyContentType != "" {
 		req.Header.Set("Content-Type", spec.bodyContentType)
@@ -240,7 +148,7 @@ func (c *Client) doOnceWithCancel(
 	resp, err := c.cfg.httpClient.Do(req)
 	if err != nil {
 		cancel()
-		return nil, fmt.Errorf("xberg-enterprise: %s %s: %w", spec.method, url, err)
+		return nil, fmt.Errorf("xberg: %s %s: %w", spec.method, url, err)
 	}
 	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
 		return &cancellingReadCloser{rc: resp.Body, cancel: cancel}, nil
@@ -249,7 +157,7 @@ func (c *Client) doOnceWithCancel(
 	defer cancel()
 	body, readErr := io.ReadAll(resp.Body)
 	if readErr != nil {
-		return nil, fmt.Errorf("xberg-enterprise: reading error response body: %w", readErr)
+		return nil, fmt.Errorf("xberg: reading error response body: %w", readErr)
 	}
 	return nil, classifyHTTPError(resp.StatusCode, body, resp.Header)
 }

@@ -1,4 +1,4 @@
-package kreuzbergcloud_test
+package xberg_test
 
 import (
 	"context"
@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	kreuzbergcloud "github.com/xberg-io/sdks/go/v1"
+	xberg "github.com/xberg-io/sdks/packages/go/v1"
 )
 
 func TestRetry_RetriesOn503(t *testing.T) {
@@ -22,14 +22,14 @@ func TestRetry_RetriesOn503(t *testing.T) {
 			return
 		}
 		_, _ = w.Write([]byte(`{
-			"id":"j","filename":"a.pdf","status":"completed",
+			"id":"550e8400-e29b-41d4-a716-446655440000","filename":"a.pdf","status":"completed",
 			"created_at":"2025-12-21T10:00:00Z","result":{"content":"ok"}
 		}`))
 	}))
 	defer server.Close()
 	client := mustClient(t,
-		kreuzbergcloud.WithBaseURL(server.URL),
-		kreuzbergcloud.WithRetries(5),
+		xberg.WithBaseURL(server.URL),
+		xberg.WithRetries(5),
 	)
 	job, err := client.GetJob(context.Background(), "j")
 	if err != nil {
@@ -55,15 +55,15 @@ func TestRetry_RetriesOn429HonoursRetryAfter(t *testing.T) {
 			return
 		}
 		_, _ = w.Write([]byte(`{
-			"id":"j","filename":"a.pdf","status":"completed",
+			"id":"550e8400-e29b-41d4-a716-446655440000","filename":"a.pdf","status":"completed",
 			"created_at":"2025-12-21T10:00:00Z","result":{"content":"ok"}
 		}`))
 	}))
 	defer server.Close()
 	start := time.Now()
 	client := mustClient(t,
-		kreuzbergcloud.WithBaseURL(server.URL),
-		kreuzbergcloud.WithRetries(3),
+		xberg.WithBaseURL(server.URL),
+		xberg.WithRetries(3),
 	)
 	if _, err := client.GetJob(context.Background(), "j"); err != nil {
 		t.Fatalf("GetJob: %v", err)
@@ -84,11 +84,11 @@ func TestRetry_GivesUpAfterMaxAttempts(t *testing.T) {
 	}))
 	defer server.Close()
 	client := mustClient(t,
-		kreuzbergcloud.WithBaseURL(server.URL),
-		kreuzbergcloud.WithRetries(2),
+		xberg.WithBaseURL(server.URL),
+		xberg.WithRetries(2),
 	)
 	_, err := client.GetJob(context.Background(), "j")
-	var srv *kreuzbergcloud.ServerError
+	var srv *xberg.ServerError
 	if !asError(err, &srv) {
 		t.Fatalf("expected ServerError after retries, got %T: %v", err, err)
 	}
@@ -107,8 +107,8 @@ func TestRetry_DoesNotRetryOn400(t *testing.T) {
 	}))
 	defer server.Close()
 	client := mustClient(t,
-		kreuzbergcloud.WithBaseURL(server.URL),
-		kreuzbergcloud.WithRetries(5),
+		xberg.WithBaseURL(server.URL),
+		xberg.WithRetries(5),
 	)
 	_, err := client.GetJob(context.Background(), "j")
 	if err == nil {

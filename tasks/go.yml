@@ -1,13 +1,41 @@
 version: "3"
 
+# ~keep The Go SDK ships ONE package (`xberg`) with ONE dual-target client, generated
+# from TWO OpenAPI specs kept as separate schema sets in the same package (never
+# merged; see xberg-enterprise ADR-0072):
+#   - spec/api/openapi.yaml -> packages/go/v1/generated_api.go  (Xberg Enterprise + shared)
+#   - spec/pro/openapi.yaml -> packages/go/v1/generated_pro.go  (Xberg Pro-only)
+# The Pro config excludes every schema/operation shared with the Enterprise spec
+# so no type is declared twice in the same package.
 vars:
   PKG_DIR: packages/go/v1
+  API_SPEC: spec/api/openapi.yaml
+  PRO_SPEC: spec/pro/openapi.yaml
 
 tasks:
   generate:
-    desc: "Regenerate Go client from spec/openapi.yaml (BLOCKED: oapi-codegen 3.1 support — see Workstream E-go)"
+    desc: "Regenerate both Go schema sets (Enterprise + Pro) via oapi-codegen"
+    dir: "{{.PKG_DIR}}"
     cmds:
-      - echo "Go codegen is blocked on oapi-codegen 3.1 support (Workstream E-go); skipping."
+      # The vendored Enterprise spec carries two dangling $refs (CodeDataAttribute,
+      # CodeDataNodeKind — referenced by CodeDataNode but never defined upstream).
+      # oapi-codegen rejects them, so we stub the missing schemas in a throwaway
+      # patched copy (only when absent, preserving a future upstream fix) rather
+      # than editing the vendored spec, which `task spec:check` compares against
+      # xberg-enterprise. Mirrors the TypeScript package's generate.sh.
+      - |
+        set -euo pipefail
+        API_SPEC="$(cd ../../.. && pwd)/{{.API_SPEC}}"
+        PRO_SPEC="$(cd ../../.. && pwd)/{{.PRO_SPEC}}"
+        PATCHED_API="$(mktemp -t xberg-api-spec.XXXXXX.yaml)"
+        trap 'rm -f "$PATCHED_API"' EXIT
+        yq eval '
+          .components.schemas.CodeDataAttribute = (.components.schemas.CodeDataAttribute // {"type": "object", "additionalProperties": true, "description": "Stub for upstream dangling $ref (schema omitted from vendored spec)."}) |
+          .components.schemas.CodeDataNodeKind = (.components.schemas.CodeDataNodeKind // {"type": "string", "description": "Stub for upstream dangling $ref (schema omitted from vendored spec)."})
+        ' "$API_SPEC" > "$PATCHED_API"
+        go tool oapi-codegen --config oapi-codegen-api.yaml "$PATCHED_API"
+        go tool oapi-codegen --config oapi-codegen-pro.yaml "$PRO_SPEC"
+      - go fmt ./...
 
   install:
     desc: "Download Go module dependencies"
