@@ -2006,6 +2006,33 @@ components:
         text:
           type: string
           description: The raw source text of this chunk.
+    CodeDataAttribute:
+      type: object
+      description: |-
+        An XML-style attribute attached to an [`Element`](CodeDataNodeKind::Element) node.
+
+        Populated only for `CodeDataNodeKind::Element`; always empty for `KeyValue` and
+        `Sequence` nodes.
+      required:
+        - name
+        - value
+        - byte_start
+        - byte_end
+      properties:
+        byte_end:
+          type: integer
+          description: Exclusive end byte offset of the `name="value"` attribute token.
+          minimum: 0
+        byte_start:
+          type: integer
+          description: Inclusive start byte offset of the `name="value"` attribute token.
+          minimum: 0
+        name:
+          type: string
+          description: Attribute name (e.g. `"class"`, `"href"`).
+        value:
+          type: string
+          description: Attribute value as a raw string (quotes stripped).
     CodeDataNode:
       type: object
       description: |-
@@ -2057,6 +2084,18 @@ components:
           description: |-
             Leaf scalar value, if any. `None` for containers (objects, arrays, XML
             elements with child elements).
+    CodeDataNodeKind:
+      type: string
+      description: |-
+        Discriminates the shape of a [`CodeDataNode`].
+
+        Purpose-built mirror of `tree_sitter_language_pack::DataNodeKind` — kept as an
+        xberg-owned type so binding generators never need to resolve the upstream crate's
+        types across FFI/language boundaries.
+      enum:
+        - key_value
+        - element
+        - sequence
     CodeMetadata:
       type: object
       description: |-
