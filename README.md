@@ -5,13 +5,13 @@
   </picture>
 </p>
 
-# kreuzberg-cloud-sdk
+# xberg-io-sdk
 
 <div align="center" style="display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin: 20px 0;">
 
-<a href="https://pypi.org/project/kreuzberg-cloud-sdk/"><img src="https://img.shields.io/pypi/v/kreuzberg-cloud-sdk?label=PyPI&color=007ec6" alt="PyPI"></a>
-<a href="https://www.npmjs.com/package/@kreuzberg/cloud"><img src="https://img.shields.io/npm/v/%40kreuzberg%2Fcloud?label=npm&color=007ec6" alt="npm"></a>
-<a href="https://pkg.go.dev/github.com/xberg-io/sdks/go/v1"><img src="https://img.shields.io/badge/Go-pkg.go.dev-007ec6?logo=go&logoColor=white" alt="Go Reference"></a>
+<a href="https://pypi.org/project/xberg-io-sdk/"><img src="https://img.shields.io/pypi/v/xberg-io-sdk?label=PyPI&color=007ec6" alt="PyPI"></a>
+<a href="https://www.npmjs.com/package/@xberg-io/sdk"><img src="https://img.shields.io/npm/v/%40xberg-io%2Fsdk?label=npm&color=007ec6" alt="npm"></a>
+<a href="https://pkg.go.dev/github.com/xberg-io/sdks/packages/go/v1"><img src="https://img.shields.io/badge/Go-pkg.go.dev-007ec6?logo=go&logoColor=white" alt="Go Reference"></a>
 <a href="https://github.com/xberg-io/sdks/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License"></a>
 <a href="https://enterprise.xberg.io"><img src="https://img.shields.io/badge/docs-enterprise.xberg.io-007ec6" alt="Documentation"></a>
 <a href="https://github.com/xberg-io/sdks/actions/workflows/validate.yml"><img src="https://github.com/xberg-io/sdks/actions/workflows/validate.yml/badge.svg" alt="CI"></a>
@@ -24,44 +24,40 @@
 
 </div>
 
-Official client SDKs for the [Xberg Enterprise](https://enterprise.xberg.io) public extraction API. Generated from the upstream OpenAPI 3.1 specification.
+Official client SDKs for the extraction API served by [Xberg Enterprise](https://enterprise.xberg.io)
+and [Xberg Pro](https://enterprise.xberg.io). One package per language, one dual-target client:
+point it at an Enterprise or a Pro deployment and it exposes the shared surface plus the tier-specific
+methods available on that target. Generated from the upstream OpenAPI 3.1 specifications.
 
-| Language | Package | Registry | Status |
-|----------|---------|----------|--------|
-| Python | `kreuzberg-cloud-sdk` | [PyPI](https://pypi.org/project/kreuzberg-cloud-sdk/) | generated (httpx) |
-| TypeScript / Node.js | `@kreuzberg/cloud` | [npm](https://www.npmjs.com/package/@kreuzberg/cloud) | generated (openapi-fetch) |
-| Go | `github.com/xberg-io/sdks/go/v1` | [pkg.go.dev](https://pkg.go.dev/github.com/xberg-io/sdks/go/v1) | hand-written interim — codegen blocked on [oapi-codegen 3.1 support](https://github.com/oapi-codegen/oapi-codegen/issues/373) |
-| Dart | `kreuzberg_cloud_sdk` | [pub.dev](https://pub.dev/packages/kreuzberg_cloud_sdk) | generated (Retrofit + Dio) |
+| Language | Package | Registry | Codegen |
+|----------|---------|----------|---------|
+| Python | `xberg-io-sdk` | [PyPI](https://pypi.org/project/xberg-io-sdk/) | openapi-python-client (httpx) |
+| TypeScript / Node.js | `@xberg-io/sdk` | [npm](https://www.npmjs.com/package/@xberg-io/sdk) | openapi-typescript (openapi-fetch) |
+| Go | `github.com/xberg-io/sdks/packages/go/v1` | [pkg.go.dev](https://pkg.go.dev/github.com/xberg-io/sdks/packages/go/v1) | oapi-codegen |
 
 ## Install
 
 **Python:**
 
 ```sh
-pip install kreuzberg-cloud-sdk
+pip install xberg-io-sdk
 ```
 
 **TypeScript / Node.js:**
 
 ```sh
-pnpm add @kreuzberg/cloud
-# or npm install @kreuzberg/cloud
-# or yarn add @kreuzberg/cloud
+pnpm add @xberg-io/sdk
+# or npm install @xberg-io/sdk
+# or yarn add @xberg-io/sdk
 ```
 
 **Go:**
 
 ```sh
-go get github.com/xberg-io/sdks/go/v1
+go get github.com/xberg-io/sdks/packages/go/v1
 ```
 
-**Dart:**
-
-```sh
-dart pub add kreuzberg_cloud_sdk
-```
-
-For language-specific quickstarts, examples, and API documentation, see the per-language READMEs in `packages/{python,typescript,go/v1,dart}/`.
+For language-specific quickstarts, examples, and API documentation, see the per-language READMEs in `packages/{python,typescript,go/v1}/`.
 
 ## Documentation
 

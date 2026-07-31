@@ -110,9 +110,9 @@ jobs:
         run: |
           set -euo pipefail
           status=$(curl -sS -o /dev/null -w '%{http_code}' \
-            "https://pypi.org/pypi/kreuzberg-cloud-sdk/${VERSION}/json")
+            "https://pypi.org/pypi/xberg-io-sdk/${VERSION}/json")
           if [ "$status" = "200" ]; then exists=true; else exists=false; fi
-          echo "kreuzberg-cloud-sdk ${VERSION} on PyPI: status=$status exists=$exists"
+          echo "xberg-io-sdk ${VERSION} on PyPI: status=$status exists=$exists"
           echo "exists=$exists" >> "$GITHUB_OUTPUT"
 
   check-npm:
@@ -130,9 +130,9 @@ jobs:
         run: |
           set -euo pipefail
           status=$(curl -sS -o /dev/null -w '%{http_code}' \
-            "https://registry.npmjs.org/@kreuzberg%2Fcloud/${VERSION}")
+            "https://registry.npmjs.org/@xberg-io%2Fsdk/${VERSION}")
           if [ "$status" = "200" ]; then exists=true; else exists=false; fi
-          echo "@kreuzberg/cloud ${VERSION} on npm: status=$status exists=$exists"
+          echo "@xberg-io/sdk ${VERSION} on npm: status=$status exists=$exists"
           echo "exists=$exists" >> "$GITHUB_OUTPUT"
 
   build-python:
@@ -184,7 +184,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: pypi
-      url: https://pypi.org/p/kreuzberg-cloud-sdk
+      url: https://pypi.org/p/xberg-io-sdk
     permissions:
       id-token: write
     steps:

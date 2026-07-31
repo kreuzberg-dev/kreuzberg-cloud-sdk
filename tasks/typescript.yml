@@ -1,6 +1,6 @@
 version: "3"
 
-# The TypeScript SDK ships ONE package (`@xberg-io/sdk`) with ONE dual-target
+# ~keep The TypeScript SDK ships ONE package (`@xberg-io/sdk`) with ONE dual-target
 # client, generated from TWO OpenAPI specs kept as separate schema sets (never
 # merged; see xberg-enterprise ADR-0072):
 #   - spec/api/openapi.yaml -> src/_generated/api.d.ts  (Xberg Enterprise)

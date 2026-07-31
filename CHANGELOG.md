@@ -9,7 +9,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- CI: `spec-sync.yml` now authenticates via the `kreuzberg-dev-publisher` GitHub App (`actions/create-github-app-token@v2`) scoped to both `kreuzberg-cloud-sdk` and `xberg-enterprise`. PRs opened by the weekly sync now trigger downstream CI checks, which the default `GITHUB_TOKEN` suppresses.
+- **Rebrand kreuzberg → xberg.** Package identity is now PyPI `xberg-io-sdk` (import
+  `xberg_io_sdk`), npm `@xberg-io/sdk`, Go `github.com/xberg-io/sdks/packages/go/v1`. Main clients
+  are `XbergClient` / `AsyncXbergClient`; error base is `XbergError` (the `Auth/Validation/NotFound/
+  RateLimit/Server/Timeout` subclasses keep their suffixes). The legal entity `Kreuzberg, Inc.`
+  is unchanged.
+- **Dual-target (Enterprise + Pro).** One package, one configurable client per language, generated
+  from two side-by-side specs (`spec/api` + `spec/pro`; never merged — mirrors xberg-enterprise
+  ADR-0072). Shared methods are written once; tier-specific methods are capability-gated via the
+  `/healthz` tier probe. Enterprise defaults `baseUrl` to `https://api.xberg.io`; Pro requires an
+  explicit `baseUrl`.
+- **Contract unified** across languages: throw on a failed/cancelled terminal job in
+  `wait_for_job`/`extract_and_wait`; single multipart request for `extract_batch`; configurable
+  retry engine in Python for parity; `401` **and** `403` map to the auth error.
+- **Go codegen unblocked.** `oapi-codegen` v2.8.0 handles the OpenAPI 3.1 specs, so the Go client
+  is generated (typed `JobResult`) rather than hand-written; the stale root `/go` tree was removed.
+- CI: `spec-sync.yml` is now release-triggered (`repository_dispatch` from xberg-enterprise, with
+  the weekly cron as a fallback), syncs **both** specs, and authenticates via the publisher GitHub
+  App scoped to `sdks` + `xberg-enterprise`. PRs it opens trigger downstream per-language CI, which
+  regenerates clients and runs the full suite as the consistency gate.
 
 ## [0.3.1] - 2026-06-01
 

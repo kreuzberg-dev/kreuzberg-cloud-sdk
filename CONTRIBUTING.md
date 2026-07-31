@@ -1,8 +1,9 @@
-# Contributing to kreuzberg-cloud-sdk
+# Contributing to xberg-io-sdk
 
 [← Back to README](README.md)
 
-Official client SDKs for the Xberg Enterprise public extraction API, generated from the upstream OpenAPI 3.1 specification.
+Official client SDKs for the extraction API served by Xberg Enterprise and Xberg Pro. Each language
+ships one package with one dual-target client, generated from the upstream OpenAPI 3.1 specifications.
 
 ## Layout
 
@@ -10,9 +11,10 @@ Official client SDKs for the Xberg Enterprise public extraction API, generated f
 packages/
   python/         # PyPI distribution (httpx-based, sync + async)
   typescript/     # npm distribution (ESM-only, openapi-fetch)
-  go/v1/          # Go module — hand-written interim while oapi-codegen 3.1 support is upstream-blocked
+  go/v1/          # Go module (oapi-codegen)
 spec/
-  openapi.yaml    # Vendored copy of the API spec
+  api/openapi.yaml   # Vendored Xberg Enterprise (services/api) spec
+  pro/openapi.yaml   # Vendored Xberg Pro (services/pro) spec
 tasks/            # Per-language Taskfile fragments
 scripts/
   sync-versions.py  # Propagates the root VERSION file into every per-package manifest
@@ -21,23 +23,28 @@ VERSION           # Single source of truth for the SDK version across all three 
 
 ## Development
 
-This repo is part of the [`kreuzberg-dev`](https://github.com/xberg-io) polyrepo.
+This repo is part of the [`xberg-io`](https://github.com/xberg-io) polyrepo.
 
 ```sh
 task setup       # install pnpm + uv + Go deps, install pre-commit hooks
-task generate    # regenerate clients from spec/openapi.yaml
+task generate    # regenerate clients from spec/api + spec/pro
 task test        # run all language test suites
 task lint        # prek run --all-files
 task build       # build all language packages
 ```
 
-The OpenAPI spec is vendored from `xberg-enterprise`. The source of truth is the public extraction API spec emitted by `services/api` (utoipa-generated) and committed at `xberg-enterprise/services/api/spec/openapi.json`. To refresh:
+Both OpenAPI specs are vendored from `xberg-enterprise`. The sources of truth are the utoipa-generated
+specs emitted by `services/api` (Enterprise) and `services/pro` (Pro), committed at
+`xberg-enterprise/services/{api,pro}/spec/openapi.json`. To refresh:
 
 ```sh
-task spec:fetch  # copy + JSON→YAML from ../xberg-enterprise/services/api/spec/openapi.json
+task spec:fetch  # copy + JSON→YAML for both specs from ../xberg-enterprise
+task spec:check  # fail if either vendored spec drifted from the sibling copy
 ```
 
-CI also runs a weekly `spec-sync` workflow that opens an automated PR with the latest snapshot.
+Cross-repo sync is release-triggered: `xberg-enterprise` publishes the versioned specs and dispatches
+into this repo, which opens a regenerate-and-commit PR pinned to that API version. A weekly `spec-sync`
+workflow remains as a fallback safety net.
 
 ## Pre-commit hooks
 
@@ -51,7 +58,7 @@ hook validates the message. Run all hooks manually with
 The single source of truth is the root `VERSION` file. `scripts/sync-versions.py` (run via `task version:sync`) propagates that value into every per-package manifest:
 
 - `packages/python/pyproject.toml` (`project.version`)
-- `packages/python/src/kreuzberg_cloud/__init__.py` (`__version__`)
+- `packages/python/src/xberg_io_sdk/__init__.py` (`__version__`)
 - `packages/typescript/package.json` (`version`)
 - `packages/go/v1/version.go` (`const Version`)
 

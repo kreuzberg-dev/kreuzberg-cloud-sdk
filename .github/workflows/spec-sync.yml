@@ -1,6 +1,12 @@
 name: spec-sync
 
+# Cross-repo spec alignment. Primary trigger is release-driven: xberg-enterprise's
+# release pipeline sends a `repository_dispatch` (type: spec-updated) carrying the
+# released API version, and this workflow opens a regenerate-and-commit PR pinned to
+# that version. The weekly cron is a fallback safety net; workflow_dispatch is manual.
 on:
+  repository_dispatch:
+    types: [spec-updated]
   schedule:
     - cron: "0 6 * * 1"
   workflow_dispatch:
@@ -11,7 +17,7 @@ permissions:
 
 jobs:
   sync:
-    name: refresh vendored OpenAPI spec
+    name: refresh vendored OpenAPI specs
     runs-on: ubuntu-latest
     steps:
       - uses: actions/create-github-app-token@v2
@@ -19,7 +25,7 @@ jobs:
         with:
           app-id: ${{ secrets.BOT_APP_ID }}
           private-key: ${{ secrets.BOT_APP_PRIVATE_KEY }}
-          owner: kreuzberg-dev
+          owner: xberg-io
           repositories: |
             sdks
             xberg-enterprise
@@ -28,44 +34,67 @@ jobs:
         with:
           token: ${{ steps.app-token.outputs.token }}
           persist-credentials: true
+
+      - name: Resolve upstream ref
+        id: ref
+        env:
+          PAYLOAD_REF: ${{ github.event.client_payload.ref }}
+          PAYLOAD_VERSION: ${{ github.event.client_payload.version }}
+        run: |
+          echo "ref=${PAYLOAD_REF:-main}" >> "$GITHUB_OUTPUT"
+          echo "version=${PAYLOAD_VERSION:-latest}" >> "$GITHUB_OUTPUT"
+
       - name: Checkout sibling xberg-enterprise
         uses: actions/checkout@v6
         with:
           repository: xberg-io/xberg-enterprise
           path: _xberg-enterprise
-          ref: main
+          ref: ${{ steps.ref.outputs.ref }}
           token: ${{ steps.app-token.outputs.token }}
+
       - name: Install yq
         run: |
           sudo wget -qO /usr/local/bin/yq \
             https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
           sudo chmod +x /usr/local/bin/yq
-      - name: Convert JSON spec to YAML
+
+      - name: Convert both JSON specs to YAML
         run: |
           yq -P -oy '.' \
             _xberg-enterprise/services/api/spec/openapi.json \
-            > spec/openapi.yaml
+            > spec/api/openapi.yaml
+          yq -P -oy '.' \
+            _xberg-enterprise/services/pro/spec/openapi.json \
+            > spec/pro/openapi.yaml
+
       - name: Detect drift
         id: diff
         run: |
-          if git diff --quiet -- spec/openapi.yaml; then
+          if git diff --quiet -- spec/api/openapi.yaml spec/pro/openapi.yaml; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
           else
             echo "changed=true" >> "$GITHUB_OUTPUT"
           fi
+
       - name: Open PR
         if: steps.diff.outputs.changed == 'true'
         uses: peter-evans/create-pull-request@v7
         with:
           token: ${{ steps.app-token.outputs.token }}
-          commit-message: "chore(spec): sync openapi.yaml from xberg-enterprise"
-          title: "chore(spec): sync openapi.yaml from xberg-enterprise"
+          commit-message: "chore(spec): sync api + pro openapi specs from xberg-enterprise (${{ steps.ref.outputs.version }})"
+          title: "chore(spec): sync openapi specs from xberg-enterprise (${{ steps.ref.outputs.version }})"
           body: |
-            Automated sync of `spec/openapi.yaml` from
-            `xberg-io/xberg-enterprise@main:services/api/spec/openapi.json`
-            (the canonical public extraction API spec).
+            Automated sync of `spec/api/openapi.yaml` and `spec/pro/openapi.yaml` from
+            `xberg-io/xberg-enterprise@${{ steps.ref.outputs.ref }}`
+            (`services/api/spec/openapi.json` + `services/pro/spec/openapi.json`).
 
-            Run `task generate` and review per-language diffs before merging.
+            API version: `${{ steps.ref.outputs.version }}`
+
+            Per-language CI (ci-python / ci-typescript / ci-go) regenerates clients from
+            these specs and runs the full test suite on this PR — that is the consistency
+            gate. Review per-language diffs before merging.
           branch: chore/spec-sync
           delete-branch: true
-          add-paths: spec/openapi.yaml
+          add-paths: |
+            spec/api/openapi.yaml
+            spec/pro/openapi.yaml

@@ -1,6 +1,6 @@
 version: "3"
 
-# The Python SDK ships ONE package (`xberg_io_sdk`) with ONE dual-target client,
+# ~keep The Python SDK ships ONE package (`xberg_io_sdk`) with ONE dual-target client,
 # generated from TWO OpenAPI specs kept as separate schema sets (never merged;
 # see xberg-enterprise ADR-0072):
 #   - spec/api/openapi.yaml  -> src/xberg_io_sdk/_generated_api  (Xberg Enterprise)

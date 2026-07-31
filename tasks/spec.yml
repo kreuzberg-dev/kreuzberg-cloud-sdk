@@ -1,6 +1,6 @@
 version: "3"
 
-# The SDK vendors TWO OpenAPI specs — the Enterprise managed API (`services/api`)
+# ~keep The SDK vendors TWO OpenAPI specs — the Enterprise managed API (`services/api`)
 # and Pro (`services/pro`) — and generates one dual-target client from both.
 # Merging is deliberately avoided (operationId collisions + topology honesty);
 # see xberg-enterprise ADR-0072.

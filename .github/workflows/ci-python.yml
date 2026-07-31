@@ -5,7 +5,8 @@ on:
     branches: [main]
     paths:
       - "packages/python/**"
-      - "spec/openapi.yaml"
+      - "spec/api/**"
+      - "spec/pro/**"
       - "tasks/python.yml"
       - "pyproject.toml"
       - ".github/workflows/ci-python.yml"
@@ -13,7 +14,8 @@ on:
     branches: [main]
     paths:
       - "packages/python/**"
-      - "spec/openapi.yaml"
+      - "spec/api/**"
+      - "spec/pro/**"
       - "tasks/python.yml"
       - "pyproject.toml"
 

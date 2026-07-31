@@ -16,8 +16,10 @@ exclude = [
     "dist/**",
     "node_modules/**",
     "packages/dart/lib/src/_generated/**",
-    "packages/go/v1/generated.go/**",
-    "packages/python/src/kreuzberg_cloud/_generated/**",
+    "packages/go/v1/generated_api.go",
+    "packages/go/v1/generated_pro.go",
+    "packages/python/src/xberg_io_sdk/_generated_api/**",
+    "packages/python/src/xberg_io_sdk/_generated_pro/**",
     "packages/typescript/src/_generated/**",
     "spec/**",
     "spec/openapi.yaml/**",
@@ -69,7 +71,7 @@ mccabe_max_complexity = 15
 pylint_max_args = 10
 pylint_max_branches = 15
 pylint_max_returns = 10
-known_first_party = ["kreuzberg_cloud"]
+known_first_party = ["xberg_io_sdk"]
 select = ["ALL"]
 ignore = [
     "ANN401",
@@ -157,8 +159,10 @@ lint = { exclude = [
     "dist/**",
     "node_modules/**",
     "packages/dart/lib/src/_generated/**",
-    "packages/go/v1/generated.go/**",
-    "packages/python/src/kreuzberg_cloud/_generated/**",
+    "packages/go/v1/generated_api.go",
+    "packages/go/v1/generated_pro.go",
+    "packages/python/src/xberg_io_sdk/_generated_api/**",
+    "packages/python/src/xberg_io_sdk/_generated_pro/**",
     "packages/typescript/src/_generated/**",
     "spec/**",
     "spec/openapi.yaml/**",
@@ -176,8 +180,10 @@ fmt = { exclude = [
     "dist/**",
     "node_modules/**",
     "packages/dart/lib/src/_generated/**",
-    "packages/go/v1/generated.go/**",
-    "packages/python/src/kreuzberg_cloud/_generated/**",
+    "packages/go/v1/generated_api.go",
+    "packages/go/v1/generated_pro.go",
+    "packages/python/src/xberg_io_sdk/_generated_api/**",
+    "packages/python/src/xberg_io_sdk/_generated_pro/**",
     "packages/typescript/src/_generated/**",
     "spec/**",
     "spec/openapi.yaml/**",
@@ -196,8 +202,10 @@ file_safety = { exclude = [
     "dist/**",
     "node_modules/**",
     "packages/dart/lib/src/_generated/**",
-    "packages/go/v1/generated.go/**",
-    "packages/python/src/kreuzberg_cloud/_generated/**",
+    "packages/go/v1/generated_api.go",
+    "packages/go/v1/generated_pro.go",
+    "packages/python/src/xberg_io_sdk/_generated_api/**",
+    "packages/python/src/xberg_io_sdk/_generated_pro/**",
     "packages/typescript/src/_generated/**",
     "spec/**",
     "spec/openapi.yaml/**",

@@ -1,7 +1,7 @@
 [project]
-name = "kreuzberg-cloud-sdk-workspace"
+name = "xberg-io-sdk-workspace"
 version = "0.0.0"
-description = "Workspace root for the kreuzberg-cloud-sdk SDK monorepo"
+description = "Workspace root for the xberg-io-sdk SDK monorepo"
 requires-python = ">=3.10"
 classifiers = [
     "Programming Language :: Python :: 3 :: Only",

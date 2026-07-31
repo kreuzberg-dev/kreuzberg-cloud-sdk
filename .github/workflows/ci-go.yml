@@ -5,7 +5,8 @@ on:
     branches: [main]
     paths:
       - "packages/go/**"
-      - "spec/openapi.yaml"
+      - "spec/api/**"
+      - "spec/pro/**"
       - "tasks/go.yml"
       - "go.work"
       - ".github/workflows/ci-go.yml"
@@ -13,7 +14,8 @@ on:
     branches: [main]
     paths:
       - "packages/go/**"
-      - "spec/openapi.yaml"
+      - "spec/api/**"
+      - "spec/pro/**"
       - "tasks/go.yml"
       - "go.work"
 
