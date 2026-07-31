@@ -1,20 +1,53 @@
 /**
- * High-level Xberg Enterprise client.
+ * High-level dual-target client for the Xberg Enterprise and Xberg Pro HTTP APIs.
  *
- * Wraps the generated `openapi-fetch` low-level client with ergonomic methods
- * that mirror the Python SDK shape (`extract`, `getJob`, `waitForJob`,
- * `extractAndWait`, `createSandboxKey`, etc.) and strongly-typed error
- * mapping. See {@link KreuzbergCloud} for the public surface.
+ * One {@link XbergClient} speaks to either product. The shared surface —
+ * extraction, jobs, audit, and the RAG API — is written once. Tier-specific
+ * methods are capability-gated: they probe the connected instance (`GET
+ * /healthz`'s `tier`, or an explicit `target`) and throw a clear error instead
+ * of a raw 404 when invoked against the wrong tier.
+ *
+ * Both products authenticate identically: `Authorization: Bearer {apiKey}`.
+ * Enterprise defaults `baseUrl` to `https://api.xberg.io`; Pro has no default
+ * (its spec ships no servers block) and requires an explicit one.
  */
 
 import createOpenApiClient, { type Client } from "openapi-fetch";
-import type { paths } from "./_generated/schema.js";
-import { KreuzbergError, RateLimitError, TimeoutError, raiseForStatus } from "./errors.js";
-import type { ExtractResponse, ExtractionOptions, Job, JobResult, SandboxKey, WebhookConfig } from "./types.js";
+import type { paths } from "./_generated/api.js";
+import { RateLimitError, TimeoutError, XbergError, raiseForStatus } from "./errors.js";
+import type {
+  AuthConfigResponse,
+  ConfirmUploadRequest,
+  ConfirmUploadResponse,
+  CreateSavedPresetRequest,
+  CreateSavedPresetResponse,
+  DiffResponse,
+  DocumentVersionEntry,
+  ExtractResponse,
+  ExtractionOptions,
+  GetJobResponse,
+  Job,
+  JobResult,
+  ListAuditEntriesResponse,
+  ListJobsResponse,
+  ListSavedPresetsResponse,
+  LoginRequest,
+  LoginResponse,
+  PresetDetail,
+  PresetSummary,
+  PresignUploadRequest,
+  PresignUploadResponse,
+  RagConfigResponse,
+  SandboxKey,
+  SetRagConfigRequest,
+  UsageResponse,
+  WebhookConfig,
+} from "./types.js";
 import { SUCCESS_JOB_STATUSES, TERMINAL_JOB_STATUSES } from "./types.js";
+import { VERSION } from "./version.js";
 
-const DEFAULT_BASE_URL = "https://api.xberg.io";
-const USER_AGENT = "xberg-enterprise-typescript/0.0.1";
+const DEFAULT_ENTERPRISE_BASE_URL = "https://api.xberg.io";
+const USER_AGENT = `xberg-io-sdk-typescript/${VERSION}`;
 const DEFAULT_TIMEOUT_MS = 30_000;
 const DEFAULT_POLL_INTERVAL_MS = 1_000;
 const DEFAULT_WAIT_TIMEOUT_MS = 5 * 60_000;
@@ -32,9 +65,18 @@ const SANDBOX_KEY_PATH = "/v1/sandbox/key";
  */
 export type BackoffStrategy = "exponential" | "constant";
 
-export interface KreuzbergCloudOptions {
+/** Which product the client targets. */
+export type Target = "enterprise" | "pro";
+
+export interface XbergClientOptions {
   apiKey?: string;
   baseUrl?: string;
+  /**
+   * Which product to talk to. When omitted, the tier is discovered lazily from
+   * `GET /healthz` before the first tier-specific call. Enterprise defaults
+   * `baseUrl`; `target: "pro"` requires an explicit `baseUrl`.
+   */
+  target?: Target;
   fetch?: typeof fetch;
   headers?: Record<string, string>;
   timeoutMs?: number;
@@ -80,14 +122,44 @@ export interface WaitOptions {
 
 export interface ExtractAndWaitParams extends ExtractParams, WaitOptions {}
 
-/** Public client. */
-export type KreuzbergCloudClient = Client<paths>;
+export interface ListJobsParams {
+  limit?: number;
+  offset?: number;
+}
+
+export interface AuditParams {
+  action?: string;
+  limit?: number;
+  offset?: number;
+}
+
+/** Query-string values accepted by the internal request engine. */
+type QueryParams = Record<string, string | number | undefined>;
+
+/** Underlying `openapi-fetch` client, typed over the Enterprise API schema. */
+export type XbergRawClient = Client<paths>;
 
 /**
- * High-level client. Construct with `new KreuzbergCloud({ apiKey })`, or use
- * the {@link KreuzbergCloud.fromSandbox} factory for a temporary key.
+ * Resolve the effective base URL, enforcing that Pro requires an explicit one.
  */
-export class KreuzbergCloud {
+function resolveBaseUrl(baseUrl: string | undefined, target: Target | undefined): string {
+  if (baseUrl !== undefined) {
+    return baseUrl.replace(/\/+$/, "");
+  }
+  if (target === "pro") {
+    throw new XbergError(
+      "Xberg Pro has no default base URL (its spec ships no servers block); pass baseUrl pointing at your Pro instance.",
+      { status: 0, body: null },
+    );
+  }
+  return DEFAULT_ENTERPRISE_BASE_URL;
+}
+
+/**
+ * High-level dual-target client. Construct with `new XbergClient({ apiKey })`,
+ * or use the {@link XbergClient.fromSandbox} factory for a temporary key.
+ */
+export class XbergClient {
   private readonly baseUrl: string;
   private readonly headers: Record<string, string>;
   private readonly fetchImpl: typeof fetch;
@@ -96,11 +168,16 @@ export class KreuzbergCloud {
   private readonly retryOn: readonly number[];
   private readonly retryBackoff: BackoffStrategy;
   private readonly sleep: (ms: number) => Promise<void>;
+  private readonly target?: Target;
+  private probedTier: string | undefined;
   /** Underlying `openapi-fetch` client — exposed for advanced use. */
-  public readonly raw: KreuzbergCloudClient;
+  public readonly raw: XbergRawClient;
 
-  public constructor(options: KreuzbergCloudOptions = {}) {
-    this.baseUrl = (options.baseUrl ?? DEFAULT_BASE_URL).replace(/\/+$/, "");
+  public constructor(options: XbergClientOptions = {}) {
+    if (options.target !== undefined) {
+      this.target = options.target;
+    }
+    this.baseUrl = resolveBaseUrl(options.baseUrl, options.target);
     this.fetchImpl = options.fetch ?? fetch;
     this.timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
     this.retries = options.retries ?? 0;
@@ -123,6 +200,8 @@ export class KreuzbergCloud {
     });
   }
 
+  // -- Shared surface (Enterprise + Pro) ---------------------------------
+
   /**
    * Submit a single document for extraction. Returns the initial {@link Job}
    * record (still pending — call `waitForJob` to await completion).
@@ -135,10 +214,7 @@ export class KreuzbergCloud {
     });
     const first = jobs[0];
     if (first === undefined) {
-      throw new KreuzbergError("Server did not return any job IDs", {
-        status: 500,
-        body: { jobs },
-      });
+      throw new XbergError("Server did not return any job IDs", { status: 500, body: { jobs } });
     }
     return first;
   }
@@ -149,7 +225,7 @@ export class KreuzbergCloud {
    */
   public async extractBatch(params: ExtractBatchParams): Promise<Job[]> {
     if (params.files.length === 0) {
-      throw new KreuzbergError("extractBatch called with no files", { status: 400, body: null });
+      throw new XbergError("extractBatch called with no files", { status: 400, body: null });
     }
 
     const form = new FormData();
@@ -163,38 +239,37 @@ export class KreuzbergCloud {
     const webhookPayload: WebhookConfig = params.webhook ?? { url: "" };
     form.append("webhook", JSON.stringify(webhookPayload));
 
-    const response = await this.requestWithRetry("POST", "/v1/extract", { body: form });
-    const body = (await response.json()) as ExtractResponse;
+    const body = await this.requestJson<ExtractResponse>("POST", "/v1/extract", { body: form });
     const jobIds = body.job_ids ?? [];
     const now = new Date().toISOString();
     return params.files.map((file, index) => {
       const id = jobIds[index];
       if (id === undefined) {
-        throw new KreuzbergError(`Server returned ${jobIds.length} job IDs for ${params.files.length} files`, {
+        throw new XbergError(`Server returned ${jobIds.length} job IDs for ${params.files.length} files`, {
           status: 500,
           body,
         });
       }
-      const filename = describeFile(file);
-      return {
-        id,
-        filename,
-        status: "pending",
-        created_at: now,
-      };
+      return { id, filename: describeFile(file), status: "pending", created_at: now };
     });
   }
 
   /** Fetch the current state of a job. */
   public async getJob(jobId: string): Promise<Job> {
-    const response = await this.requestWithRetry("GET", `/v1/jobs/${encodeURIComponent(jobId)}`);
-    return (await response.json()) as Job;
+    return this.requestJson<Job>("GET", `/v1/jobs/${encodeURIComponent(jobId)}`);
+  }
+
+  /** List jobs (paginated) via `GET /v1/jobs`. */
+  public async listJobs(params: ListJobsParams = {}): Promise<ListJobsResponse> {
+    return this.requestJson<ListJobsResponse>("GET", "/v1/jobs", {
+      params: { limit: params.limit, offset: params.offset },
+    });
   }
 
   /**
    * Poll {@link getJob} until the job reaches a terminal status. Throws
    * {@link TimeoutError} if the wait exceeds `timeoutMs`. Throws
-   * {@link KreuzbergError} if the terminal status is `failed` or `cancelled`.
+   * {@link XbergError} if the terminal status is `failed` or `cancelled`.
    */
   public async waitForJob(jobId: string, options: WaitOptions = {}): Promise<JobResult> {
     const timeoutMs = options.timeoutMs ?? DEFAULT_WAIT_TIMEOUT_MS;
@@ -209,19 +284,13 @@ export class KreuzbergCloud {
         if (SUCCESS_JOB_STATUSES.includes(job.status)) {
           return job;
         }
-        throw new KreuzbergError(`Job ${jobId} ended with status ${job.status}`, {
-          status: 200,
-          body: job,
-        });
+        throw new XbergError(`Job ${jobId} ended with status ${job.status}`, { status: 200, body: job });
       }
 
       const elapsed = Date.now() - start;
       const remaining = timeoutMs - elapsed;
       if (remaining <= 0) {
-        throw new TimeoutError(`Timed out waiting for job ${jobId} after ${timeoutMs}ms`, {
-          status: 408,
-          body: job,
-        });
+        throw new TimeoutError(`Timed out waiting for job ${jobId} after ${timeoutMs}ms`, { status: 408, body: job });
       }
       const delay = Math.min(interval, remaining);
       await this.sleep(delay);
@@ -252,48 +321,259 @@ export class KreuzbergCloud {
     return this.waitForJob(job.id, waitOptions);
   }
 
+  /** Fetch audit-log entries via `GET /v1/audit`. */
+  public async audit(params: AuditParams = {}): Promise<ListAuditEntriesResponse> {
+    return this.requestJson<ListAuditEntriesResponse>("GET", "/v1/audit", {
+      params: { action: params.action, limit: params.limit, offset: params.offset },
+    });
+  }
+
+  // -- Shared RAG surface ------------------------------------------------
+
+  /** List RAG collections (`GET /v1/rag/collections`). */
+  public async listRagCollections(): Promise<unknown> {
+    return this.requestJson("GET", "/v1/rag/collections");
+  }
+
+  /** Create a RAG collection (`POST /v1/rag/collections`). */
+  public async createRagCollection(body: Record<string, unknown>): Promise<unknown> {
+    return this.requestJson("POST", "/v1/rag/collections", { json: body });
+  }
+
+  /** Fetch a RAG collection (`GET /v1/rag/collections/{name}`). */
+  public async getRagCollection(name: string): Promise<unknown> {
+    return this.requestJson("GET", `/v1/rag/collections/${encodeURIComponent(name)}`);
+  }
+
+  /** Delete a RAG collection (`DELETE /v1/rag/collections/{name}`). */
+  public async deleteRagCollection(name: string): Promise<unknown> {
+    return this.requestJson("DELETE", `/v1/rag/collections/${encodeURIComponent(name)}`);
+  }
+
+  /** List documents in a RAG collection (`GET /v1/rag/collections/{name}/documents`). */
+  public async listRagDocuments(name: string): Promise<unknown> {
+    return this.requestJson("GET", `/v1/rag/collections/${encodeURIComponent(name)}/documents`);
+  }
+
+  /** Add documents to a RAG collection (`POST /v1/rag/collections/{name}/documents`). */
+  public async addRagDocuments(name: string, body: Record<string, unknown>): Promise<unknown> {
+    return this.requestJson("POST", `/v1/rag/collections/${encodeURIComponent(name)}/documents`, { json: body });
+  }
+
+  /** Reindex a RAG document (`POST /v1/rag/collections/{name}/documents/{id}/reindex`). */
+  public async reindexRagDocument(name: string, documentId: string, body?: Record<string, unknown>): Promise<unknown> {
+    const path = `/v1/rag/collections/${encodeURIComponent(name)}/documents/${encodeURIComponent(documentId)}/reindex`;
+    return this.requestJson("POST", path, body !== undefined ? { json: body } : {});
+  }
+
+  /** Retrieve chunks from a RAG collection (`POST /v1/rag/collections/{name}/retrieve`). */
+  public async ragRetrieve(name: string, body: Record<string, unknown>): Promise<unknown> {
+    return this.requestJson("POST", `/v1/rag/collections/${encodeURIComponent(name)}/retrieve`, { json: body });
+  }
+
+  /** Kick off an embedding migration (`POST /v1/rag/collections/{name}/migrate-embeddings`). */
+  public async migrateRagEmbeddings(name: string, body: Record<string, unknown>): Promise<unknown> {
+    return this.requestJson("POST", `/v1/rag/collections/${encodeURIComponent(name)}/migrate-embeddings`, {
+      json: body,
+    });
+  }
+
+  /** Poll an embedding-migration job (`GET .../migrate-embeddings/{jobId}`). */
+  public async getRagMigrationJob(name: string, jobId: string): Promise<unknown> {
+    const path = `/v1/rag/collections/${encodeURIComponent(name)}/migrate-embeddings/${encodeURIComponent(jobId)}`;
+    return this.requestJson("GET", path);
+  }
+
+  /** Fetch a RAG job's status (`GET /v1/rag/jobs/{jobId}`). */
+  public async getRagJob(jobId: string): Promise<unknown> {
+    return this.requestJson("GET", `/v1/rag/jobs/${encodeURIComponent(jobId)}`);
+  }
+
+  // -- Pro-only surface --------------------------------------------------
+
+  /** Pro only: fetch the instance's accepted auth methods (`GET /auth/config`). */
+  public async authConfig(): Promise<AuthConfigResponse> {
+    await this.requireTier("pro", "authConfig");
+    return this.requestJson<AuthConfigResponse>("GET", "/auth/config");
+  }
+
+  /** Pro only: exchange a verified OIDC ID token for a Pro session JWT (`POST /auth/login`). */
+  public async login(body: LoginRequest): Promise<LoginResponse> {
+    await this.requireTier("pro", "login");
+    return this.requestJson<LoginResponse>("POST", "/auth/login", { json: body });
+  }
+
+  /** Pro only: list saved presets (`GET /v1/saved-presets`). */
+  public async listSavedPresets(): Promise<ListSavedPresetsResponse> {
+    await this.requireTier("pro", "listSavedPresets");
+    return this.requestJson<ListSavedPresetsResponse>("GET", "/v1/saved-presets");
+  }
+
+  /** Pro only: create a saved preset (`POST /v1/saved-presets`). */
+  public async createSavedPreset(body: CreateSavedPresetRequest): Promise<CreateSavedPresetResponse> {
+    await this.requireTier("pro", "createSavedPreset");
+    return this.requestJson<CreateSavedPresetResponse>("POST", "/v1/saved-presets", { json: body });
+  }
+
+  /** Pro only: delete a saved preset (`DELETE /v1/saved-presets/{id}`). */
+  public async deleteSavedPreset(presetId: string): Promise<unknown> {
+    await this.requireTier("pro", "deleteSavedPreset");
+    return this.requestJson("DELETE", `/v1/saved-presets/${encodeURIComponent(presetId)}`);
+  }
+
+  /** Pro only: fetch a job's stored result document (`GET /v1/jobs/{id}/result`). */
+  public async getJobResult(jobId: string): Promise<GetJobResponse> {
+    await this.requireTier("pro", "getJobResult");
+    return this.requestJson<GetJobResponse>("GET", `/v1/jobs/${encodeURIComponent(jobId)}/result`);
+  }
+
+  /** Pro only: fetch a project's RAG config (`GET /v1/projects/{projectId}/rag-config`). */
+  public async getRagConfig(projectId: string): Promise<RagConfigResponse> {
+    await this.requireTier("pro", "getRagConfig");
+    return this.requestJson<RagConfigResponse>("GET", `/v1/projects/${encodeURIComponent(projectId)}/rag-config`);
+  }
+
+  /** Pro only: update a project's RAG config (`PUT /v1/projects/{projectId}/rag-config`). */
+  public async setRagConfig(projectId: string, body: SetRagConfigRequest): Promise<RagConfigResponse> {
+    await this.requireTier("pro", "setRagConfig");
+    return this.requestJson<RagConfigResponse>("PUT", `/v1/projects/${encodeURIComponent(projectId)}/rag-config`, {
+      json: body,
+    });
+  }
+
+  // -- Enterprise-only surface ------------------------------------------
+
+  /** Enterprise only: list a document's versions (`GET /v1/documents/{id}/versions`). */
+  public async versions(documentId: string): Promise<DocumentVersionEntry[]> {
+    await this.requireTier("enterprise", "versions");
+    return this.requestJson<DocumentVersionEntry[]>("GET", `/v1/documents/${encodeURIComponent(documentId)}/versions`);
+  }
+
+  /** Enterprise only: diff document versions (`GET /v1/documents/{id}/diff`). */
+  public async diff(documentId: string, params?: QueryParams): Promise<DiffResponse> {
+    await this.requireTier("enterprise", "diff");
+    const init: RequestParts = params !== undefined ? { params } : {};
+    return this.requestJson<DiffResponse>("GET", `/v1/documents/${encodeURIComponent(documentId)}/diff`, init);
+  }
+
+  /** Enterprise only: poll a diff job (`GET /v1/documents/{id}/diff/{diffJobId}`). */
+  public async getDiffJob(documentId: string, diffJobId: string): Promise<DiffResponse> {
+    await this.requireTier("enterprise", "getDiffJob");
+    const path = `/v1/documents/${encodeURIComponent(documentId)}/diff/${encodeURIComponent(diffJobId)}`;
+    return this.requestJson<DiffResponse>("GET", path);
+  }
+
+  /** Enterprise only: list read-only managed presets (`GET /v1/presets`). */
+  public async presets(): Promise<PresetSummary[]> {
+    await this.requireTier("enterprise", "presets");
+    return this.requestJson<PresetSummary[]>("GET", "/v1/presets");
+  }
+
+  /** Enterprise only: fetch a managed preset (`GET /v1/presets/{id}`). */
+  public async getPreset(presetId: string): Promise<PresetDetail> {
+    await this.requireTier("enterprise", "getPreset");
+    return this.requestJson<PresetDetail>("GET", `/v1/presets/${encodeURIComponent(presetId)}`);
+  }
+
+  /** Enterprise only: request a presigned upload URL (`POST /v1/uploads/presign`). */
+  public async presignUpload(body: PresignUploadRequest): Promise<PresignUploadResponse> {
+    await this.requireTier("enterprise", "presignUpload");
+    return this.requestJson<PresignUploadResponse>("POST", "/v1/uploads/presign", { json: body });
+  }
+
+  /** Enterprise only: confirm a presigned upload (`POST /v1/uploads/confirm`). */
+  public async confirmUpload(body: ConfirmUploadRequest): Promise<ConfirmUploadResponse> {
+    await this.requireTier("enterprise", "confirmUpload");
+    return this.requestJson<ConfirmUploadResponse>("POST", "/v1/uploads/confirm", { json: body });
+  }
+
+  /** Enterprise only: fetch usage/metering data (`GET /v1/usage`). */
+  public async usage(params?: QueryParams): Promise<UsageResponse> {
+    await this.requireTier("enterprise", "usage");
+    const init: RequestParts = params !== undefined ? { params } : {};
+    return this.requestJson<UsageResponse>("GET", "/v1/usage", init);
+  }
+
+  // -- Sandbox onboarding (out-of-band, untyped endpoint) ----------------
+
   /**
-   * Mint a temporary sandbox API key. Calls `POST /v1/sandbox/key` (raw
-   * fetch, not in the generated paths yet).
+   * Mint a temporary sandbox API key via `POST /v1/sandbox/key`. The sandbox
+   * endpoint is intentionally NOT part of either OpenAPI spec — it is an
+   * out-of-band onboarding route, so it is called and parsed by hand. ~keep
    */
   public async createSandboxKey(): Promise<SandboxKey> {
-    const response = await this.requestWithRetry("POST", SANDBOX_KEY_PATH);
-    return (await response.json()) as SandboxKey;
+    return this.requestJson<SandboxKey>("POST", SANDBOX_KEY_PATH);
   }
 
   /**
    * Construct a client authenticated with a fresh sandbox key. Issues an
    * unauthenticated request to `POST /v1/sandbox/key`, then returns a new
-   * `KreuzbergCloud` configured with the returned key.
+   * {@link XbergClient} configured with the returned key (Enterprise onboarding).
    */
-  public static async fromSandbox(options: FromSandboxOptions = {}): Promise<KreuzbergCloud> {
-    const bootstrap = new KreuzbergCloud(options);
+  public static async fromSandbox(options: FromSandboxOptions = {}): Promise<XbergClient> {
+    const bootstrap = new XbergClient(options);
     const key = await bootstrap.createSandboxKey();
-    return new KreuzbergCloud({ ...options, apiKey: key.api_key });
+    return new XbergClient({ ...options, apiKey: key.api_key });
+  }
+
+  // -- Internals ---------------------------------------------------------
+
+  /**
+   * Return the effective tier — an explicit `target` if set, else probed from
+   * `/healthz` (cached after the first probe).
+   */
+  private async resolveTier(): Promise<string> {
+    if (this.target !== undefined) {
+      return this.target;
+    }
+    if (this.probedTier === undefined) {
+      const body = await this.requestJson<{ tier?: unknown }>("GET", "/healthz");
+      this.probedTier = typeof body?.tier === "string" ? body.tier : "";
+    }
+    return this.probedTier;
+  }
+
+  /** Throw a clear error when the connected tier does not match the required one. */
+  private async requireTier(required: Target, methodName: string): Promise<void> {
+    const tier = await this.resolveTier();
+    if (tier !== required) {
+      const actual = tier || "unknown";
+      throw new XbergError(
+        `${methodName}() is not available on the '${actual}' tier (requires the '${required}' tier)`,
+        { status: 0, body: null },
+      );
+    }
+  }
+
+  /** Issue a request, raise on non-2xx, and decode the JSON body (undefined for empty bodies). */
+  private async requestJson<T = unknown>(method: string, path: string, init: RequestParts = {}): Promise<T> {
+    const response = await this.requestWithRetry(method, path, init);
+    if (response.status === 204) {
+      return undefined as T;
+    }
+    const text = await response.text();
+    return (text.length > 0 ? JSON.parse(text) : undefined) as T;
   }
 
   /**
-   * Issue a raw HTTP request with auth, timeout, and retry handling. Used
-   * internally for endpoints that require multipart bodies or aren't yet in
-   * the generated schema.
+   * Issue a raw HTTP request with auth, timeout, query params, and retry
+   * handling. Returns the raw (2xx) {@link Response}; non-2xx responses are
+   * mapped to a thrown {@link XbergError} subclass.
    */
-  private async requestWithRetry(
-    method: string,
-    path: string,
-    init: { body?: FormData | string | Uint8Array; headers?: Record<string, string> } = {},
-  ): Promise<Response> {
-    const url = `${this.baseUrl}${path}`;
+  private async requestWithRetry(method: string, path: string, init: RequestParts = {}): Promise<Response> {
+    const url = `${this.baseUrl}${path}${buildQueryString(init.params)}`;
     let attempt = 0;
     let interval = DEFAULT_RETRY_BACKOFF_BASE_MS;
     for (;;) {
       const headers = { ...this.headers, ...init.headers };
-      const requestInit: RequestInit = {
-        method,
-        headers,
-        signal: AbortSignal.timeout(this.timeoutMs),
-      };
-      if (init.body !== undefined) {
-        requestInit.body = init.body;
+      let body: FormData | string | Uint8Array | undefined = init.body;
+      if (init.json !== undefined) {
+        headers["Content-Type"] = "application/json";
+        body = JSON.stringify(init.json);
+      }
+      const requestInit: RequestInit = { method, headers, signal: AbortSignal.timeout(this.timeoutMs) };
+      if (body !== undefined) {
+        requestInit.body = body;
       }
 
       let response: Response;
@@ -306,11 +586,7 @@ export class KreuzbergCloud {
           interval = nextBackoffInterval(interval, this.retryBackoff);
           continue;
         }
-        throw new KreuzbergError(`Network error contacting ${url}`, {
-          status: 0,
-          body: null,
-          cause,
-        });
+        throw new XbergError(`Network error contacting ${url}`, { status: 0, body: null, cause });
       }
 
       if (response.ok) {
@@ -337,12 +613,20 @@ export class KreuzbergCloud {
         }
         throw error;
       }
-      throw new KreuzbergError("Unreachable", { status: response.status, body: null });
+      throw new XbergError("Unreachable", { status: response.status, body: null });
     }
   }
 }
 
-/** Backwards-compatible factory matching the original low-level API. */
+/** Parts accepted by the internal request engine. */
+interface RequestParts {
+  body?: FormData | string | Uint8Array;
+  json?: unknown;
+  headers?: Record<string, string>;
+  params?: QueryParams;
+}
+
+/** Backwards-compatible factory returning the low-level `openapi-fetch` client. */
 export interface CreateClientOptions {
   baseUrl?: string;
   apiKey?: string;
@@ -350,7 +634,7 @@ export interface CreateClientOptions {
   fetch?: typeof fetch;
 }
 
-export function createClient(options: CreateClientOptions = {}): KreuzbergCloudClient {
+export function createClient(options: CreateClientOptions = {}): XbergRawClient {
   const headers: Record<string, string> = {
     "User-Agent": USER_AGENT,
     ...options.headers,
@@ -359,7 +643,7 @@ export function createClient(options: CreateClientOptions = {}): KreuzbergCloudC
     headers["Authorization"] = `Bearer ${options.apiKey}`;
   }
   return createOpenApiClient<paths>({
-    baseUrl: options.baseUrl ?? DEFAULT_BASE_URL,
+    baseUrl: options.baseUrl ?? DEFAULT_ENTERPRISE_BASE_URL,
     headers,
     ...(options.fetch !== undefined ? { fetch: options.fetch } : {}),
   });
@@ -369,6 +653,20 @@ function defaultSleep(ms: number): Promise<void> {
   return new Promise((resolve) => {
     setTimeout(resolve, ms);
   });
+}
+
+function buildQueryString(params: QueryParams | undefined): string {
+  if (params === undefined) {
+    return "";
+  }
+  const search = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined) {
+      search.append(key, String(value));
+    }
+  }
+  const query = search.toString();
+  return query.length > 0 ? `?${query}` : "";
 }
 
 function nextBackoffInterval(current: number, strategy: BackoffStrategy): number {

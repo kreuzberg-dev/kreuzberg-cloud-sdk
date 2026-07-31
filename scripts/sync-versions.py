@@ -7,6 +7,7 @@ Single source of truth: ``VERSION`` at the repo root. Run this script (or
 Affected files:
   - packages/python/pyproject.toml                          (``project.version``)
   - packages/typescript/package.json                        (``version``)
+  - packages/typescript/src/version.ts                      (``export const VERSION``)
   - packages/python/src/xberg_io_sdk/__init__.py            (``__version__``)
   - packages/go/v1/version.go                               (``const Version``)
   - packages/dart/pubspec.yaml                              (``version``)
@@ -25,6 +26,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 VERSION_FILE = REPO_ROOT / "VERSION"
 PYTHON_PYPROJECT = REPO_ROOT / "packages" / "python" / "pyproject.toml"
 TYPESCRIPT_PACKAGE = REPO_ROOT / "packages" / "typescript" / "package.json"
+TYPESCRIPT_VERSION_TS = REPO_ROOT / "packages" / "typescript" / "src" / "version.ts"
 PYTHON_INIT = REPO_ROOT / "packages" / "python" / "src" / "xberg_io_sdk" / "__init__.py"
 GO_VERSION = REPO_ROOT / "packages" / "go" / "v1" / "version.go"
 DART_PUBSPEC = REPO_ROOT / "packages" / "dart" / "pubspec.yaml"
@@ -66,6 +68,23 @@ def update_package_json(path: Path, version: str) -> bool:
         return False
     data["version"] = version
     path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+    return True
+
+
+def update_typescript_version(path: Path, version: str) -> bool:
+    """Rewrite the ``export const VERSION`` literal in the TS version.ts; return True if changed."""
+    text = path.read_text(encoding="utf-8")
+    new_text, count = re.subn(
+        r'(?m)^(export const VERSION\s*=\s*")[^"]+(")',
+        rf"\g<1>{version}\g<2>",
+        text,
+        count=1,
+    )
+    if count == 0:
+        sys.exit(f"no `export const VERSION` line found in {path}")
+    if new_text == text:
+        return False
+    path.write_text(new_text, encoding="utf-8")
     return True
 
 
@@ -145,6 +164,8 @@ def main() -> int:
         changed.append(str(PYTHON_PYPROJECT.relative_to(REPO_ROOT)))
     if update_package_json(TYPESCRIPT_PACKAGE, version):
         changed.append(str(TYPESCRIPT_PACKAGE.relative_to(REPO_ROOT)))
+    if update_typescript_version(TYPESCRIPT_VERSION_TS, version):
+        changed.append(str(TYPESCRIPT_VERSION_TS.relative_to(REPO_ROOT)))
     if update_python_init(PYTHON_INIT, version):
         changed.append(str(PYTHON_INIT.relative_to(REPO_ROOT)))
     if update_go_version(GO_VERSION, version):

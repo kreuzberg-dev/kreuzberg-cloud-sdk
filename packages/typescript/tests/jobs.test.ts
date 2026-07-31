@@ -1,6 +1,6 @@
 import { HttpResponse, http } from "msw";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
-import { KreuzbergCloud } from "../src/client.js";
+import { XbergClient } from "../src/client.js";
 import { TimeoutError } from "../src/errors.js";
 import type { Job } from "../src/types.js";
 import { TEST_BASE_URL, createTestServer, url } from "./_helpers.js";
@@ -23,9 +23,9 @@ function makeJob(overrides: Partial<Job> & { id: string; status: Job["status"] }
   };
 }
 
-function makeClient(sleeps: number[] = []): KreuzbergCloud {
+function makeClient(sleeps: number[] = []): XbergClient {
   const recorded = sleeps;
-  return new KreuzbergCloud({
+  return new XbergClient({
     apiKey: "k",
     baseUrl: TEST_BASE_URL,
     sleep: async (ms) => {
@@ -101,7 +101,7 @@ describe("waitForJob", () => {
     expect(result.status).toBe("partial_success");
   });
 
-  it("throws KreuzbergError when the job ends as failed", async () => {
+  it("throws XbergError when the job ends as failed", async () => {
     server.use(
       http.get(url("/v1/jobs/job-1"), () =>
         HttpResponse.json(makeJob({ id: "job-1", status: "failed" }), { status: 200 }),
@@ -111,7 +111,7 @@ describe("waitForJob", () => {
     await expect(client.waitForJob("job-1")).rejects.toThrow(/failed/);
   });
 
-  it("throws KreuzbergError when the job ends as cancelled", async () => {
+  it("throws XbergError when the job ends as cancelled", async () => {
     server.use(
       http.get(url("/v1/jobs/job-1"), () =>
         HttpResponse.json(makeJob({ id: "job-1", status: "cancelled" }), { status: 200 }),
@@ -141,7 +141,7 @@ describe("waitForJob", () => {
         return HttpResponse.json(makeJob({ id: "job-1", status }), { status: 200 });
       }),
     );
-    const client = new KreuzbergCloud({
+    const client = new XbergClient({
       apiKey: "k",
       baseUrl: TEST_BASE_URL,
       sleep: async (ms) => {
@@ -162,7 +162,7 @@ describe("waitForJob", () => {
         return HttpResponse.json(makeJob({ id: "job-1", status }), { status: 200 });
       }),
     );
-    const client = new KreuzbergCloud({
+    const client = new XbergClient({
       apiKey: "k",
       baseUrl: TEST_BASE_URL,
       sleep: async (ms) => {

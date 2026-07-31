@@ -1,6 +1,6 @@
 import { HttpResponse, http } from "msw";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
-import { KreuzbergCloud } from "../src/client.js";
+import { XbergClient } from "../src/client.js";
 import { RateLimitError, ServerError } from "../src/errors.js";
 import { TEST_BASE_URL, createTestServer, url } from "./_helpers.js";
 
@@ -30,7 +30,7 @@ describe("retry/backoff", () => {
         );
       }),
     );
-    const client = new KreuzbergCloud({
+    const client = new XbergClient({
       apiKey: "k",
       baseUrl: TEST_BASE_URL,
       retries: 5,
@@ -61,7 +61,7 @@ describe("retry/backoff", () => {
         );
       }),
     );
-    const client = new KreuzbergCloud({
+    const client = new XbergClient({
       apiKey: "k",
       baseUrl: TEST_BASE_URL,
       retries: 1,
@@ -93,7 +93,7 @@ describe("retry/backoff", () => {
         );
       }),
     );
-    const client = new KreuzbergCloud({
+    const client = new XbergClient({
       apiKey: "k",
       baseUrl: TEST_BASE_URL,
       retries: 5,
@@ -114,7 +114,7 @@ describe("retry/backoff", () => {
         return HttpResponse.json({ error: "still down" }, { status: 503 });
       }),
     );
-    const client = new KreuzbergCloud({
+    const client = new XbergClient({
       apiKey: "k",
       baseUrl: TEST_BASE_URL,
       retries: 2,
@@ -132,7 +132,7 @@ describe("retry/backoff", () => {
         return HttpResponse.json({ error: "no auth" }, { status: 401 });
       }),
     );
-    const client = new KreuzbergCloud({
+    const client = new XbergClient({
       apiKey: "k",
       baseUrl: TEST_BASE_URL,
       retries: 5,
@@ -161,7 +161,7 @@ describe("retry/backoff", () => {
         );
       }),
     );
-    const client = new KreuzbergCloud({
+    const client = new XbergClient({
       apiKey: "k",
       baseUrl: TEST_BASE_URL,
       retries: 2,
@@ -193,7 +193,7 @@ describe("retry/backoff", () => {
         );
       }),
     );
-    const client = new KreuzbergCloud({
+    const client = new XbergClient({
       apiKey: "k",
       baseUrl: TEST_BASE_URL,
       retries: 5,
@@ -214,7 +214,7 @@ describe("retry/backoff", () => {
         return HttpResponse.json({ error: "wait" }, { status: 429 });
       }),
     );
-    const client = new KreuzbergCloud({
+    const client = new XbergClient({
       apiKey: "k",
       baseUrl: TEST_BASE_URL,
       retries: 1,

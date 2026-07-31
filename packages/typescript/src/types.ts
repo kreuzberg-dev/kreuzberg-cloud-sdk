@@ -1,12 +1,16 @@
 /**
- * Friendly re-exports of generated schema types.
+ * Friendly re-exports of the two generated schema sets.
  *
- * The generated `components["schemas"][...]` indexed access is verbose; this
- * module provides the named aliases used by the public client API.
+ * Shared and Enterprise-only types key off `_generated/api.d.ts` (the Xberg
+ * Enterprise managed API); Pro-only response types key off
+ * `_generated/pro.d.ts`. The two schema sets are generated separately and never
+ * merged — mirrors xberg-enterprise ADR-0072.
  */
 
-import type { components } from "./_generated/schema.js";
+import type { components } from "./_generated/api.js";
+import type { components as proComponents } from "./_generated/pro.js";
 
+// -- Shared surface (present in both schema sets; typed off the Enterprise API) --
 export type ExtractionOptions = components["schemas"]["ExtractionOptions"];
 export type ExtractionConfig = components["schemas"]["ExtractionConfig"];
 export type ExtractedDocument = components["schemas"]["ExtractedDocument"];
@@ -16,21 +20,43 @@ export type JobStatus = components["schemas"]["JobStatus"];
 export type WebhookConfig = components["schemas"]["WebhookConfig"];
 export type ExtractResponse = components["schemas"]["ExtractResponse"];
 export type DocumentInput = components["schemas"]["DocumentInput"];
+export type ListJobsResponse = components["schemas"]["ListJobsResponse"];
+export type ListAuditEntriesResponse = components["schemas"]["ListAuditEntriesResponse"];
+
+// -- Enterprise-only surface (api schema) --
 export type UsageResponse = components["schemas"]["UsageResponse"];
+export type DiffResponse = components["schemas"]["DiffResponse"];
+export type DocumentVersionEntry = components["schemas"]["DocumentVersionEntry"];
+export type PresetSummary = components["schemas"]["PresetSummary"];
+export type PresetDetail = components["schemas"]["PresetDetail"];
+export type PresignUploadRequest = components["schemas"]["PresignUploadRequest"];
+export type PresignUploadResponse = components["schemas"]["PresignUploadResponse"];
+export type ConfirmUploadRequest = components["schemas"]["ConfirmUploadRequest"];
+export type ConfirmUploadResponse = components["schemas"]["ConfirmUploadResponse"];
+
+// -- Pro-only surface (pro schema) --
+export type GetJobResponse = proComponents["schemas"]["GetJobResponse"];
+export type AuthConfigResponse = proComponents["schemas"]["AuthConfigResponse"];
+export type LoginRequest = proComponents["schemas"]["LoginRequest"];
+export type LoginResponse = proComponents["schemas"]["LoginResponse"];
+export type ListSavedPresetsResponse = proComponents["schemas"]["ListSavedPresetsResponse"];
+export type SavedPresetDetail = proComponents["schemas"]["SavedPresetDetail"];
+export type CreateSavedPresetRequest = proComponents["schemas"]["CreateSavedPresetRequest"];
+export type CreateSavedPresetResponse = proComponents["schemas"]["CreateSavedPresetResponse"];
+export type SetRagConfigRequest = proComponents["schemas"]["SetRagConfigRequest"];
+export type RagConfigResponse = proComponents["schemas"]["RagConfigResponse"];
 
 /**
  * A completed (or failed) job, returned by `waitForJob` once the job reaches a
- * terminal status. Adds a non-nullable `result` when the status is
- * `completed`/`partial_success` — callers can rely on `.result` without a
- * runtime null check in the happy path.
+ * terminal status.
  */
 export type JobResult = Job;
 
 /**
  * Sandbox API key returned by `POST /v1/sandbox/key`.
  *
- * The sandbox endpoint is not yet part of the OpenAPI spec; this type mirrors
- * the documented response shape.
+ * The sandbox endpoint is intentionally NOT part of either OpenAPI spec — it is
+ * an out-of-band onboarding route, so this type is hand-maintained. ~keep
  */
 export interface SandboxKey {
   api_key: string;

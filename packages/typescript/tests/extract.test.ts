@@ -1,6 +1,6 @@
 import { HttpResponse, http } from "msw";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
-import { KreuzbergCloud } from "../src/client.js";
+import { XbergClient } from "../src/client.js";
 import { TEST_BASE_URL, createTestServer, url } from "./_helpers.js";
 
 const server = createTestServer();
@@ -9,8 +9,8 @@ beforeAll(() => server.listen({ onUnhandledRequest: "error" }));
 afterEach(() => server.resetHandlers());
 afterAll(() => server.close());
 
-function makeClient(): KreuzbergCloud {
-  return new KreuzbergCloud({
+function makeClient(): XbergClient {
+  return new XbergClient({
     apiKey: "test-key",
     baseUrl: TEST_BASE_URL,
     sleep: async () => {},

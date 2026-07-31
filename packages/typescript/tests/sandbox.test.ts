@@ -1,6 +1,6 @@
 import { HttpResponse, http } from "msw";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
-import { KreuzbergCloud } from "../src/client.js";
+import { XbergClient } from "../src/client.js";
 import { RateLimitError } from "../src/errors.js";
 import { TEST_BASE_URL, createTestServer, url } from "./_helpers.js";
 
@@ -17,7 +17,7 @@ describe("createSandboxKey", () => {
         HttpResponse.json({ api_key: "kz_sandbox_abc", expires_at: "2026-05-10T00:00:00Z" }, { status: 200 }),
       ),
     );
-    const client = new KreuzbergCloud({ baseUrl: TEST_BASE_URL, sleep: async () => {} });
+    const client = new XbergClient({ baseUrl: TEST_BASE_URL, sleep: async () => {} });
     const key = await client.createSandboxKey();
     expect(key.api_key).toBe("kz_sandbox_abc");
     expect(key.expires_at).toBe("2026-05-10T00:00:00Z");
@@ -29,7 +29,7 @@ describe("createSandboxKey", () => {
         HttpResponse.json({ error: "rate limit" }, { status: 429, headers: { "retry-after": "5" } }),
       ),
     );
-    const client = new KreuzbergCloud({ baseUrl: TEST_BASE_URL, sleep: async () => {} });
+    const client = new XbergClient({ baseUrl: TEST_BASE_URL, sleep: async () => {} });
     try {
       await client.createSandboxKey();
       throw new Error("expected throw");
@@ -40,7 +40,7 @@ describe("createSandboxKey", () => {
   });
 });
 
-describe("KreuzbergCloud.fromSandbox", () => {
+describe("XbergClient.fromSandbox", () => {
   it("mints a sandbox key and returns a client configured with it", async () => {
     const seenAuth: string[] = [];
     server.use(
@@ -62,7 +62,7 @@ describe("KreuzbergCloud.fromSandbox", () => {
       }),
     );
 
-    const client = await KreuzbergCloud.fromSandbox({
+    const client = await XbergClient.fromSandbox({
       baseUrl: TEST_BASE_URL,
     });
     await client.getJob("job-1");
@@ -89,7 +89,7 @@ describe("KreuzbergCloud.fromSandbox", () => {
       }),
     );
 
-    const client = await KreuzbergCloud.fromSandbox({
+    const client = await XbergClient.fromSandbox({
       baseUrl: TEST_BASE_URL,
       headers: { "x-custom": "yes" },
     });
@@ -99,11 +99,11 @@ describe("KreuzbergCloud.fromSandbox", () => {
 
   it("propagates a 401 from the sandbox endpoint as AuthError", async () => {
     server.use(http.post(url("/v1/sandbox/key"), () => HttpResponse.json({ error: "denied" }, { status: 401 })));
-    await expect(KreuzbergCloud.fromSandbox({ baseUrl: TEST_BASE_URL })).rejects.toThrow(/denied/);
+    await expect(XbergClient.fromSandbox({ baseUrl: TEST_BASE_URL })).rejects.toThrow(/denied/);
   });
 
   it("makeClient (default base URL) constructs without throwing", () => {
-    const client = new KreuzbergCloud({ apiKey: "k" });
-    expect(client).toBeInstanceOf(KreuzbergCloud);
+    const client = new XbergClient({ apiKey: "k" });
+    expect(client).toBeInstanceOf(XbergClient);
   });
 });

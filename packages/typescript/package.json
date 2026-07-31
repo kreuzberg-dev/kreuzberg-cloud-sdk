@@ -1,7 +1,7 @@
 {
-  "name": "@kreuzberg/cloud",
+  "name": "@xberg-io/sdk",
   "version": "0.3.1",
-  "description": "Official TypeScript client for the Xberg Enterprise document-processing API.",
+  "description": "Official TypeScript client for the Xberg Enterprise and Xberg Pro document-processing APIs.",
   "license": "MIT",
   "author": "Kreuzberg, Inc. <contact@xberg.io>",
   "homepage": "https://enterprise.xberg.io",
@@ -13,7 +13,7 @@
   "bugs": {
     "url": "https://github.com/xberg-io/sdks/issues"
   },
-  "keywords": ["kreuzberg", "cloud", "openapi", "client", "sdk", "document-extraction"],
+  "keywords": ["xberg", "enterprise", "pro", "openapi", "client", "sdk", "document-extraction"],
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",
@@ -34,8 +34,8 @@
     "provenance": true
   },
   "scripts": {
-    "build": "tsdown",
-    "generate": "openapi-typescript ../../spec/openapi.yaml -o src/_generated/schema.d.ts",
+    "build": "pnpm run generate && tsdown",
+    "generate": "bash scripts/generate.sh",
     "typecheck": "tsc --noEmit",
     "lint": "oxlint src tests && tsc --noEmit",
     "format": "oxfmt --write src tests",

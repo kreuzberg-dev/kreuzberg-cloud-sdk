@@ -10,9 +10,9 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
-import type { components } from "../src/_generated/schema";
+import type { components } from "../src/_generated/api";
 
-type ExtractionResult = components["schemas"]["ExtractionResult"];
+type ExtractionResult = components["schemas"]["ExtractedDocument"];
 
 const FIXTURES = resolve(__dirname, "../../../spec/fixtures");
 

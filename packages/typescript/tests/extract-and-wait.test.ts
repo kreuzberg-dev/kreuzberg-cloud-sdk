@@ -1,6 +1,6 @@
 import { HttpResponse, http } from "msw";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
-import { KreuzbergCloud } from "../src/client.js";
+import { XbergClient } from "../src/client.js";
 import { TimeoutError } from "../src/errors.js";
 import { TEST_BASE_URL, createTestServer, url } from "./_helpers.js";
 
@@ -10,8 +10,8 @@ beforeAll(() => server.listen({ onUnhandledRequest: "error" }));
 afterEach(() => server.resetHandlers());
 afterAll(() => server.close());
 
-function makeClient(): KreuzbergCloud {
-  return new KreuzbergCloud({
+function makeClient(): XbergClient {
+  return new XbergClient({
     apiKey: "k",
     baseUrl: TEST_BASE_URL,
     sleep: async () => {},
@@ -82,7 +82,7 @@ describe("extractAndWait", () => {
     });
   });
 
-  it("throws KreuzbergError when the polled job ends as failed", async () => {
+  it("throws XbergError when the polled job ends as failed", async () => {
     server.use(
       http.post(url("/v1/extract"), () =>
         HttpResponse.json({ job_ids: ["job-f"], status: "pending" }, { status: 202 }),

@@ -1,9 +1,9 @@
 import { HttpResponse, http } from "msw";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
-import { KreuzbergCloud } from "../src/client.js";
+import { XbergClient } from "../src/client.js";
 import {
   AuthError,
-  KreuzbergError,
+  XbergError,
   NotFoundError,
   RateLimitError,
   ServerError,
@@ -18,8 +18,8 @@ beforeAll(() => server.listen({ onUnhandledRequest: "error" }));
 afterEach(() => server.resetHandlers());
 afterAll(() => server.close());
 
-function makeClient(): KreuzbergCloud {
-  return new KreuzbergCloud({
+function makeClient(): XbergClient {
+  return new XbergClient({
     apiKey: "k",
     baseUrl: TEST_BASE_URL,
     sleep: async () => {},
@@ -119,17 +119,17 @@ describe("error mapping", () => {
     }
   });
 
-  it("KreuzbergError preserves status and body fields", () => {
-    const e = new KreuzbergError("boom", { status: 418, body: { hint: "teapot" } });
+  it("XbergError preserves status and body fields", () => {
+    const e = new XbergError("boom", { status: 418, body: { hint: "teapot" } });
     expect(e.status).toBe(418);
     expect(e.body).toEqual({ hint: "teapot" });
     expect(e).toBeInstanceOf(Error);
   });
 
-  it("TimeoutError is its own subclass and instanceof KreuzbergError", () => {
+  it("TimeoutError is its own subclass and instanceof XbergError", () => {
     const e = new TimeoutError("nope", { status: 408, body: null });
     expect(e).toBeInstanceOf(TimeoutError);
-    expect(e).toBeInstanceOf(KreuzbergError);
+    expect(e).toBeInstanceOf(XbergError);
     expect(e).toBeInstanceOf(Error);
   });
 });
