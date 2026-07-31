@@ -38,7 +38,6 @@ import type {
   PresignUploadRequest,
   PresignUploadResponse,
   RagConfigResponse,
-  SandboxKey,
   SetRagConfigRequest,
   UsageResponse,
   WebhookConfig,
@@ -55,7 +54,6 @@ const DEFAULT_RETRY_STATUSES: readonly number[] = [429, 502, 503, 504];
 const DEFAULT_RETRY_BACKOFF_BASE_MS = 200;
 const DEFAULT_RETRY_BACKOFF_CAP_MS = 30_000;
 const DEFAULT_BACKOFF_FACTOR = 2;
-const SANDBOX_KEY_PATH = "/v1/sandbox/key";
 
 /**
  * Backoff strategy for retries and `waitForJob` polling.
@@ -85,16 +83,6 @@ export interface XbergClientOptions {
   retryBackoff?: BackoffStrategy;
   /** Sleep helper, swappable in tests. Defaults to `setTimeout`. */
   sleep?: (ms: number) => Promise<void>;
-}
-
-export interface FromSandboxOptions {
-  baseUrl?: string;
-  fetch?: typeof fetch;
-  headers?: Record<string, string>;
-  timeoutMs?: number;
-  retries?: number;
-  retryOn?: readonly number[];
-  retryBackoff?: BackoffStrategy;
 }
 
 export type FileLike = File | Blob | Uint8Array | { name?: string; data: Blob | Uint8Array; mimeType?: string };
@@ -156,8 +144,7 @@ function resolveBaseUrl(baseUrl: string | undefined, target: Target | undefined)
 }
 
 /**
- * High-level dual-target client. Construct with `new XbergClient({ apiKey })`,
- * or use the {@link XbergClient.fromSandbox} factory for a temporary key.
+ * High-level dual-target client. Construct with `new XbergClient({ apiKey })`.
  */
 export class XbergClient {
   private readonly baseUrl: string;
@@ -492,28 +479,6 @@ export class XbergClient {
     await this.requireTier("enterprise", "usage");
     const init: RequestParts = params !== undefined ? { params } : {};
     return this.requestJson<UsageResponse>("GET", "/v1/usage", init);
-  }
-
-  // -- Sandbox onboarding (out-of-band, untyped endpoint) ----------------
-
-  /**
-   * Mint a temporary sandbox API key via `POST /v1/sandbox/key`. The sandbox
-   * endpoint is intentionally NOT part of either OpenAPI spec — it is an
-   * out-of-band onboarding route, so it is called and parsed by hand. ~keep
-   */
-  public async createSandboxKey(): Promise<SandboxKey> {
-    return this.requestJson<SandboxKey>("POST", SANDBOX_KEY_PATH);
-  }
-
-  /**
-   * Construct a client authenticated with a fresh sandbox key. Issues an
-   * unauthenticated request to `POST /v1/sandbox/key`, then returns a new
-   * {@link XbergClient} configured with the returned key (Enterprise onboarding).
-   */
-  public static async fromSandbox(options: FromSandboxOptions = {}): Promise<XbergClient> {
-    const bootstrap = new XbergClient(options);
-    const key = await bootstrap.createSandboxKey();
-    return new XbergClient({ ...options, apiKey: key.api_key });
   }
 
   // -- Internals ---------------------------------------------------------

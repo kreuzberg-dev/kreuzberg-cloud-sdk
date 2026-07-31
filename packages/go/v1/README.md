@@ -57,8 +57,7 @@ Shared methods: `Extract`, `ExtractBatch`, `GetJob`, `ListJobs`, `WaitForJob`,
 `WaitForJobs`, `ExtractAndWait`, `Audit`, and the RAG surface (`ListRagCollections`,
 `RagRetrieve`, …). Pro-only: `AuthConfig`, `Login`, saved presets, `GetJobResult`,
 `GetRagConfig`/`SetRagConfig`. Enterprise-only: `Versions`, `Diff`, `Presets`,
-uploads (`PresignUpload`/`ConfirmUpload`), `Usage`. The out-of-band sandbox
-(`CreateSandboxKey`/`FromSandbox`) is Enterprise onboarding.
+uploads (`PresignUpload`/`ConfirmUpload`), `Usage`.
 
 ## Quickstart — explicit API key
 
@@ -154,49 +153,6 @@ func main() {
             length = len(job.Result.Content)
         }
         fmt.Printf("%s -> %d chars\n", paths[i], length)
-    }
-}
-```
-
-## Zero-friction sandbox
-
-`FromSandbox` mints a short-lived anonymous API key and hands back a fully
-configured client. Useful for demos, docs, and getting-started experiences —
-not for production traffic.
-
-```go
-package main
-
-import (
-    "context"
-    "fmt"
-    "log"
-    "os"
-
-    xberg "github.com/xberg-io/sdks/packages/go/v1"
-)
-
-func main() {
-    ctx := context.Background()
-    client, err := xberg.FromSandbox(ctx)
-    if err != nil {
-        log.Fatal(err)
-    }
-    file, err := os.Open("invoice.pdf")
-    if err != nil {
-        log.Fatal(err)
-    }
-    defer file.Close()
-    job, err := client.ExtractAndWait(
-        ctx,
-        xberg.FileSource{Name: "invoice.pdf", Reader: file},
-        nil,
-    )
-    if err != nil {
-        log.Fatal(err)
-    }
-    if job.Result != nil {
-        fmt.Println(job.Result.Content)
     }
 }
 ```

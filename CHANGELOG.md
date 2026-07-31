@@ -29,6 +29,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   App scoped to `sdks` + `xberg-enterprise`. PRs it opens trigger downstream per-language CI, which
   regenerates clients and runs the full suite as the consistency gate.
 
+### Removed
+
+- **Sandbox-key helper** (`create_sandbox_key` / `fromSandbox` / `FromSandbox`) in all languages.
+  It POSTed to `/v1/sandbox/key`, which exists in neither service — sandbox keys are minted (and
+  revoked) server-side inside `/v1/sandbox/public/extract`, so the helper always 404'd.
+
 ## [0.3.1] - 2026-06-01
 
 ### Fixed

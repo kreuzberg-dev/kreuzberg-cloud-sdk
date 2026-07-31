@@ -16,7 +16,6 @@ from xberg_io_sdk.errors import (
     ValidationError,
     XbergError,
 )
-from xberg_io_sdk.models import SandboxKey
 
 ExtractionResult = ExtractedDocument
 Job = JobResponse
@@ -34,7 +33,6 @@ __all__ = [
     "JobStatus",
     "NotFoundError",
     "RateLimitError",
-    "SandboxKey",
     "ServerError",
     "TimeoutError",
     "ValidationError",

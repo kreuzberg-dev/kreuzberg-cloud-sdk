@@ -21,17 +21,6 @@ func IsTerminalStatus(status JobStatus) bool {
 	return ok
 }
 
-// SandboxKey is the response from POST /v1/sandbox/key. The endpoint mints a
-// short-lived, anonymous API key for the public sandbox project. It is
-// deliberately NOT part of either OpenAPI spec (an out-of-band onboarding
-// route), so it is modeled by hand here. ~keep: documents why this bypasses the
-// generated schema sets.
-type SandboxKey struct {
-	APIKey         string    `json:"api_key"`
-	ExpiresAt      time.Time `json:"expires_at"`
-	PagesRemaining int64     `json:"pages_remaining"`
-}
-
 // BackoffKind selects the polling backoff strategy used by [Client.WaitForJob].
 type BackoffKind int
 

@@ -42,7 +42,6 @@ client, two targets.
   ergonomic helpers
 - Configurable retry engine (honors `Retry-After`, exponential backoff)
 - Type-annotated end to end, `py.typed` shipped
-- Zero-friction onboarding via `from_sandbox()` — no signup needed for evaluation
 
 ## Install
 
@@ -99,20 +98,6 @@ async def main() -> None:
 asyncio.run(main())
 ```
 
-### Async — sandbox onboarding (no API key required)
-
-```python
-import asyncio
-from xberg_io_sdk import AsyncXbergClient
-
-async def main() -> None:
-    async with await AsyncXbergClient.from_sandbox() as client:
-        job = await client.extract_and_wait(file=b"hello world")
-        print(job.status, job.result and job.result.content)
-
-asyncio.run(main())
-```
-
 ## Public API
 
 One `XbergClient` (sync) / `AsyncXbergClient` (async) serves both products.
@@ -131,7 +116,6 @@ Shared methods (both tiers):
 | `extract_and_wait(file=..., ...)` | Submit + wait in one call. |
 | `list_jobs(...)`, `audit(...)` | List jobs / read the audit log. |
 | `list_rag_collections()`, `rag_retrieve(name, body)`, `get_rag_job(job_id)`, … | RAG collections/documents/retrieval. |
-| `create_sandbox_key()`, `from_sandbox()` | Ephemeral sandbox key onboarding. |
 
 Tier-specific methods are capability-gated — calling one against the wrong tier
 raises a clear error instead of a raw 404:

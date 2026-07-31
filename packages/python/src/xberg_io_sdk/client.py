@@ -27,7 +27,6 @@ from xberg_io_sdk._generated_api.models.extraction_options import ExtractionOpti
 from xberg_io_sdk._generated_api.models.job_response import JobResponse
 from xberg_io_sdk.errors import TimeoutError as ClientTimeoutError
 from xberg_io_sdk.errors import XbergError, parse_retry_after, raise_for_status
-from xberg_io_sdk.models import SandboxKey
 
 if TYPE_CHECKING:
     import sys
@@ -53,7 +52,6 @@ _BACKOFF_FACTOR = 2.0
 _DEFAULT_RETRIES = 0
 _DEFAULT_RETRY_STATUSES: frozenset[int] = frozenset({429, 502, 503, 504})
 _RETRY_BACKOFF_BASE = 0.2
-_SANDBOX_KEY_PATH = "/v1/sandbox/key"
 
 FileInput = Path | bytes | BinaryIO
 """Accepted shapes for a single file argument: filesystem path, raw bytes, or an open binary stream."""
@@ -551,31 +549,6 @@ class XbergClient(_BaseClient):
         self._require_tier("enterprise", "usage")
         return self._request_json("GET", "/v1/usage", params=params)
 
-    # -- Sandbox onboarding (out-of-band, untyped endpoint) ----------------
-
-    def create_sandbox_key(self) -> SandboxKey:
-        """Mint an ephemeral sandbox API key via ``POST /v1/sandbox/key`` (unauthenticated).
-
-        The sandbox endpoint is intentionally NOT part of either OpenAPI spec — it
-        is an out-of-band onboarding route, so it is called and parsed by hand.
-        """  # ~keep: documents why this bypasses the generated schema sets
-        return SandboxKey.from_dict(self._request_json("POST", _SANDBOX_KEY_PATH))
-
-    @classmethod
-    def from_sandbox(
-        cls,
-        *,
-        base_url: str | None = None,
-        timeout: float = DEFAULT_TIMEOUT_SECONDS,
-    ) -> Self:
-        """Construct a client preconfigured with a fresh sandbox key (Enterprise onboarding path)."""
-        bootstrap = cls(base_url=base_url, timeout=timeout)
-        try:
-            key = bootstrap.create_sandbox_key()
-        finally:
-            bootstrap.close()
-        return cls(api_key=key.api_key, base_url=base_url, timeout=timeout)
-
 
 class AsyncXbergClient(_BaseClient):
     """Asynchronous client for Xberg Enterprise and Xberg Pro.
@@ -918,31 +891,6 @@ class AsyncXbergClient(_BaseClient):
         """Enterprise only: async equivalent of :meth:`XbergClient.usage`."""
         await self._require_tier("enterprise", "usage")
         return await self._request_json("GET", "/v1/usage", params=params)
-
-    # -- Sandbox onboarding (out-of-band, untyped endpoint) ----------------
-
-    async def create_sandbox_key(self) -> SandboxKey:
-        """Async equivalent of :meth:`XbergClient.create_sandbox_key`.
-
-        The sandbox endpoint is intentionally NOT part of either OpenAPI spec — it
-        is an out-of-band onboarding route, so it is called and parsed by hand.
-        """  # ~keep: documents why this bypasses the generated schema sets
-        return SandboxKey.from_dict(await self._request_json("POST", _SANDBOX_KEY_PATH))
-
-    @classmethod
-    async def from_sandbox(
-        cls,
-        *,
-        base_url: str | None = None,
-        timeout: float = DEFAULT_TIMEOUT_SECONDS,
-    ) -> Self:
-        """Async equivalent of :meth:`XbergClient.from_sandbox`."""
-        bootstrap = cls(base_url=base_url, timeout=timeout)
-        try:
-            key = await bootstrap.create_sandbox_key()
-        finally:
-            await bootstrap.aclose()
-        return cls(api_key=key.api_key, base_url=base_url, timeout=timeout)
 
 
 __all__ = [

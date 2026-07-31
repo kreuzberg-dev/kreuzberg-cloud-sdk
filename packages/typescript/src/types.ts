@@ -53,18 +53,6 @@ export type RagConfigResponse = proComponents["schemas"]["RagConfigResponse"];
 export type JobResult = Job;
 
 /**
- * Sandbox API key returned by `POST /v1/sandbox/key`.
- *
- * The sandbox endpoint is intentionally NOT part of either OpenAPI spec — it is
- * an out-of-band onboarding route, so this type is hand-maintained. ~keep
- */
-export interface SandboxKey {
-  api_key: string;
-  expires_at?: string;
-  project_id?: string;
-}
-
-/**
  * Terminal job statuses — once observed, polling stops and the job result is
  * returned (or thrown, for `failed`/`cancelled`).
  */

@@ -63,7 +63,6 @@ For language-specific quickstarts, examples, and API documentation, see the per-
 
 - API & Quickstart: [enterprise.xberg.io](https://enterprise.xberg.io)
 - API Reference: [enterprise.xberg.io/reference/api](https://enterprise.xberg.io/reference/api/)
-- Sandbox onboarding: zero-friction key issuance documented in the per-language READMEs
 - Changelog: [CHANGELOG.md](CHANGELOG.md)
 
 ## Contributing

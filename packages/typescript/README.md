@@ -96,18 +96,6 @@ const results = await client.waitForJobs(jobs.map((j) => j.id));
 for (const r of results) console.log(r.id, r.status);
 ```
 
-## Quickstart — sandbox (no signup)
-
-```ts
-import { XbergClient } from "@xberg-io/sdk";
-
-const client = await XbergClient.fromSandbox();
-const result = await client.extractAndWait({
-  file: new Blob(["Hello world"], { type: "text/plain" }),
-});
-console.log(result.result?.content);
-```
-
 ## API
 
 Shared surface (both tiers):
@@ -123,8 +111,6 @@ Shared surface (both tiers):
 | `listJobs({ limit?, offset? })` | `Promise<ListJobsResponse>` |
 | `audit({ action?, limit?, offset? })` | `Promise<ListAuditEntriesResponse>` |
 | `listRagCollections()`, `createRagCollection(body)`, `ragRetrieve(name, body)`, … | RAG surface |
-| `createSandboxKey()` | `Promise<SandboxKey>` |
-| `XbergClient.fromSandbox(opts?)` | `Promise<XbergClient>` (static) |
 
 Xberg Pro only: `login`, `authConfig`, `listSavedPresets` / `createSavedPreset` /
 `deleteSavedPreset`, `getJobResult`, `getRagConfig` / `setRagConfig`.
