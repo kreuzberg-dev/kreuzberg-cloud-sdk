@@ -13,19 +13,33 @@ describe("createClient", () => {
     expect(client).toBeDefined();
   });
 
-  it("accepts a custom fetch implementation", () => {
+  it("accepts a custom fetch implementation and uses it for requests", async () => {
     let called = false;
-    const customFetch: typeof fetch = async () => {
+    let receivedAuth: string | null = null;
+    const customFetch: typeof fetch = async (input) => {
       called = true;
+      receivedAuth = input instanceof Request ? input.headers.get("authorization") : null;
       return new Response("{}", { status: 200, headers: { "content-type": "application/json" } });
     };
-    const client = createClient({ apiKey: "k", fetch: customFetch });
-    expect(client).toBeDefined();
-    expect(called).toBe(false);
+    const client = createClient({ apiKey: "test-key", fetch: customFetch });
+    await client.GET("/v1/jobs");
+    expect(called).toBe(true);
+    expect(receivedAuth).toBe("Bearer test-key");
   });
 
   it("works without an API key", () => {
     const client = createClient();
     expect(typeof client.GET).toBe("function");
+  });
+
+  it("defaults the base URL to https://api.xberg.io", async () => {
+    let receivedUrl = "";
+    const customFetch: typeof fetch = async (input) => {
+      receivedUrl = input instanceof Request ? input.url : input.toString();
+      return new Response("{}", { status: 200, headers: { "content-type": "application/json" } });
+    };
+    const client = createClient({ fetch: customFetch });
+    await client.GET("/v1/jobs");
+    expect(receivedUrl).toBe("https://api.xberg.io/v1/jobs");
   });
 });

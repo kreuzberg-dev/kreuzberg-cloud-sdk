@@ -119,6 +119,75 @@ describe("error mapping", () => {
     }
   });
 
+  it("falls back to undefined body when JSON content-type body is malformed", async () => {
+    server.use(
+      http.get(url("/v1/jobs/x"), () =>
+        HttpResponse.text("{not valid json", { status: 500, headers: { "content-type": "application/json" } }),
+      ),
+    );
+    try {
+      await makeClient().getJob("x");
+      throw new Error("expected throw");
+    } catch (error) {
+      expect(error).toBeInstanceOf(ServerError);
+      expect((error as ServerError).body).toBeUndefined();
+      expect((error as Error).message).toBe("Request failed with status 500");
+    }
+  });
+
+  it("uses the body's `message` field when `error` is absent", async () => {
+    server.use(
+      http.get(url("/v1/jobs/x"), () => HttpResponse.json({ message: "message field reason" }, { status: 500 })),
+    );
+    try {
+      await makeClient().getJob("x");
+      throw new Error("expected throw");
+    } catch (error) {
+      expect((error as Error).message).toBe("message field reason");
+    }
+  });
+
+  it("falls back to a generic message when body has neither error nor message fields", async () => {
+    server.use(http.get(url("/v1/jobs/x"), () => HttpResponse.json({ hint: "nope" }, { status: 500 })));
+    try {
+      await makeClient().getJob("x");
+      throw new Error("expected throw");
+    } catch (error) {
+      expect((error as Error).message).toBe("Request failed with status 500");
+    }
+  });
+
+  it("maps 429 to RateLimitError with retryAfter parsed from an HTTP-date Retry-After", async () => {
+    const future = new Date(Date.now() + 10_000).toUTCString();
+    server.use(
+      http.get(url("/v1/jobs/x"), () =>
+        HttpResponse.json({ error: "slow down" }, { status: 429, headers: { "retry-after": future } }),
+      ),
+    );
+    try {
+      await makeClient().getJob("x");
+      throw new Error("expected throw");
+    } catch (error) {
+      expect(error).toBeInstanceOf(RateLimitError);
+      expect((error as RateLimitError).retryAfter).toBeGreaterThan(0);
+    }
+  });
+
+  it("treats an unparseable Retry-After value as no retryAfter", async () => {
+    server.use(
+      http.get(url("/v1/jobs/x"), () =>
+        HttpResponse.json({ error: "slow down" }, { status: 429, headers: { "retry-after": "garbage" } }),
+      ),
+    );
+    try {
+      await makeClient().getJob("x");
+      throw new Error("expected throw");
+    } catch (error) {
+      expect(error).toBeInstanceOf(RateLimitError);
+      expect((error as RateLimitError).retryAfter).toBeUndefined();
+    }
+  });
+
   it("XbergError preserves status and body fields", () => {
     const e = new XbergError("boom", { status: 418, body: { hint: "teapot" } });
     expect(e.status).toBe(418);

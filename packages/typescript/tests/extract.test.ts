@@ -194,4 +194,107 @@ describe("extract", () => {
     const client = makeClient();
     await expect(client.extractBatch({ files: [new Blob(["a"]), new Blob(["b"])] })).rejects.toThrow(/job IDs/);
   });
+
+  it("accepts a wrapper { name, data } where data is already a Blob", async () => {
+    let filenames: string[] = [];
+    server.use(
+      http.post(url("/v1/extract"), async ({ request }) => {
+        const form = await request.formData();
+        filenames = form
+          .getAll("file")
+          .filter((v): v is File => v instanceof File)
+          .map((f) => f.name);
+        return HttpResponse.json({ job_ids: ["job-blob"], status: "pending" }, { status: 202 });
+      }),
+    );
+
+    const client = makeClient();
+    await client.extract({ file: { name: "sheet.csv", data: new Blob(["a,b"], { type: "text/csv" }) } });
+    expect(filenames).toEqual(["sheet.csv"]);
+  });
+
+  it("assigns Job.filename from the wrapper's name field", async () => {
+    server.use(
+      http.post(url("/v1/extract"), () =>
+        HttpResponse.json({ job_ids: ["job-name"], status: "pending" }, { status: 202 }),
+      ),
+    );
+    const client = makeClient();
+    const job = await client.extract({ file: { name: "report.md", data: new Uint8Array([1]) } });
+    expect(job.filename).toBe("report.md");
+  });
+
+  it("assigns Job.filename to upload.bin for a wrapper without a name", async () => {
+    server.use(
+      http.post(url("/v1/extract"), () =>
+        HttpResponse.json({ job_ids: ["job-noname"], status: "pending" }, { status: 202 }),
+      ),
+    );
+    const client = makeClient();
+    const job = await client.extract({ file: { data: new Uint8Array([1]) } });
+    expect(job.filename).toBe("upload.bin");
+  });
+
+  it("assigns Job.filename to upload.bin for a raw Blob", async () => {
+    server.use(
+      http.post(url("/v1/extract"), () =>
+        HttpResponse.json({ job_ids: ["job-blob2"], status: "pending" }, { status: 202 }),
+      ),
+    );
+    const client = makeClient();
+    const job = await client.extract({ file: new Blob(["hi"]) });
+    expect(job.filename).toBe("upload.bin");
+  });
+
+  it("assigns Job.filename from a File instance's name", async () => {
+    server.use(
+      http.post(url("/v1/extract"), () =>
+        HttpResponse.json({ job_ids: ["job-file"], status: "pending" }, { status: 202 }),
+      ),
+    );
+    const client = makeClient();
+    const job = await client.extract({ file: new File([new Uint8Array([1])], "invoice.pdf") });
+    expect(job.filename).toBe("invoice.pdf");
+  });
+
+  it.each([
+    ["data.csv", "text/csv"],
+    ["notes.md", "text/markdown"],
+    ["doc.pdf", "application/pdf"],
+    ["readme.txt", "text/plain"],
+    ["contract.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"],
+    ["archive.zip", "application/octet-stream"],
+  ])("guesses the mime type %s -> %s for a wrapper with no explicit mimeType", async (filename, expectedMime) => {
+    let contentTypes: string[] = [];
+    server.use(
+      http.post(url("/v1/extract"), async ({ request }) => {
+        const form = await request.formData();
+        contentTypes = form
+          .getAll("file")
+          .filter((v): v is File => v instanceof File)
+          .map((f) => f.type);
+        return HttpResponse.json({ job_ids: ["job-mime"], status: "pending" }, { status: 202 });
+      }),
+    );
+    const client = makeClient();
+    await client.extract({ file: { name: filename, data: new Uint8Array([1]) } });
+    expect(contentTypes).toEqual([expectedMime]);
+  });
+
+  it("honors an explicit mimeType override on the wrapper", async () => {
+    let contentTypes: string[] = [];
+    server.use(
+      http.post(url("/v1/extract"), async ({ request }) => {
+        const form = await request.formData();
+        contentTypes = form
+          .getAll("file")
+          .filter((v): v is File => v instanceof File)
+          .map((f) => f.type);
+        return HttpResponse.json({ job_ids: ["job-override"], status: "pending" }, { status: 202 });
+      }),
+    );
+    const client = makeClient();
+    await client.extract({ file: { name: "data.csv", data: new Uint8Array([1]), mimeType: "application/custom" } });
+    expect(contentTypes).toEqual(["application/custom"]);
+  });
 });
