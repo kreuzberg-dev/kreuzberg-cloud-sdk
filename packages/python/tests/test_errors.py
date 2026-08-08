@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timedelta, timezone
+from email.utils import format_datetime
+
 import httpx
 import pytest
 import respx
@@ -16,6 +19,7 @@ from xberg_io_sdk import (
     XbergClient,
     XbergError,
 )
+from xberg_io_sdk.errors import _extract_message, parse_retry_after
 
 
 @respx.mock
@@ -170,3 +174,72 @@ def test_400_on_get_job_raises_validation_error(base_url: str, api_key: str) -> 
     )
     with XbergClient(api_key=api_key, base_url=base_url) as client, pytest.raises(ValidationError):
         client.get_job(job_id)
+
+
+# -- parse_retry_after ------------------------------------------------------------
+
+
+def test_parse_retry_after_none_returns_none() -> None:
+    assert parse_retry_after(None) is None
+
+
+def test_parse_retry_after_delay_seconds() -> None:
+    assert parse_retry_after("42") == 42.0
+
+
+def test_parse_retry_after_http_date_in_future_returns_positive_seconds() -> None:
+    future = datetime.now(tz=timezone.utc) + timedelta(seconds=30)
+    header_value = format_datetime(future, usegmt=True)
+    result = parse_retry_after(header_value)
+    assert result is not None
+    assert 25.0 <= result <= 30.5
+
+
+def test_parse_retry_after_http_date_without_tzinfo_is_treated_as_utc() -> None:
+    future = datetime.now(tz=timezone.utc) + timedelta(seconds=10)
+    naive_rfc1123 = future.strftime("%a, %d %b %Y %H:%M:%S")
+    result = parse_retry_after(naive_rfc1123)
+    assert result is not None
+    assert 5.0 <= result <= 10.5
+
+
+def test_parse_retry_after_http_date_in_past_clamps_to_zero() -> None:
+    past = datetime.now(tz=timezone.utc) - timedelta(seconds=60)
+    header_value = format_datetime(past, usegmt=True)
+    assert parse_retry_after(header_value) == 0.0
+
+
+def test_parse_retry_after_unparseable_value_returns_none() -> None:
+    assert parse_retry_after("not-a-date-or-number") is None
+
+
+@respx.mock
+def test_429_with_http_date_retry_after_header(base_url: str, api_key: str) -> None:
+    future = datetime.now(tz=timezone.utc) + timedelta(seconds=20)
+    header_value = format_datetime(future, usegmt=True)
+    respx.post(f"{base_url}/v1/extract").mock(
+        return_value=httpx.Response(
+            429,
+            json={"message": "slow down"},
+            headers={"Retry-After": header_value},
+        ),
+    )
+    with XbergClient(api_key=api_key, base_url=base_url) as client, pytest.raises(RateLimitError) as exc_info:
+        client.extract(file=b"x")
+    assert exc_info.value.retry_after is not None
+    assert 15.0 <= exc_info.value.retry_after <= 20.5
+
+
+# -- _extract_message --------------------------------------------------------------
+
+
+def test_extract_message_falls_back_to_default_when_no_known_key_present() -> None:
+    assert _extract_message({"unrelated": "field"}, "HTTP 500") == "HTTP 500"
+
+
+def test_extract_message_skips_non_string_value_and_uses_next_key() -> None:
+    assert _extract_message({"message": 123, "error": "actual error"}, "default") == "actual error"
+
+
+def test_extract_message_skips_empty_string_value_and_uses_next_key() -> None:
+    assert _extract_message({"message": "", "error": "", "detail": "the real detail"}, "default") == "the real detail"
