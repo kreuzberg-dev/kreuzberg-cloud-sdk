@@ -18,6 +18,7 @@ on:
       - "spec/pro/**"
       - "tasks/go.yml"
       - "go.work"
+      - ".github/workflows/ci-go.yml"
 
 concurrency:
   group: ci-go-${{ github.ref }}
