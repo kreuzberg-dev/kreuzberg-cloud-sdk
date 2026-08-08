@@ -79,6 +79,11 @@ ignore = [
   "ASYNC110",
   "BLE001",
   "COM812",
+  # ~keep Swept in by select = ["ALL"], which no other xberg-io repo uses — they select a
+  # curated list instead, so CPY001 fires here and nowhere else. The org ships LICENSE
+  # files rather than per-file copyright headers, so satisfying it would mean adding
+  # headers to every .py file in this repo alone.
+  "CPY001",
   "D100",
   "D104",
   "D107",
