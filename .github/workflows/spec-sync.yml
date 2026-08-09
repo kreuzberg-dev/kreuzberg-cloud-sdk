@@ -54,8 +54,12 @@ jobs:
 
       - name: Install yq
         run: |
+          # ~keep Pinned: releases/latest resolves at run time, so an upstream release
+          # lands here unreviewed. That is how scythe v0.14.0 broke xberg-enterprise CI.
+          # yq drives the spec conversion below, so a formatting change upstream would
+          # show up as spurious spec drift. Bump deliberately.
           sudo wget -qO /usr/local/bin/yq \
-            https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+            https://github.com/mikefarah/yq/releases/download/v4.53.3/yq_linux_amd64
           sudo chmod +x /usr/local/bin/yq
 
       - name: Convert both JSON specs to YAML
