@@ -148,6 +148,263 @@ paths:
               schema: {}
       security:
         - bearer_auth: []
+  /v1/auto-tune:
+    get:
+      tags:
+        - auto-tune
+      summary: List auto-tune jobs
+      operationId: list_auto_tune_jobs
+      parameters:
+        - name: limit
+          in: query
+          description: Page size (default 50, clamped to 1-100)
+          required: false
+          schema:
+            type: integer
+            format: int64
+        - name: offset
+          in: query
+          description: Pagination offset (default 0)
+          required: false
+          schema:
+            type: integer
+            format: int64
+      responses:
+        "200":
+          description: Auto-tune jobs for the current project
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListAutoTuneJobsResponse'
+        "500":
+          description: Persistence error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearer_auth: []
+    post:
+      tags:
+        - auto-tune
+      summary: Submit a new auto-tune job
+      description: |-
+        Accepts `multipart/form-data`: a `request` text part carrying a
+        JSON-encoded [`CreateAutoTuneJobRequest`], plus one binary part per
+        document referenced by `documents[].filename`.
+      operationId: submit_auto_tune
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AutoTuneMultipartForm'
+        required: true
+      responses:
+        "201":
+          description: Auto-tune job created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateAutoTuneJobResponse'
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "429":
+          description: Auto-tune entitlement/quota exceeded or per-project active-job cap reached
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "500":
+          description: Persistence or dispatch error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearer_auth: []
+  /v1/auto-tune/capabilities:
+    get:
+      tags:
+        - auto-tune
+      summary: Get auto-tune capabilities (OCR backends and tunable knobs) for this deployment
+      description: |-
+        Requires the same auth as its sibling endpoints even though the response itself is
+        project-agnostic, so it sits behind the same access boundary as the rest of the surface.
+      operationId: get_auto_tune_capabilities
+      responses:
+        "200":
+          description: Auto-tune capabilities
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AutoTuneCapabilitiesResponse'
+      security:
+        - bearer_auth: []
+  /v1/auto-tune/{id}:
+    get:
+      tags:
+        - auto-tune
+      summary: Get auto-tune job status
+      operationId: get_auto_tune_status
+      parameters:
+        - name: id
+          in: path
+          description: Auto-tune job ID
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Auto-tune job status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AutoTuneJobStatus'
+        "404":
+          description: Job not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "500":
+          description: Persistence error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearer_auth: []
+    delete:
+      tags:
+        - auto-tune
+      summary: Delete an auto-tune job
+      operationId: delete_auto_tune_job
+      parameters:
+        - name: id
+          in: path
+          description: Auto-tune job ID
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Auto-tune job deleted
+        "404":
+          description: Job not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "409":
+          description: Job is still running and cannot be deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "500":
+          description: Persistence error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearer_auth: []
+  /v1/auto-tune/{id}/promote:
+    post:
+      tags:
+        - auto-tune
+      summary: Promote an auto-tune result to a tuning profile
+      operationId: promote_auto_tune_profile
+      parameters:
+        - name: id
+          in: path
+          description: Auto-tune job ID
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PromoteProfileRequest'
+        required: true
+      responses:
+        "201":
+          description: Tuning profile created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TuningProfileDetail'
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "404":
+          description: Job not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "409":
+          description: Job exists but has not completed (or has failed)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "500":
+          description: Persistence error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearer_auth: []
+  /v1/auto-tune/{id}/result:
+    get:
+      tags:
+        - auto-tune
+      summary: Get auto-tune job result
+      operationId: get_auto_tune_result
+      parameters:
+        - name: id
+          in: path
+          description: Auto-tune job ID
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Auto-tune job result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AutoTuneResult'
+        "404":
+          description: Job not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "409":
+          description: Job exists but has not completed (or has failed)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "500":
+          description: Persistence error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearer_auth: []
   /v1/extract:
     post:
       tags:
@@ -1047,6 +1304,105 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       security:
         - bearer_auth: []
+  /v1/tuning-profiles:
+    get:
+      tags:
+        - auto-tune
+      summary: List tuning profiles
+      operationId: list_tuning_profiles
+      parameters:
+        - name: limit
+          in: query
+          description: Page size (default 50, clamped to 1-100)
+          required: false
+          schema:
+            type: integer
+            format: int64
+        - name: offset
+          in: query
+          description: Pagination offset (default 0)
+          required: false
+          schema:
+            type: integer
+            format: int64
+      responses:
+        "200":
+          description: Tuning profiles for the current project
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListTuningProfilesResponse'
+        "500":
+          description: Persistence error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearer_auth: []
+  /v1/tuning-profiles/{id}:
+    get:
+      tags:
+        - auto-tune
+      summary: Get a tuning profile
+      operationId: get_tuning_profile
+      parameters:
+        - name: id
+          in: path
+          description: Tuning profile ID
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Tuning profile details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TuningProfileDetail'
+        "404":
+          description: Tuning profile not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "500":
+          description: Persistence error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearer_auth: []
+    delete:
+      tags:
+        - auto-tune
+      summary: Delete a tuning profile
+      operationId: delete_tuning_profile
+      parameters:
+        - name: id
+          in: path
+          description: Tuning profile ID
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Tuning profile deleted
+        "404":
+          description: Tuning profile not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "500":
+          description: Persistence error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearer_auth: []
 components:
   schemas:
     AuditEntry:
@@ -1099,6 +1455,287 @@ components:
           description: |-
             OIDC-specific detail, used by the frontend to decide whether to render
             a "Sign in with Google" button.
+    AutoTuneBudget:
+      type: object
+      description: Budget limits for an auto-tune run.
+      properties:
+        max_billable_pages:
+          type:
+            - integer
+            - "null"
+          format: int64
+          description: Maximum number of billable pages to process across all trials.
+          minimum: 0
+        max_trials:
+          type:
+            - integer
+            - "null"
+          format: int32
+          description: Maximum number of trials to run.
+          minimum: 0
+        max_wall_clock_secs:
+          type:
+            - integer
+            - "null"
+          format: int64
+          description: Maximum wall-clock time, in seconds, before the run is cut short.
+          minimum: 0
+    AutoTuneCapabilitiesResponse:
+      type: object
+      description: |-
+        Auto-tune capabilities (OCR backends and tunable knobs) reported for a deployment. Powers a
+        deployment-aware wizard rather than hardcoding backend/knob names on the frontend.
+      required:
+        - ocr_backends
+        - default_ocr_ladder
+        - tunable_knobs
+      properties:
+        default_ocr_ladder:
+          type: array
+          items:
+            type: string
+          description: Backend names composing the default OCR search ladder, in search order.
+        ocr_backends:
+          type: array
+          items:
+            $ref: '#/components/schemas/OcrBackendCapabilityInfo'
+          description: OCR backends available to this deployment.
+        tunable_knobs:
+          type: array
+          items:
+            $ref: '#/components/schemas/TunableKnobInfo'
+          description: Knobs that auto-tune can search over.
+    AutoTuneDocumentInput:
+      type: object
+      description: One document submitted to an auto-tune run, paired with its ground truth.
+      required:
+        - filename
+        - ground_truth_kind
+        - ground_truth
+      properties:
+        content_ref:
+          type:
+            - string
+            - "null"
+          description: |-
+            Reserved, not yet supported: a request that sets this field is rejected with 400 on every
+            tier (no backend resolves it yet). Upload the document bytes as a multipart file part instead.
+            Intended future use: referencing previously stored bytes by a per-project storage key without
+            re-uploading them.
+        filename:
+          type: string
+          description: Original filename of the document (used for format detection).
+        ground_truth:
+          type: string
+          description: |-
+            The ground truth payload. For `markdown`/`plaintext`, this is the
+            raw expected text. For `structured`, this is a JSON string encoding
+            `{"schema": ..., "expected": ...}` (both the JSON schema and the
+            expected output are required).
+        ground_truth_kind:
+          $ref: '#/components/schemas/GroundTruthKind'
+          description: Which kind of ground truth is supplied.
+    AutoTuneHealth:
+      type: object
+      description: Auto-tune readiness summary for the health response.
+      required:
+        - enabled
+      properties:
+        enabled:
+          type: boolean
+          description: |-
+            Whether the in-process auto-tune runtime is wired. Mirrors
+            `crate::auto_tune::auto_tune_feature_licensed` at boot time — `false` means every
+            `/v1/auto-tune` and `/v1/tuning-profiles` request 404s with `auto_tune.disabled`.
+    AutoTuneJobStatus:
+      type: object
+      description: Current status and progress of an auto-tune job.
+      required:
+        - auto_tune_job_id
+        - status
+        - trials_completed
+        - trials_total
+      properties:
+        auto_tune_job_id:
+          type: string
+          description: Unique ID of the auto-tune job.
+        best_score:
+          type:
+            - number
+            - "null"
+          format: double
+          description: Best primary score observed so far, if any trial has completed.
+        budget_spent:
+          type:
+            - integer
+            - "null"
+          format: int64
+          description: |-
+            Budget units spent so far (interpretation depends on the active
+            budget dimension, e.g. billable pages).
+          minimum: 0
+        status:
+          type: string
+          description: Current job status (e.g. `queued`, `running`, `completed`, `failed`).
+        trials_completed:
+          type: integer
+          format: int32
+          description: Number of trials completed so far.
+          minimum: 0
+        trials_total:
+          type: integer
+          format: int32
+          description: Total number of trials planned for this run.
+          minimum: 0
+    AutoTuneJobSummary:
+      type: object
+      description: Lightweight projection of an auto-tune job (for listings).
+      required:
+        - auto_tune_job_id
+        - status
+        - trials_completed
+        - trials_total
+        - created_at
+      properties:
+        auto_tune_job_id:
+          type: string
+          description: Unique ID of the auto-tune job.
+        best_score:
+          type:
+            - number
+            - "null"
+          format: double
+          description: Best primary score observed, if any trial has completed.
+        created_at:
+          type: string
+          description: ISO 8601 creation timestamp.
+        status:
+          type: string
+          description: Current job status (`running`, `completed`, or `failed`).
+        trials_completed:
+          type: integer
+          format: int32
+          description: Number of trials completed so far.
+          minimum: 0
+        trials_total:
+          type: integer
+          format: int32
+          description: Total number of trials planned for this run.
+          minimum: 0
+    AutoTuneMultipartForm:
+      type: object
+      description: |-
+        Multipart (`multipart/form-data`) variant of the submit-auto-tune request body.
+
+        Send a text part named `request` carrying a JSON-encoded
+        [`CreateAutoTuneJobRequest`], plus one binary part per document whose
+        part name (or filename) matches a `documents[].filename` entry in the
+        request. ~keep
+      required:
+        - request
+        - file
+      properties:
+        file:
+          type: array
+          items:
+            type: integer
+            format: binary
+            minimum: 0
+          description: A document file. Repeat with one binary part per file.
+          contentMediaType: application/octet-stream
+        request:
+          $ref: '#/components/schemas/CreateAutoTuneJobRequest'
+          description: The JSON-encoded `request` part — a [`CreateAutoTuneJobRequest`].
+    AutoTuneResult:
+      type: object
+      description: Final result of a completed auto-tune run.
+      required:
+        - auto_tune_job_id
+        - profile
+        - leaderboard
+      properties:
+        auto_tune_job_id:
+          type: string
+          description: Unique ID of the auto-tune job.
+        held_out_confidence:
+          type:
+            - number
+            - "null"
+          format: double
+          description: |-
+            Confidence score computed against a held-out validation split, if
+            one was used.
+        leaderboard:
+          type: array
+          items:
+            $ref: '#/components/schemas/LeaderboardEntry'
+          description: Ranked leaderboard of trialed configurations.
+        profile:
+          description: |-
+            The winning tuning profile artifact. The concrete `TuningProfile`
+            shape is defined in `autotune-core`; here it is opaque JSON.
+    AutoTuneSearchConfig:
+      type: object
+      description: Search configuration for an auto-tune run.
+      required:
+        - search_space
+      properties:
+        max_trials:
+          type:
+            - integer
+            - "null"
+          format: int32
+          description: Maximum number of trials to run during the search.
+          minimum: 0
+        search_params:
+          oneOf:
+            - type: "null"
+            - $ref: '#/components/schemas/AutoTuneSearchParams'
+              description: |-
+                Structured, wizard-friendly alternative to `search_space`. Ignored when `search_space` is
+                also set.
+        search_space:
+          description: |-
+            Which knobs/axes to tune, and their candidate values. The concrete
+            `SearchSpace` shape is defined in `autotune-core`; here it is
+            opaque JSON so this crate has no dependency on that crate.
+
+            Power-user escape hatch. Takes precedence over `search_params` when both are set.
+        tolerance:
+          type:
+            - number
+            - "null"
+          format: double
+          description: Tolerance band used when ranking near-tied configurations.
+    AutoTuneSearchParams:
+      type: object
+      description: |-
+        Wizard-friendly, structured alternative to [`AutoTuneSearchConfig::search_space`]: which OCR
+        backends to sweep and per-knob candidate values, without a client having to construct a full
+        `autotune_core::search::SearchSpace`.
+      required:
+        - candidates
+      properties:
+        candidates:
+          type: object
+          description: |-
+            Per-knob candidate-value overrides, keyed by the knob's wire name (see
+            [`TunableKnobInfo::knob`] / `autotune_core::search::Knob` for the full set of names). Each
+            knob's values are opaque JSON so this crate has no dependency on `autotune-core`.
+          additionalProperties:
+            type: array
+            items: {}
+          propertyNames:
+            type: string
+        ocr_backends:
+          type:
+            - array
+            - "null"
+          items:
+            type: string
+          description: |-
+            OCR backends to sweep, in dominance order. `None` falls back to the deployment's default
+            OCR ladder (see [`AutoTuneCapabilitiesResponse::default_ocr_ladder`]).
     CollectionChunkingConfig:
       type: object
       description: |-
@@ -1223,6 +1860,47 @@ components:
             - string
             - "null"
           description: Last ingestion timestamp (RFC3339)
+    CreateAutoTuneJobRequest:
+      type: object
+      description: Request to submit a new auto-tune job.
+      required:
+        - documents
+      properties:
+        budget:
+          oneOf:
+            - type: "null"
+            - $ref: '#/components/schemas/AutoTuneBudget'
+              description: Optional budget limits; falls back to defaults when omitted.
+        documents:
+          type: array
+          items:
+            $ref: '#/components/schemas/AutoTuneDocumentInput'
+          description: Documents and their ground truth for this run.
+        routing:
+          type:
+            - boolean
+            - "null"
+          description: |-
+            Whether to tune per-document routing in addition to global
+            configuration. `None`/`false` tunes global-only.
+        search:
+          oneOf:
+            - type: "null"
+            - $ref: '#/components/schemas/AutoTuneSearchConfig'
+              description: Optional search configuration; falls back to defaults when omitted.
+    CreateAutoTuneJobResponse:
+      type: object
+      description: Response from submitting a new auto-tune job.
+      required:
+        - auto_tune_job_id
+        - status
+      properties:
+        auto_tune_job_id:
+          type: string
+          description: Unique ID of the newly created auto-tune job.
+        status:
+          type: string
+          description: Initial job status (e.g. `queued`).
     CreateCollectionRequest:
       type: object
       description: Request to create a new RAG collection.
@@ -1875,6 +2553,13 @@ components:
             - integer
             - "null"
           format: int32
+    GroundTruthKind:
+      type: string
+      description: Kind of ground truth supplied for a document in an auto-tune run.
+      enum:
+        - markdown
+        - plaintext
+        - structured
     HealthResponse:
       type: object
       description: Liveness + tier probe. The frontend reads `tier` for runtime feature gating.
@@ -1883,7 +2568,10 @@ components:
         - tier
         - license
         - rag
+        - auto_tune
       properties:
+        auto_tune:
+          $ref: '#/components/schemas/AutoTuneHealth'
         license:
           $ref: '#/components/schemas/LicenseHealth'
         rag:
@@ -2113,6 +2801,40 @@ components:
           format: int64
           description: End-to-end including response serialization.
           minimum: 0
+    LeaderboardEntry:
+      type: object
+      description: One entry in an auto-tune run's leaderboard.
+      required:
+        - config
+        - primary_score
+        - variance
+        - breakdown
+        - tied_with_winner
+      properties:
+        breakdown:
+          description: |-
+            Per-dimension score breakdown (e.g. per-document or per-metric
+            scores). The concrete shape is defined in `autotune-core`; here it
+            is opaque JSON.
+        config:
+          description: |-
+            The extraction configuration trialed for this entry. The concrete
+            shape is defined in `autotune-core`; here it is opaque JSON.
+        primary_score:
+          type: number
+          format: double
+          description: Primary aggregate score for this configuration.
+        tied_with_winner:
+          type: boolean
+          description: |-
+            Whether this entry is statistically tied with the winning entry
+            within the configured tolerance band.
+        variance:
+          type: number
+          format: double
+          description: |-
+            Variance of the score across documents/trials, surfaced so callers
+            can judge score stability rather than trusting a single number.
     LicenseHealth:
       type: object
       description: License info summary for the health response.
@@ -2167,6 +2889,22 @@ components:
             Total number of audit entries matching the query. Services that cannot
             cheaply compute a distinct total may set this to the page length. (Pro
             has no `total` field today; this is new behavior on convergence.)
+    ListAutoTuneJobsResponse:
+      type: object
+      description: Response from listing auto-tune jobs.
+      required:
+        - jobs
+        - total
+      properties:
+        jobs:
+          type: array
+          items:
+            $ref: '#/components/schemas/AutoTuneJobSummary'
+          description: Auto-tune jobs for the current project (newest first).
+        total:
+          type: integer
+          format: int64
+          description: Total count of auto-tune jobs in the project.
     ListCollectionsResponse:
       type: object
       description: Response for listing collections (paginated)
@@ -2245,6 +2983,22 @@ components:
           type: integer
           format: int64
           description: Total count of presets in the project.
+    ListTuningProfilesResponse:
+      type: object
+      description: Response from listing tuning profiles.
+      required:
+        - profiles
+        - total
+      properties:
+        profiles:
+          type: array
+          items:
+            $ref: '#/components/schemas/TuningProfileSummary'
+          description: Tuning profiles for the current project.
+        total:
+          type: integer
+          format: int64
+          description: Total count of tuning profiles in the project.
     LoginRequest:
       type: object
       description: Login request with an OIDC ID token (e.g. from Google/Firebase sign-in).
@@ -2402,6 +3156,29 @@ components:
         status:
           $ref: '#/components/schemas/MigrateStatus'
           description: Current status.
+    OcrBackendCapabilityInfo:
+      type: object
+      description: One OCR backend available to this deployment, for capability discovery.
+      required:
+        - name
+        - cost
+        - in_default_ladder
+      properties:
+        cost:
+          $ref: '#/components/schemas/OcrBackendCostKind'
+          description: Cost classification of running this backend.
+        in_default_ladder:
+          type: boolean
+          description: Whether this backend is included in the deployment's default OCR search ladder.
+        name:
+          type: string
+          description: Registered backend name (e.g. `tesseract`, `paddle-ocr`).
+    OcrBackendCostKind:
+      type: string
+      description: Kind classification for the cost of running an OCR backend.
+      enum:
+        - local
+        - llm_metered
     OidcInfo:
       type: object
       description: OIDC login configuration, as visible to an unauthenticated caller.
@@ -2502,6 +3279,17 @@ components:
             User role for this session (`OWNER` or `MEMBER`). See
             [`compute_role`] for how this is derived.
           example: OWNER
+    PromoteProfileRequest:
+      type: object
+      description: |-
+        Request to promote a completed auto-tune result to a named, reusable
+        tuning profile.
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          description: Name to give the promoted tuning profile.
     RagConfigResponse:
       type: object
       description: |-
@@ -2936,6 +3724,63 @@ components:
         enabled:
           type: boolean
           description: Whether RAG should be enabled for this project.
+    TunableKnobInfo:
+      type: object
+      description: One knob that auto-tune can search over, for capability discovery.
+      required:
+        - knob
+        - description
+      properties:
+        description:
+          type: string
+          description: Human-readable description of what this knob controls.
+        knob:
+          type: string
+          description: Wire name of the knob, matching `autotune_core::search::Knob`'s serialized name.
+    TuningProfileDetail:
+      type: object
+      description: Full detail of a promoted tuning profile.
+      required:
+        - id
+        - name
+        - profile
+        - scores
+        - created_at
+      properties:
+        created_at:
+          type: string
+          description: ISO 8601 creation timestamp.
+        id:
+          type: string
+          description: Unique tuning profile ID.
+        name:
+          type: string
+          description: Tuning profile name.
+        profile:
+          description: |-
+            The tuning profile artifact. The concrete `TuningProfile` shape is
+            defined in `autotune-core`; here it is opaque JSON.
+        scores:
+          description: |-
+            Scores recorded for this profile at promotion time. The concrete
+            shape is defined in `autotune-core`; here it is opaque JSON.
+    TuningProfileSummary:
+      type: object
+      description: Lightweight projection of a tuning profile (for listings).
+      required:
+        - id
+        - name
+        - created_at
+      properties:
+        created_at:
+          type: string
+          description: ISO 8601 creation timestamp.
+        id:
+          type: string
+          description: Unique tuning profile ID.
+        name:
+          type: string
+          description: Tuning profile name.
     UpdateSavedPresetRequest:
       type: object
       description: Request to update a saved preset.
@@ -3077,3 +3922,5 @@ tags:
     description: Health check endpoint
   - name: rag
     description: RAG ingest, document lifecycle, and collection migration endpoints
+  - name: auto-tune
+    description: Auto-tune job submission, polling, and tuning-profile lifecycle endpoints
