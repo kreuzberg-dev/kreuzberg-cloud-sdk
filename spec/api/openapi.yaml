@@ -141,6 +141,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ListAutoTuneJobsResponse'
+        "401":
+          description: Missing or invalid authentication
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         "500":
           description: Persistence error
           content:
@@ -177,6 +183,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        "401":
+          description: Missing or invalid authentication
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         "429":
           description: Auto-tune entitlement/quota exceeded or per-project active-job cap reached
           content:
@@ -207,6 +219,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AutoTuneCapabilitiesResponse'
+        "401":
+          description: Missing or invalid authentication
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
       security:
         - bearer_auth: []
   /v1/auto-tune/{id}:
@@ -229,6 +247,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AutoTuneJobStatus'
+        "401":
+          description: Missing or invalid authentication
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         "404":
           description: Job not found
           content:
@@ -258,6 +282,12 @@ paths:
       responses:
         "204":
           description: Auto-tune job deleted
+        "401":
+          description: Missing or invalid authentication
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         "404":
           description: Job not found
           content:
@@ -310,6 +340,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        "401":
+          description: Missing or invalid authentication
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         "404":
           description: Job not found
           content:
@@ -350,6 +386,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AutoTuneResult'
+        "401":
+          description: Missing or invalid authentication
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         "404":
           description: Job not found
           content:
@@ -1375,6 +1417,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ListTuningProfilesResponse'
+        "401":
+          description: Missing or invalid authentication
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         "500":
           description: Persistence error
           content:
@@ -1403,6 +1451,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/TuningProfileDetail'
+        "401":
+          description: Missing or invalid authentication
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         "404":
           description: Tuning profile not found
           content:
@@ -1432,6 +1486,12 @@ paths:
       responses:
         "204":
           description: Tuning profile deleted
+        "401":
+          description: Missing or invalid authentication
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         "404":
           description: Tuning profile not found
           content:
