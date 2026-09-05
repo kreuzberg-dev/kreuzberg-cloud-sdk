@@ -2,7 +2,10 @@
 *.png binary
 *.jpg binary
 *.pdf binary
-spec/openapi.yaml linguist-generated=false
-packages/python/src/kreuzberg_cloud/_generated/** linguist-generated=true
+spec/api/openapi.yaml linguist-generated=false
+spec/pro/openapi.yaml linguist-generated=false
+packages/python/src/xberg_io_sdk/_generated_api/** linguist-generated=true
+packages/python/src/xberg_io_sdk/_generated_pro/** linguist-generated=true
 packages/typescript/src/_generated/** linguist-generated=true
-packages/go/v1/generated.go linguist-generated=true
+packages/go/v1/generated_api.go linguist-generated=true
+packages/go/v1/generated_pro.go linguist-generated=true
