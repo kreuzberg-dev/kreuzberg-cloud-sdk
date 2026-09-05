@@ -36,12 +36,20 @@ jobs:
           persist-credentials: true
 
       - name: Resolve upstream ref
+        # ~keep The fallback is `development`, NOT `main`. `development` is xberg-enterprise's
+        # default branch and where its spec work actually lands; `main` is a deploy-only
+        # promotion target that trails it by hundreds of commits. Defaulting to `main` is why
+        # this workflow reported zero drift for weeks while the SDKs went stale: it was
+        # faithfully syncing a branch nobody develops on. Worse, `main`'s Pro spec carries no
+        # control plane at all -- no /v1/projects, no /v1/projects/{id}/api-keys -- so an SDK
+        # generated from it cannot even mint the API key needed to authenticate against Pro.
+        # A release dispatch still wins via client_payload.ref. ~keep
         id: ref
         env:
           PAYLOAD_REF: ${{ github.event.client_payload.ref }}
           PAYLOAD_VERSION: ${{ github.event.client_payload.version }}
         run: |
-          echo "ref=${PAYLOAD_REF:-main}" >> "$GITHUB_OUTPUT"
+          echo "ref=${PAYLOAD_REF:-development}" >> "$GITHUB_OUTPUT"
           echo "version=${PAYLOAD_VERSION:-latest}" >> "$GITHUB_OUTPUT"
 
       - name: Checkout sibling xberg-enterprise
