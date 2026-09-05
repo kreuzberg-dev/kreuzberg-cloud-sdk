@@ -37,15 +37,7 @@ go.work.sum
 # `go build ./...` inside the tools module drops a binary named after its directory
 tools/oapi-pro-config/oapi-pro-config
 
-# Dart
-.dart_tool/
-.packages
-pubspec.lock
-
 # Generated client code (kept out of git; produced by `task generate`)
-# NOTE: packages/dart/lib/src/_generated/ is intentionally NOT gitignored —
-# pub.dev archives only include git-tracked files, so the generated tree must
-# ship inside the package.
 packages/python/src/xberg_io_sdk/_generated_api/
 packages/python/src/xberg_io_sdk/_generated_pro/
 packages/typescript/src/_generated/

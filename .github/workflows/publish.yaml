@@ -86,10 +86,9 @@ jobs:
           py_version=$(grep -E '^version = ' packages/python/pyproject.toml | head -1 | sed 's/version = "\(.*\)"/\1/')
           ts_version=$(python3 -c 'import json; print(json.load(open("packages/typescript/package.json"))["version"])')
           go_version=$(grep -E '^const Version = ' packages/go/v1/version.go | sed 's/.*"\(.*\)".*/\1/')
-          dart_version=$(grep -E '^version: ' packages/dart/pubspec.yaml | head -1 | awk '{print $2}')
-          for v in "$file_version" "$py_version" "$ts_version" "$go_version" "$dart_version"; do
+          for v in "$file_version" "$py_version" "$ts_version" "$go_version"; do
             if [ "$v" != "$VERSION" ]; then
-              echo "version mismatch: tag=$VERSION file=$file_version py=$py_version ts=$ts_version go=$go_version dart=$dart_version" >&2
+              echo "version mismatch: tag=$VERSION file=$file_version py=$py_version ts=$ts_version go=$go_version" >&2
               exit 1
             fi
           done

@@ -34,6 +34,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Sandbox-key helper** (`create_sandbox_key` / `fromSandbox` / `FromSandbox`) in all languages.
   It POSTed to `/v1/sandbox/key`, which exists in neither service — sandbox keys are minted (and
   revoked) server-side inside `/v1/sandbox/public/extract`, so the helper always 404'd.
+- **The Dart SDK** (`packages/dart`, `kreuzberg_cloud_sdk` on pub.dev), along with its task file,
+  its pub.dev publishing workflow, and its leg of the release version-consistency gate. It never
+  gained Pro support, so it was the one client that could not honour the dual-target contract the
+  rest of this release is built around. Unlike every other language its generated tree had to be
+  committed — pub.dev archives only ship git-tracked files — which meant regeneration drift was
+  invisible to CI, and it had neither a CI workflow nor coverage tooling to catch that drift. With
+  no known consumers, deleting it is cheaper than bringing it up to parity. Python, TypeScript and
+  Go are unaffected.
 
 ## [0.3.1] - 2026-06-01
 
