@@ -34,6 +34,8 @@ vendor/
 *.test
 *.out
 go.work.sum
+# `go build ./...` inside the tools module drops a binary named after its directory
+tools/oapi-pro-config/oapi-pro-config
 
 # Dart
 .dart_tool/
@@ -49,6 +51,9 @@ packages/python/src/xberg_io_sdk/_generated_pro/
 packages/typescript/src/_generated/
 packages/go/v1/generated_api.go
 packages/go/v1/generated_pro.go
+# Derived oapi-codegen config for the Pro schema set (written by
+# tools/oapi-pro-config from oapi-codegen-pro.yaml + both specs).
+packages/go/v1/oapi-codegen-pro.gen.yaml
 
 # Editor
 .idea/
