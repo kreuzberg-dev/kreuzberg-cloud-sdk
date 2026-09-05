@@ -14,18 +14,65 @@ paths:
         `DELETE /auth/account` — session-JWT authenticated (verified directly here
         rather than via the `/v1/*` middleware, since `/auth/*` is mounted at the
         root outside that nest). Revokes API keys, soft-deletes owned projects, and
-        removes memberships for the authenticated `sub`. Pro has no
-        invitations/webhooks-by-owner concept to also clean up (unlike Enterprise's
-        `delete_account`).
+        removes memberships for the authenticated `sub`, then erases what those
+        projects held outside their rows. Pro has no invitations/webhooks-by-owner
+        concept to also clean up (unlike Enterprise's `delete_account`).
+      description: |-
+        The 500 is not an edge case here. Erasure runs after the transaction
+        commits, so a caller can see it: the rows are gone and the bucket or the
+        vector store still holds the documents. The caller must retry, which is why
+        the endpoint reports the failure instead of answering 204.
       operationId: delete_account
       responses:
         "204":
           description: Account deleted successfully
+        "400":
+          description: Malformed request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         "401":
           description: Unauthorized
           content:
             application/json:
-              schema: {}
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "422":
+          description: Request fails validation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "429":
+          description: Rate limit exceeded for this caller. The body is the shared error envelope with code `rate_limited`; `Retry-After` and the `x-ratelimit-*` headers carry the wait.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - error
+                properties:
+                  error:
+                    type: object
+                    required:
+                      - code
+                      - message
+                    properties:
+                      code:
+                        type: string
+                        description: Always `rate_limited` for this response.
+                        examples:
+                          - rate_limited
+                      message:
+                        type: string
+                        description: Human-readable message naming the wait.
+        "500":
+          description: The account rows were deleted but the stored documents, cached results or vector collections were not fully erased. Retry the request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
       security:
         - bearer_auth: []
   /auth/config:
@@ -35,6 +82,11 @@ paths:
       summary: |-
         `GET /auth/config` — unauthenticated; tells the frontend which auth
         methods this instance accepts.
+      description: |-
+        The response cannot name an issuer while reporting `enabled: false`:
+        start-up refuses a half-configured provider (an issuer without an
+        audience, or either without `JWT_SECRET`), so a served issuer implies
+        login is enabled.
       operationId: get_auth_config
       responses:
         "200":
@@ -43,6 +95,20 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AuthConfigResponse'
+        "400":
+          description: Malformed request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "422":
+          description: Request fails validation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - {}
   /auth/login:
     post:
       tags:
@@ -66,26 +132,109 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/LoginResponse'
+        "400":
+          description: Malformed request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         "401":
           description: Invalid OIDC ID token
           content:
             application/json:
-              schema: {}
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         "403":
           description: Account not permitted to sign in
           content:
             application/json:
-              schema: {}
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         "404":
           description: OIDC login is disabled
           content:
             application/json:
-              schema: {}
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "413":
+          description: The request body is larger than this deployment accepts
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - error
+                properties:
+                  error:
+                    type: object
+                    required:
+                      - code
+                      - message
+                    properties:
+                      code:
+                        type: string
+                        description: A stable identifier for the failure, such as `validation`
+                      message:
+                        type: string
+                        description: What went wrong, naming the field where the request named one
+        "415":
+          description: 'The request body was not sent with Content-Type: application/json'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - error
+                properties:
+                  error:
+                    type: object
+                    required:
+                      - code
+                      - message
+                    properties:
+                      code:
+                        type: string
+                        description: A stable identifier for the failure, such as `validation`
+                      message:
+                        type: string
+                        description: What went wrong, naming the field where the request named one
+        "422":
+          description: Body is valid JSON but does not match the request schema
+          content:
+            text/plain:
+              schema:
+                type: string
+        "429":
+          description: Rate limit exceeded for this caller. The body is the shared error envelope with code `rate_limited`; `Retry-After` and the `x-ratelimit-*` headers carry the wait.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - error
+                properties:
+                  error:
+                    type: object
+                    required:
+                      - code
+                      - message
+                    properties:
+                      code:
+                        type: string
+                        description: Always `rate_limited` for this response.
+                        examples:
+                          - rate_limited
+                      message:
+                        type: string
+                        description: Human-readable message naming the wait.
         "503":
           description: Identity provider service unavailable
           content:
             application/json:
-              schema: {}
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - {}
   /healthz:
     get:
       tags:
@@ -99,6 +248,53 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HealthResponse'
+        "400":
+          description: Malformed request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "422":
+          description: Request fails validation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - {}
+  /readyz:
+    get:
+      tags:
+        - health
+      summary: |-
+        GET /readyz: readiness probe (unauthenticated). Checks both database logins
+        and the object store, so a pod is not routed traffic it cannot serve.
+      operationId: readyz
+      responses:
+        "200":
+          description: Service can serve traffic
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadinessResponse'
+        "400":
+          description: Malformed request
+          content:
+            application/json:
+              schema: {}
+        "422":
+          description: Request fails validation
+          content:
+            application/json:
+              schema: {}
+        "503":
+          description: A dependency is unreachable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadinessResponse'
+      security:
+        - {}
   /v1/audit:
     get:
       tags:
@@ -106,7 +302,7 @@ paths:
       summary: GET /v1/audit — list audit events for the caller's own project (admin or project owner).
       description: |-
         Supports optional `?action=` filtering and pagination via `?limit=` and
-        `?offset=` (limit default 50, clamped to 1..100; offset must be >= 0).
+        `?offset=` (limit default 50, clamped to 1..100; offset clamped to 0..=1,000,000).
       operationId: list_audit_logs
       parameters:
         - name: action
@@ -124,7 +320,7 @@ paths:
             format: int64
         - name: offset
           in: query
-          description: Pagination offset (default 0)
+          description: Pagination offset (default 0, clamped to max 1,000,000)
           required: false
           schema:
             type: integer
@@ -136,16 +332,59 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ListAuditEntriesResponse'
+        "400":
+          description: Malformed request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         "401":
           description: Unauthorized
           content:
             application/json:
-              schema: {}
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         "403":
           description: Forbidden — not an admin or the project owner
           content:
             application/json:
-              schema: {}
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "422":
+          description: Request fails validation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "429":
+          description: Rate limit exceeded for this caller. The body is the shared error envelope with code `rate_limited`; `Retry-After` and the `x-ratelimit-*` headers carry the wait.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - error
+                properties:
+                  error:
+                    type: object
+                    required:
+                      - code
+                      - message
+                    properties:
+                      code:
+                        type: string
+                        description: Always `rate_limited` for this response.
+                        examples:
+                          - rate_limited
+                      message:
+                        type: string
+                        description: Human-readable message naming the wait.
+        "500":
+          description: Persistence error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
       security:
         - bearer_auth: []
   /v1/auto-tune:
@@ -164,7 +403,7 @@ paths:
             format: int64
         - name: offset
           in: query
-          description: Pagination offset (default 0)
+          description: Pagination offset (default 0, clamped to max 1,000,000)
           required: false
           schema:
             type: integer
@@ -176,12 +415,47 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ListAutoTuneJobsResponse'
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         "401":
           description: Missing or invalid authentication
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        "422":
+          description: Request fails validation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "429":
+          description: Rate limit exceeded for this caller. The body is the shared error envelope with code `rate_limited`; `Retry-After` and the `x-ratelimit-*` headers carry the wait.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - error
+                properties:
+                  error:
+                    type: object
+                    required:
+                      - code
+                      - message
+                    properties:
+                      code:
+                        type: string
+                        description: Always `rate_limited` for this response.
+                        examples:
+                          - rate_limited
+                      message:
+                        type: string
+                        description: Human-readable message naming the wait.
         "500":
           description: Persistence error
           content:
@@ -224,6 +498,60 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        "403":
+          description: The API key is read-only and cannot use this method
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "413":
+          description: The request body is larger than this deployment accepts
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - error
+                properties:
+                  error:
+                    type: object
+                    required:
+                      - code
+                      - message
+                    properties:
+                      code:
+                        type: string
+                        description: A stable identifier for the failure, such as `validation`
+                      message:
+                        type: string
+                        description: What went wrong, naming the field where the request named one
+        "415":
+          description: 'The request body was not sent with Content-Type: application/json'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - error
+                properties:
+                  error:
+                    type: object
+                    required:
+                      - code
+                      - message
+                    properties:
+                      code:
+                        type: string
+                        description: A stable identifier for the failure, such as `validation`
+                      message:
+                        type: string
+                        description: What went wrong, naming the field where the request named one
+        "422":
+          description: Request fails validation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         "429":
           description: Auto-tune entitlement/quota exceeded or per-project active-job cap reached
           content:
@@ -254,12 +582,47 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AutoTuneCapabilitiesResponse'
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         "401":
           description: Missing or invalid authentication
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        "422":
+          description: Request fails validation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "429":
+          description: Rate limit exceeded for this caller. The body is the shared error envelope with code `rate_limited`; `Retry-After` and the `x-ratelimit-*` headers carry the wait.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - error
+                properties:
+                  error:
+                    type: object
+                    required:
+                      - code
+                      - message
+                    properties:
+                      code:
+                        type: string
+                        description: Always `rate_limited` for this response.
+                        examples:
+                          - rate_limited
+                      message:
+                        type: string
+                        description: Human-readable message naming the wait.
       security:
         - bearer_auth: []
   /v1/auto-tune/{id}:
@@ -282,6 +645,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AutoTuneJobStatus'
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         "401":
           description: Missing or invalid authentication
           content:
@@ -294,6 +663,35 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        "422":
+          description: Request fails validation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "429":
+          description: Rate limit exceeded for this caller. The body is the shared error envelope with code `rate_limited`; `Retry-After` and the `x-ratelimit-*` headers carry the wait.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - error
+                properties:
+                  error:
+                    type: object
+                    required:
+                      - code
+                      - message
+                    properties:
+                      code:
+                        type: string
+                        description: Always `rate_limited` for this response.
+                        examples:
+                          - rate_limited
+                      message:
+                        type: string
+                        description: Human-readable message naming the wait.
         "500":
           description: Persistence error
           content:
@@ -317,8 +715,20 @@ paths:
       responses:
         "204":
           description: Auto-tune job deleted
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         "401":
           description: Missing or invalid authentication
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "403":
+          description: The API key is read-only and cannot use this method
           content:
             application/json:
               schema:
@@ -335,6 +745,35 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        "422":
+          description: Request fails validation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "429":
+          description: Rate limit exceeded for this caller. The body is the shared error envelope with code `rate_limited`; `Retry-After` and the `x-ratelimit-*` headers carry the wait.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - error
+                properties:
+                  error:
+                    type: object
+                    required:
+                      - code
+                      - message
+                    properties:
+                      code:
+                        type: string
+                        description: Always `rate_limited` for this response.
+                        examples:
+                          - rate_limited
+                      message:
+                        type: string
+                        description: Human-readable message naming the wait.
         "500":
           description: Persistence error
           content:
@@ -381,6 +820,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        "403":
+          description: The API key is read-only and cannot use this method
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         "404":
           description: Job not found
           content:
@@ -393,6 +838,77 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        "413":
+          description: The request body is larger than this deployment accepts
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - error
+                properties:
+                  error:
+                    type: object
+                    required:
+                      - code
+                      - message
+                    properties:
+                      code:
+                        type: string
+                        description: A stable identifier for the failure, such as `validation`
+                      message:
+                        type: string
+                        description: What went wrong, naming the field where the request named one
+        "415":
+          description: 'The request body was not sent with Content-Type: application/json'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - error
+                properties:
+                  error:
+                    type: object
+                    required:
+                      - code
+                      - message
+                    properties:
+                      code:
+                        type: string
+                        description: A stable identifier for the failure, such as `validation`
+                      message:
+                        type: string
+                        description: What went wrong, naming the field where the request named one
+        "422":
+          description: Request fails validation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "429":
+          description: Rate limit exceeded for this caller. The body is the shared error envelope with code `rate_limited`; `Retry-After` and the `x-ratelimit-*` headers carry the wait.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - error
+                properties:
+                  error:
+                    type: object
+                    required:
+                      - code
+                      - message
+                    properties:
+                      code:
+                        type: string
+                        description: Always `rate_limited` for this response.
+                        examples:
+                          - rate_limited
+                      message:
+                        type: string
+                        description: Human-readable message naming the wait.
         "500":
           description: Persistence error
           content:
@@ -421,6 +937,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AutoTuneResult'
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         "401":
           description: Missing or invalid authentication
           content:
@@ -439,6 +961,35 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        "422":
+          description: Request fails validation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "429":
+          description: Rate limit exceeded for this caller. The body is the shared error envelope with code `rate_limited`; `Retry-After` and the `x-ratelimit-*` headers carry the wait.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - error
+                properties:
+                  error:
+                    type: object
+                    required:
+                      - code
+                      - message
+                    properties:
+                      code:
+                        type: string
+                        description: Always `rate_limited` for this response.
+                        examples:
+                          - rate_limited
+                      message:
+                        type: string
+                        description: Human-readable message naming the wait.
         "500":
           description: Persistence error
           content:
@@ -474,22 +1025,82 @@ paths:
           description: Invalid request
           content:
             application/json:
-              schema: {}
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         "401":
           description: Unauthorized
           content:
             application/json:
-              schema: {}
-        "404":
-          description: Integration not found
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "403":
+          description: The API key is read-only and cannot use this method
           content:
             application/json:
-              schema: {}
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "404":
+          description: Integration or project not visible to the caller
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         "413":
           description: Decoded document exceeds the configured upload limit
           content:
             application/json:
-              schema: {}
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "415":
+          description: 'The request body was not sent with Content-Type: application/json'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - error
+                properties:
+                  error:
+                    type: object
+                    required:
+                      - code
+                      - message
+                    properties:
+                      code:
+                        type: string
+                        description: A stable identifier for the failure, such as `validation`
+                      message:
+                        type: string
+                        description: What went wrong, naming the field where the request named one
+        "422":
+          description: Body is valid JSON but does not match the request schema
+          content:
+            text/plain:
+              schema:
+                type: string
+        "429":
+          description: Rate limit exceeded for this caller. The body is the shared error envelope with code `rate_limited`; `Retry-After` and the `x-ratelimit-*` headers carry the wait.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - error
+                properties:
+                  error:
+                    type: object
+                    required:
+                      - code
+                      - message
+                    properties:
+                      code:
+                        type: string
+                        description: Always `rate_limited` for this response.
+                        examples:
+                          - rate_limited
+                      message:
+                        type: string
+                        description: Human-readable message naming the wait.
       security:
         - bearer_auth: []
   /v1/jobs:
@@ -502,17 +1113,24 @@ paths:
         - name: limit
           in: query
           description: Page size (default 50, max 100)
-          required: true
+          required: false
           schema:
             type: integer
             format: int64
         - name: offset
           in: query
-          description: Pagination offset (default 0)
-          required: true
+          description: Pagination offset (default 0, clamped to max 1,000,000)
+          required: false
           schema:
             type: integer
             format: int64
+        - name: project_id
+          in: query
+          description: Project to read. Absent reads the credential's own project.
+          required: false
+          schema:
+            type: string
+            format: uuid
       responses:
         "200":
           description: Jobs for the project
@@ -520,11 +1138,59 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ListJobsResponse'
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         "401":
           description: Unauthorized
           content:
             application/json:
-              schema: {}
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "404":
+          description: Requested project not visible to the caller
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "422":
+          description: Request fails validation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "429":
+          description: Rate limit exceeded for this caller. The body is the shared error envelope with code `rate_limited`; `Retry-After` and the `x-ratelimit-*` headers carry the wait.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - error
+                properties:
+                  error:
+                    type: object
+                    required:
+                      - code
+                      - message
+                    properties:
+                      code:
+                        type: string
+                        description: Always `rate_limited` for this response.
+                        examples:
+                          - rate_limited
+                      message:
+                        type: string
+                        description: Human-readable message naming the wait.
+        "500":
+          description: Persistence error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
       security:
         - bearer_auth: []
   /v1/jobs/{id}:
@@ -540,6 +1206,14 @@ paths:
           required: true
           schema:
             type: string
+            format: uuid
+        - name: project_id
+          in: query
+          description: Project to read. Absent reads the credential's own project.
+          required: false
+          schema:
+            type: string
+            format: uuid
       responses:
         "200":
           description: Job metadata
@@ -551,6 +1225,84 @@ paths:
           description: Invalid job ID
           content:
             application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "404":
+          description: Job or project not visible to the caller
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "422":
+          description: Request fails validation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "429":
+          description: Rate limit exceeded for this caller. The body is the shared error envelope with code `rate_limited`; `Retry-After` and the `x-ratelimit-*` headers carry the wait.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - error
+                properties:
+                  error:
+                    type: object
+                    required:
+                      - code
+                      - message
+                    properties:
+                      code:
+                        type: string
+                        description: Always `rate_limited` for this response.
+                        examples:
+                          - rate_limited
+                      message:
+                        type: string
+                        description: Human-readable message naming the wait.
+        "500":
+          description: Persistence error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearer_auth: []
+    delete:
+      tags:
+        - jobs
+      summary: ~keep DELETE /v1/jobs/:id — idempotently cancel a non-terminal job.
+      operationId: cancel_job
+      parameters:
+        - name: id
+          in: path
+          description: Job ID (UUID)
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: project_id
+          in: query
+          description: Project to mutate. Absent uses the credential's own project.
+          required: false
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Job cancelled or already terminal
+        "400":
+          description: Invalid job ID
+          content:
+            application/json:
               schema: {}
         "401":
           description: Unauthorized
@@ -558,7 +1310,40 @@ paths:
             application/json:
               schema: {}
         "404":
-          description: Job not found
+          description: Job or project not visible to the caller
+          content:
+            application/json:
+              schema: {}
+        "422":
+          description: Request fails validation
+          content:
+            application/json:
+              schema: {}
+        "429":
+          description: Rate limit exceeded for this caller. The body is the shared error envelope with code `rate_limited`; `Retry-After` and the `x-ratelimit-*` headers carry the wait.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - error
+                properties:
+                  error:
+                    type: object
+                    required:
+                      - code
+                      - message
+                    properties:
+                      code:
+                        type: string
+                        description: Always `rate_limited` for this response.
+                        examples:
+                          - rate_limited
+                      message:
+                        type: string
+                        description: Human-readable message naming the wait.
+        "500":
+          description: Cancellation failed
           content:
             application/json:
               schema: {}
@@ -577,6 +1362,14 @@ paths:
           required: true
           schema:
             type: string
+            format: uuid
+        - name: project_id
+          in: query
+          description: Project to read. Absent reads the credential's own project.
+          required: false
+          schema:
+            type: string
+            format: uuid
       responses:
         "200":
           description: Extraction result
@@ -588,22 +1381,1525 @@ paths:
           description: Invalid job ID
           content:
             application/json:
-              schema: {}
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         "401":
           description: Unauthorized
           content:
             application/json:
-              schema: {}
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         "404":
-          description: Job not found
+          description: Job or project not visible to the caller
           content:
             application/json:
-              schema: {}
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         "409":
           description: Job has not reached a terminal successful state
           content:
             application/json:
-              schema: {}
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "422":
+          description: Request fails validation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "429":
+          description: Rate limit exceeded for this caller. The body is the shared error envelope with code `rate_limited`; `Retry-After` and the `x-ratelimit-*` headers carry the wait.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - error
+                properties:
+                  error:
+                    type: object
+                    required:
+                      - code
+                      - message
+                    properties:
+                      code:
+                        type: string
+                        description: Always `rate_limited` for this response.
+                        examples:
+                          - rate_limited
+                      message:
+                        type: string
+                        description: Human-readable message naming the wait.
+        "500":
+          description: Persistence or storage error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearer_auth: []
+  /v1/oauth/callback:
+    get:
+      tags:
+        - integrations
+      summary: GET /v1/oauth/callback — OAuth callback (PUBLIC, no auth required).
+      description: |-
+        This endpoint receives the authorization code and state token from the OAuth provider.
+        On success, redirects to the frontend landing URL.
+        On failure, returns a generic error (no oracle to leak valid projects).
+      operationId: oauth_callback
+      parameters:
+        - name: code
+          in: query
+          description: Authorization code from the provider
+          required: false
+          schema:
+            type: string
+        - name: state
+          in: query
+          description: Signed state token issued by the connect call
+          required: false
+          schema:
+            type: string
+        - name: error
+          in: query
+          description: Provider error code when the user denied access
+          required: false
+          schema:
+            type: string
+      responses:
+        "303":
+          description: Redirect to the dashboard landing URL, on success and on a provider-reported denial
+        "400":
+          description: Missing code or state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "422":
+          description: Request fails validation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "429":
+          description: Callback rate limit exceeded for this client address
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "500":
+          description: The code exchange failed; the response carries no detail about the flow
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "503":
+          description: Integration hub is not configured
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - {}
+  /v1/presets:
+    get:
+      tags:
+        - presets
+      summary: '`GET /v1/presets` — list curated presets (public).'
+      operationId: list_presets
+      responses:
+        "200":
+          description: Curated preset library
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PresetSummary'
+        "400":
+          description: Malformed request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "422":
+          description: Request fails validation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - {}
+  /v1/presets/{id}:
+    get:
+      tags:
+        - presets
+      summary: '`GET /v1/presets/{id}` — full preset detail (public).'
+      operationId: get_preset
+      parameters:
+        - name: id
+          in: path
+          description: Preset identifier
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Preset detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PresetDetail'
+        "400":
+          description: Malformed request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "404":
+          description: Preset not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "422":
+          description: Request fails validation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - {}
+  /v1/presets/{id}/sample/{name}:
+    get:
+      tags:
+        - presets
+      summary: '`GET /v1/presets/{id}/sample/{name}` — raw bundled sample bytes (public).'
+      operationId: get_preset_sample
+      parameters:
+        - name: id
+          in: path
+          description: Preset identifier
+          required: true
+          schema:
+            type: string
+        - name: name
+          in: path
+          description: Sample file name
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Sample bytes
+        "400":
+          description: Malformed request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "404":
+          description: Preset or sample not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "422":
+          description: Request fails validation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - {}
+  /v1/projects:
+    get:
+      tags:
+        - projects
+      summary: |-
+        GET /v1/projects — list the caller's own projects. A session-JWT human
+        sees their own projects; the admin API key sees `ADMIN_USER_ID`'s projects
+        (unchanged from the pre-OIDC-login behavior). Anything else ⇒ 403.
+      operationId: list_projects
+      parameters:
+        - name: limit
+          in: query
+          description: Page size (default 1000, clamped to 1-1000)
+          required: false
+          schema:
+            type: integer
+            format: int64
+        - name: offset
+          in: query
+          description: Pagination offset (default 0, clamped to max 1,000,000)
+          required: false
+          schema:
+            type: integer
+            format: int64
+      responses:
+        "200":
+          description: Projects visible to the caller
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListProjectsResponse'
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "422":
+          description: Request fails validation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "429":
+          description: Rate limit exceeded for this caller. The body is the shared error envelope with code `rate_limited`; `Retry-After` and the `x-ratelimit-*` headers carry the wait.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - error
+                properties:
+                  error:
+                    type: object
+                    required:
+                      - code
+                      - message
+                    properties:
+                      code:
+                        type: string
+                        description: Always `rate_limited` for this response.
+                        examples:
+                          - rate_limited
+                      message:
+                        type: string
+                        description: Human-readable message naming the wait.
+        "500":
+          description: Persistence error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearer_auth: []
+    post:
+      tags:
+        - projects
+      summary: |-
+        POST /v1/projects — create a project. Owner is the caller: the
+        authenticated human (`ctx.user_id`) when present, else `ADMIN_USER_ID`
+        for the admin API key. Neither present ⇒ 403.
+      operationId: create_project
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateProjectRequest'
+        required: true
+      responses:
+        "201":
+          description: Project created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectResponse'
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "409":
+          description: Project slug already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "413":
+          description: The request body is larger than this deployment accepts
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - error
+                properties:
+                  error:
+                    type: object
+                    required:
+                      - code
+                      - message
+                    properties:
+                      code:
+                        type: string
+                        description: A stable identifier for the failure, such as `validation`
+                      message:
+                        type: string
+                        description: What went wrong, naming the field where the request named one
+        "415":
+          description: 'The request body was not sent with Content-Type: application/json'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - error
+                properties:
+                  error:
+                    type: object
+                    required:
+                      - code
+                      - message
+                    properties:
+                      code:
+                        type: string
+                        description: A stable identifier for the failure, such as `validation`
+                      message:
+                        type: string
+                        description: What went wrong, naming the field where the request named one
+        "422":
+          description: Body is valid JSON but does not match the request schema
+          content:
+            text/plain:
+              schema:
+                type: string
+        "429":
+          description: Rate limit exceeded for this caller. The body is the shared error envelope with code `rate_limited`; `Retry-After` and the `x-ratelimit-*` headers carry the wait.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - error
+                properties:
+                  error:
+                    type: object
+                    required:
+                      - code
+                      - message
+                    properties:
+                      code:
+                        type: string
+                        description: Always `rate_limited` for this response.
+                        examples:
+                          - rate_limited
+                      message:
+                        type: string
+                        description: Human-readable message naming the wait.
+        "500":
+          description: Persistence error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearer_auth: []
+  /v1/projects/{project_id}/api-keys:
+    get:
+      tags:
+        - projects
+      summary: GET /v1/projects/:project_id/api-keys — list API keys for a project.
+      operationId: list_api_keys
+      parameters:
+        - name: project_id
+          in: path
+          description: Project ID (UUID)
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: limit
+          in: query
+          description: Page size (default 100, clamped to 1-100)
+          required: false
+          schema:
+            type: integer
+            format: int64
+        - name: offset
+          in: query
+          description: Pagination offset (default 0, clamped to max 1,000,000)
+          required: false
+          schema:
+            type: integer
+            format: int64
+      responses:
+        "200":
+          description: API keys for the project
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListApiKeysResponse'
+        "400":
+          description: Invalid project ID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "404":
+          description: Project not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "422":
+          description: Request fails validation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "429":
+          description: Rate limit exceeded for this caller. The body is the shared error envelope with code `rate_limited`; `Retry-After` and the `x-ratelimit-*` headers carry the wait.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - error
+                properties:
+                  error:
+                    type: object
+                    required:
+                      - code
+                      - message
+                    properties:
+                      code:
+                        type: string
+                        description: Always `rate_limited` for this response.
+                        examples:
+                          - rate_limited
+                      message:
+                        type: string
+                        description: Human-readable message naming the wait.
+        "500":
+          description: Persistence error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearer_auth: []
+    post:
+      tags:
+        - projects
+      summary: POST /v1/projects/:project_id/api-keys — create an API key for a project.
+      operationId: create_api_key
+      parameters:
+        - name: project_id
+          in: path
+          description: Project ID (UUID)
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateApiKeyRequest'
+        required: true
+      responses:
+        "201":
+          description: API key created; the plaintext key is returned once
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateApiKeyResponse'
+        "400":
+          description: Invalid project ID or request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "404":
+          description: Project not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "413":
+          description: The request body is larger than this deployment accepts
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - error
+                properties:
+                  error:
+                    type: object
+                    required:
+                      - code
+                      - message
+                    properties:
+                      code:
+                        type: string
+                        description: A stable identifier for the failure, such as `validation`
+                      message:
+                        type: string
+                        description: What went wrong, naming the field where the request named one
+        "415":
+          description: 'The request body was not sent with Content-Type: application/json'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - error
+                properties:
+                  error:
+                    type: object
+                    required:
+                      - code
+                      - message
+                    properties:
+                      code:
+                        type: string
+                        description: A stable identifier for the failure, such as `validation`
+                      message:
+                        type: string
+                        description: What went wrong, naming the field where the request named one
+        "422":
+          description: Body is valid JSON but does not match the request schema
+          content:
+            text/plain:
+              schema:
+                type: string
+        "429":
+          description: Rate limit exceeded for this caller. The body is the shared error envelope with code `rate_limited`; `Retry-After` and the `x-ratelimit-*` headers carry the wait.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - error
+                properties:
+                  error:
+                    type: object
+                    required:
+                      - code
+                      - message
+                    properties:
+                      code:
+                        type: string
+                        description: Always `rate_limited` for this response.
+                        examples:
+                          - rate_limited
+                      message:
+                        type: string
+                        description: Human-readable message naming the wait.
+        "500":
+          description: Persistence error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearer_auth: []
+  /v1/projects/{project_id}/api-keys/{key_id}:
+    delete:
+      tags:
+        - projects
+      summary: DELETE /v1/projects/:project_id/api-keys/:key_id — revoke an API key.
+      operationId: revoke_api_key
+      parameters:
+        - name: project_id
+          in: path
+          description: Project ID (UUID)
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: key_id
+          in: path
+          description: API key ID (UUID)
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: API key revoked
+        "400":
+          description: Invalid project or key ID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "404":
+          description: Project not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "422":
+          description: Request fails validation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "429":
+          description: Rate limit exceeded for this caller. The body is the shared error envelope with code `rate_limited`; `Retry-After` and the `x-ratelimit-*` headers carry the wait.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - error
+                properties:
+                  error:
+                    type: object
+                    required:
+                      - code
+                      - message
+                    properties:
+                      code:
+                        type: string
+                        description: Always `rate_limited` for this response.
+                        examples:
+                          - rate_limited
+                      message:
+                        type: string
+                        description: Human-readable message naming the wait.
+        "500":
+          description: Persistence error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearer_auth: []
+  /v1/projects/{project_id}/integrations:
+    get:
+      tags:
+        - integrations
+      summary: GET /v1/projects/{project_id}/integrations — list integrations (admin or project owner).
+      operationId: list_integrations
+      parameters:
+        - name: project_id
+          in: path
+          description: Project ID (UUID)
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: limit
+          in: query
+          description: Page size (default 50, max 1000)
+          required: false
+          schema:
+            type: integer
+            format: int64
+        - name: offset
+          in: query
+          description: Pagination offset (default 0, clamped to max 1,000,000)
+          required: false
+          schema:
+            type: integer
+            format: int64
+      responses:
+        "200":
+          description: Integrations for the project
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListIntegrationsResponse'
+        "400":
+          description: Invalid pagination
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "404":
+          description: Project not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "422":
+          description: Request fails validation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "429":
+          description: Rate limit exceeded for this caller. The body is the shared error envelope with code `rate_limited`; `Retry-After` and the `x-ratelimit-*` headers carry the wait.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - error
+                properties:
+                  error:
+                    type: object
+                    required:
+                      - code
+                      - message
+                    properties:
+                      code:
+                        type: string
+                        description: Always `rate_limited` for this response.
+                        examples:
+                          - rate_limited
+                      message:
+                        type: string
+                        description: Human-readable message naming the wait.
+        "500":
+          description: Persistence error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearer_auth: []
+    post:
+      tags:
+        - integrations
+      summary: POST /v1/projects/{project_id}/integrations — create an integration (admin or project owner).
+      operationId: create_integration
+      parameters:
+        - name: project_id
+          in: path
+          description: Project ID (UUID)
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateIntegrationRequest'
+        required: true
+      responses:
+        "201":
+          description: Integration created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IntegrationResponse'
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "404":
+          description: Project not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "413":
+          description: The request body is larger than this deployment accepts
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - error
+                properties:
+                  error:
+                    type: object
+                    required:
+                      - code
+                      - message
+                    properties:
+                      code:
+                        type: string
+                        description: A stable identifier for the failure, such as `validation`
+                      message:
+                        type: string
+                        description: What went wrong, naming the field where the request named one
+        "415":
+          description: 'The request body was not sent with Content-Type: application/json'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - error
+                properties:
+                  error:
+                    type: object
+                    required:
+                      - code
+                      - message
+                    properties:
+                      code:
+                        type: string
+                        description: A stable identifier for the failure, such as `validation`
+                      message:
+                        type: string
+                        description: What went wrong, naming the field where the request named one
+        "422":
+          description: Body is valid JSON but does not match the request schema
+          content:
+            text/plain:
+              schema:
+                type: string
+        "429":
+          description: Rate limit exceeded for this caller. The body is the shared error envelope with code `rate_limited`; `Retry-After` and the `x-ratelimit-*` headers carry the wait.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - error
+                properties:
+                  error:
+                    type: object
+                    required:
+                      - code
+                      - message
+                    properties:
+                      code:
+                        type: string
+                        description: Always `rate_limited` for this response.
+                        examples:
+                          - rate_limited
+                      message:
+                        type: string
+                        description: Human-readable message naming the wait.
+        "500":
+          description: Persistence error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearer_auth: []
+  /v1/projects/{project_id}/integrations/{integration_id}:
+    get:
+      tags:
+        - integrations
+      summary: GET /v1/projects/{project_id}/integrations/{integration_id} — get an integration (admin or project owner).
+      operationId: get_integration
+      parameters:
+        - name: project_id
+          in: path
+          description: Project ID (UUID)
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: integration_id
+          in: path
+          description: Integration ID (UUID)
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Integration metadata; credentials are masked
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IntegrationResponse'
+        "400":
+          description: Invalid project or integration ID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "404":
+          description: Project or integration not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "422":
+          description: Request fails validation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "429":
+          description: Rate limit exceeded for this caller. The body is the shared error envelope with code `rate_limited`; `Retry-After` and the `x-ratelimit-*` headers carry the wait.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - error
+                properties:
+                  error:
+                    type: object
+                    required:
+                      - code
+                      - message
+                    properties:
+                      code:
+                        type: string
+                        description: Always `rate_limited` for this response.
+                        examples:
+                          - rate_limited
+                      message:
+                        type: string
+                        description: Human-readable message naming the wait.
+        "500":
+          description: Persistence error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearer_auth: []
+    delete:
+      tags:
+        - integrations
+      summary: DELETE /v1/projects/{project_id}/integrations/{integration_id} — delete an integration (admin or project owner).
+      operationId: delete_integration
+      parameters:
+        - name: project_id
+          in: path
+          description: Project ID (UUID)
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: integration_id
+          in: path
+          description: Integration ID (UUID)
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Integration deleted; its OAuth connection is revoked first
+        "400":
+          description: Invalid project or integration ID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "404":
+          description: Project not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "422":
+          description: Request fails validation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "429":
+          description: Rate limit exceeded for this caller. The body is the shared error envelope with code `rate_limited`; `Retry-After` and the `x-ratelimit-*` headers carry the wait.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - error
+                properties:
+                  error:
+                    type: object
+                    required:
+                      - code
+                      - message
+                    properties:
+                      code:
+                        type: string
+                        description: Always `rate_limited` for this response.
+                        examples:
+                          - rate_limited
+                      message:
+                        type: string
+                        description: Human-readable message naming the wait.
+        "500":
+          description: Persistence error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearer_auth: []
+  /v1/projects/{project_id}/integrations/{integration_id}/connect:
+    post:
+      tags:
+        - integrations
+      summary: POST /v1/projects/{project_id}/integrations/{integration_id}/connect — begin OAuth (admin or project owner).
+      operationId: begin_oauth_connect
+      parameters:
+        - name: project_id
+          in: path
+          description: Project ID (UUID)
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: integration_id
+          in: path
+          description: Integration ID (UUID)
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Authorization URL to redirect the user to
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BeginOAuthResponse'
+        "400":
+          description: Invalid ID, or the provider refused to start the flow
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "404":
+          description: Project or integration not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "422":
+          description: Request fails validation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "429":
+          description: Rate limit exceeded for this caller. The body is the shared error envelope with code `rate_limited`; `Retry-After` and the `x-ratelimit-*` headers carry the wait.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - error
+                properties:
+                  error:
+                    type: object
+                    required:
+                      - code
+                      - message
+                    properties:
+                      code:
+                        type: string
+                        description: Always `rate_limited` for this response.
+                        examples:
+                          - rate_limited
+                      message:
+                        type: string
+                        description: Human-readable message naming the wait.
+        "500":
+          description: Provider or persistence error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "503":
+          description: 'Integration hub is not configured: INTEGRATION_KEK and INTEGRATION_STATE_SECRET are unset'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearer_auth: []
+  /v1/projects/{project_id}/integrations/{integration_id}/disconnect:
+    post:
+      tags:
+        - integrations
+      summary: 'POST /v1/projects/{project_id}/integrations/{integration_id}/disconnect: revoke the OAuth connection (admin or project owner).'
+      operationId: disconnect_integration
+      parameters:
+        - name: project_id
+          in: path
+          description: Project ID (UUID)
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: integration_id
+          in: path
+          description: Integration ID (UUID)
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Connection revoked locally and, best effort, at the provider
+        "400":
+          description: Invalid project or integration ID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "404":
+          description: Project not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "422":
+          description: Request fails validation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "429":
+          description: Rate limit exceeded for this caller. The body is the shared error envelope with code `rate_limited`; `Retry-After` and the `x-ratelimit-*` headers carry the wait.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - error
+                properties:
+                  error:
+                    type: object
+                    required:
+                      - code
+                      - message
+                    properties:
+                      code:
+                        type: string
+                        description: Always `rate_limited` for this response.
+                        examples:
+                          - rate_limited
+                      message:
+                        type: string
+                        description: Human-readable message naming the wait.
+        "500":
+          description: Persistence error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearer_auth: []
+  /v1/projects/{project_id}/integrations/{integration_id}/documents:
+    get:
+      tags:
+        - integrations
+      summary: GET /v1/projects/{project_id}/integrations/{iid}/documents — list documents (admin or project owner).
+      operationId: list_integration_documents
+      parameters:
+        - name: project_id
+          in: path
+          description: Project ID (UUID)
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: integration_id
+          in: path
+          description: Integration ID (UUID)
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: mime_types
+          in: query
+          description: Comma-separated MIME types to keep; empty keeps all
+          required: false
+          schema:
+            type: string
+        - name: folder_id
+          in: query
+          description: Source-specific folder ID to list
+          required: false
+          schema:
+            type: string
+        - name: max_results
+          in: query
+          description: Maximum number of documents (clamped to 1000)
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+      responses:
+        "200":
+          description: Documents visible through the connected source
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListDocumentsResponse'
+        "400":
+          description: Invalid project or integration ID, or the integration has no connector for its kind
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "401":
+          description: Unauthorized, or the source connection is missing or revoked
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "403":
+          description: Forbidden, or the source denied access to the folder
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "404":
+          description: Project not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "413":
+          description: The listing needs more pages than the connector reads; narrow `mime_types` or `folder_id`, or set `max_results`
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "422":
+          description: Request fails validation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "429":
+          description: The source is rate-limiting the connector; retry after the `Retry-After` interval
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "502":
+          description: The source returned an unexpected status, an unreadable response, or could not be reached
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearer_auth: []
+  /v1/projects/{project_id}/integrations/{integration_id}/documents/{document_id}:
+    get:
+      tags:
+        - integrations
+      summary: GET /v1/projects/{project_id}/integrations/{iid}/documents/{doc_id} — fetch document (admin or project owner).
+      operationId: fetch_integration_document
+      parameters:
+        - name: project_id
+          in: path
+          description: Project ID (UUID)
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: integration_id
+          in: path
+          description: Integration ID (UUID)
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: document_id
+          in: path
+          description: Source-specific document ID
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Document bytes; Content-Type is the source's MIME type and Content-Disposition names the file
+          content:
+            application/octet-stream: {}
+        "400":
+          description: Invalid project or integration ID, the integration has no connector for its kind, or the document type cannot be exported
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "401":
+          description: Unauthorized, or the source connection is missing or revoked
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "403":
+          description: Forbidden, or the source denied the download
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "404":
+          description: Project or document not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "413":
+          description: The document is larger than the connector reads
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "422":
+          description: Request fails validation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "429":
+          description: The source is rate-limiting the connector; retry after the `Retry-After` interval
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "502":
+          description: The source returned an unexpected status, an unreadable response, or could not be reached
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
       security:
         - bearer_auth: []
   /v1/projects/{project_id}/rag-config:
@@ -619,6 +2915,7 @@ paths:
           required: true
           schema:
             type: string
+            format: uuid
       responses:
         "200":
           description: Project RAG configuration
@@ -630,17 +2927,55 @@ paths:
           description: Invalid project ID
           content:
             application/json:
-              schema: {}
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "401":
+          description: Missing or invalid bearer token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         "403":
           description: Forbidden
           content:
             application/json:
-              schema: {}
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         "404":
           description: Project not found
           content:
             application/json:
-              schema: {}
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "422":
+          description: Request fails validation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "429":
+          description: Rate limit exceeded for this caller. The body is the shared error envelope with code `rate_limited`; `Retry-After` and the `x-ratelimit-*` headers carry the wait.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - error
+                properties:
+                  error:
+                    type: object
+                    required:
+                      - code
+                      - message
+                    properties:
+                      code:
+                        type: string
+                        description: Always `rate_limited` for this response.
+                        examples:
+                          - rate_limited
+                      message:
+                        type: string
+                        description: Human-readable message naming the wait.
       security:
         - bearer_auth: []
     put:
@@ -655,6 +2990,7 @@ paths:
           required: true
           schema:
             type: string
+            format: uuid
       requestBody:
         content:
           application/json:
@@ -672,17 +3008,97 @@ paths:
           description: Invalid project ID
           content:
             application/json:
-              schema: {}
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "401":
+          description: Missing or invalid bearer token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         "403":
           description: Forbidden
           content:
             application/json:
-              schema: {}
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         "404":
           description: Project not found
           content:
             application/json:
-              schema: {}
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "413":
+          description: The request body is larger than this deployment accepts
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - error
+                properties:
+                  error:
+                    type: object
+                    required:
+                      - code
+                      - message
+                    properties:
+                      code:
+                        type: string
+                        description: A stable identifier for the failure, such as `validation`
+                      message:
+                        type: string
+                        description: What went wrong, naming the field where the request named one
+        "415":
+          description: 'The request body was not sent with Content-Type: application/json'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - error
+                properties:
+                  error:
+                    type: object
+                    required:
+                      - code
+                      - message
+                    properties:
+                      code:
+                        type: string
+                        description: A stable identifier for the failure, such as `validation`
+                      message:
+                        type: string
+                        description: What went wrong, naming the field where the request named one
+        "422":
+          description: Body is valid JSON but does not match the request schema
+          content:
+            text/plain:
+              schema:
+                type: string
+        "429":
+          description: Rate limit exceeded for this caller. The body is the shared error envelope with code `rate_limited`; `Retry-After` and the `x-ratelimit-*` headers carry the wait.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - error
+                properties:
+                  error:
+                    type: object
+                    required:
+                      - code
+                      - message
+                    properties:
+                      code:
+                        type: string
+                        description: Always `rate_limited` for this response.
+                        examples:
+                          - rate_limited
+                      message:
+                        type: string
+                        description: Human-readable message naming the wait.
       security:
         - bearer_auth: []
   /v1/rag/collections:
@@ -702,7 +3118,7 @@ paths:
             format: int32
         - name: offset
           in: query
-          description: Number of results to skip (default 0)
+          description: Number of results to skip (default 0, clamped to max 1,000,000)
           required: false
           schema:
             type: integer
@@ -714,6 +3130,53 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ListCollectionsResponse'
+        "400":
+          description: Invalid request parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "401":
+          description: Missing or invalid bearer token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "404":
+          description: RAG is not enabled for this project
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "422":
+          description: Request fails validation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "429":
+          description: Rate limit exceeded for this caller. The body is the shared error envelope with code `rate_limited`; `Retry-After` and the `x-ratelimit-*` headers carry the wait.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - error
+                properties:
+                  error:
+                    type: object
+                    required:
+                      - code
+                      - message
+                    properties:
+                      code:
+                        type: string
+                        description: Always `rate_limited` for this response.
+                        examples:
+                          - rate_limited
+                      message:
+                        type: string
+                        description: Human-readable message naming the wait.
         "500":
           description: Database error
           content:
@@ -750,12 +3213,101 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        "401":
+          description: Missing or invalid bearer token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "403":
+          description: The API key is read-only and cannot use this method
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "404":
+          description: RAG is not enabled for this project
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         "409":
           description: Collection name already exists in this project
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        "413":
+          description: The request body is larger than this deployment accepts
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - error
+                properties:
+                  error:
+                    type: object
+                    required:
+                      - code
+                      - message
+                    properties:
+                      code:
+                        type: string
+                        description: A stable identifier for the failure, such as `validation`
+                      message:
+                        type: string
+                        description: What went wrong, naming the field where the request named one
+        "415":
+          description: 'The request body was not sent with Content-Type: application/json'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - error
+                properties:
+                  error:
+                    type: object
+                    required:
+                      - code
+                      - message
+                    properties:
+                      code:
+                        type: string
+                        description: A stable identifier for the failure, such as `validation`
+                      message:
+                        type: string
+                        description: What went wrong, naming the field where the request named one
+        "422":
+          description: Request fails validation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "429":
+          description: Rate limit exceeded for this caller. The body is the shared error envelope with code `rate_limited`; `Retry-After` and the `x-ratelimit-*` headers carry the wait.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - error
+                properties:
+                  error:
+                    type: object
+                    required:
+                      - code
+                      - message
+                    properties:
+                      code:
+                        type: string
+                        description: Always `rate_limited` for this response.
+                        examples:
+                          - rate_limited
+                      message:
+                        type: string
+                        description: Human-readable message naming the wait.
         "500":
           description: Database error
           content:
@@ -786,12 +3338,53 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/CollectionResponse'
+        "400":
+          description: Invalid request parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "401":
+          description: Missing or invalid bearer token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         "404":
           description: Collection not found
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        "422":
+          description: Request fails validation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "429":
+          description: Rate limit exceeded for this caller. The body is the shared error envelope with code `rate_limited`; `Retry-After` and the `x-ratelimit-*` headers carry the wait.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - error
+                properties:
+                  error:
+                    type: object
+                    required:
+                      - code
+                      - message
+                    properties:
+                      code:
+                        type: string
+                        description: Always `rate_limited` for this response.
+                        examples:
+                          - rate_limited
+                      message:
+                        type: string
+                        description: Human-readable message naming the wait.
         "500":
           description: Database error
           content:
@@ -820,12 +3413,59 @@ paths:
       responses:
         "204":
           description: Collection deleted
+        "400":
+          description: Invalid request parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "401":
+          description: Missing or invalid bearer token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "403":
+          description: The API key is read-only and cannot use this method
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         "404":
           description: Collection not found
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        "422":
+          description: Request fails validation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "429":
+          description: Rate limit exceeded for this caller. The body is the shared error envelope with code `rate_limited`; `Retry-After` and the `x-ratelimit-*` headers carry the wait.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - error
+                properties:
+                  error:
+                    type: object
+                    required:
+                      - code
+                      - message
+                    properties:
+                      code:
+                        type: string
+                        description: Always `rate_limited` for this response.
+                        examples:
+                          - rate_limited
+                      message:
+                        type: string
+                        description: Human-readable message naming the wait.
         "500":
           description: Database error
           content:
@@ -876,8 +3516,74 @@ paths:
                 document_id: 550e8400-e29b-41d4-a716-446655440000
                 status: pending
                 poll: /v1/rag/jobs/01ARZ3NDEKTSV4RRFFQ69G5FAV
+        "400":
+          description: Malformed request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "401":
+          description: Missing or invalid bearer token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "403":
+          description: The API key is read-only and cannot use this method
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         "404":
           description: Collection not found or RAG disabled on project
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "413":
+          description: The request body is larger than this deployment accepts
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - error
+                properties:
+                  error:
+                    type: object
+                    required:
+                      - code
+                      - message
+                    properties:
+                      code:
+                        type: string
+                        description: A stable identifier for the failure, such as `validation`
+                      message:
+                        type: string
+                        description: What went wrong, naming the field where the request named one
+        "415":
+          description: 'The request body was not sent with Content-Type: application/json'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - error
+                properties:
+                  error:
+                    type: object
+                    required:
+                      - code
+                      - message
+                    properties:
+                      code:
+                        type: string
+                        description: A stable identifier for the failure, such as `validation`
+                      message:
+                        type: string
+                        description: What went wrong, naming the field where the request named one
+        "422":
+          description: Request fails validation
           content:
             application/json:
               schema:
@@ -925,12 +3631,101 @@ paths:
                 $ref: '#/components/schemas/DeleteDocumentsResponse'
               example:
                 deleted_count: 5
+        "400":
+          description: Malformed request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "401":
+          description: Missing or invalid bearer token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "403":
+          description: The API key is read-only and cannot use this method
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         "404":
           description: Collection not found or RAG disabled
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        "413":
+          description: The request body is larger than this deployment accepts
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - error
+                properties:
+                  error:
+                    type: object
+                    required:
+                      - code
+                      - message
+                    properties:
+                      code:
+                        type: string
+                        description: A stable identifier for the failure, such as `validation`
+                      message:
+                        type: string
+                        description: What went wrong, naming the field where the request named one
+        "415":
+          description: 'The request body was not sent with Content-Type: application/json'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - error
+                properties:
+                  error:
+                    type: object
+                    required:
+                      - code
+                      - message
+                    properties:
+                      code:
+                        type: string
+                        description: A stable identifier for the failure, such as `validation`
+                      message:
+                        type: string
+                        description: What went wrong, naming the field where the request named one
+        "422":
+          description: Request fails validation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "429":
+          description: Rate limit exceeded for this caller. The body is the shared error envelope with code `rate_limited`; `Retry-After` and the `x-ratelimit-*` headers carry the wait.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - error
+                properties:
+                  error:
+                    type: object
+                    required:
+                      - code
+                      - message
+                    properties:
+                      code:
+                        type: string
+                        description: Always `rate_limited` for this response.
+                        examples:
+                          - rate_limited
+                      message:
+                        type: string
+                        description: Human-readable message naming the wait.
         "500":
           description: Database error
           content:
@@ -982,12 +3777,101 @@ paths:
                 document_id: 550e8400-e29b-41d4-a716-446655440000
                 status: pending
                 poll: /v1/rag/jobs/01ARZ3NDEKTSV4RRFFQ69G5FAV
+        "400":
+          description: Malformed request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "401":
+          description: Missing or invalid bearer token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "403":
+          description: The API key is read-only and cannot use this method
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         "404":
           description: Document or collection not found
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        "413":
+          description: The request body is larger than this deployment accepts
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - error
+                properties:
+                  error:
+                    type: object
+                    required:
+                      - code
+                      - message
+                    properties:
+                      code:
+                        type: string
+                        description: A stable identifier for the failure, such as `validation`
+                      message:
+                        type: string
+                        description: What went wrong, naming the field where the request named one
+        "415":
+          description: 'The request body was not sent with Content-Type: application/json'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - error
+                properties:
+                  error:
+                    type: object
+                    required:
+                      - code
+                      - message
+                    properties:
+                      code:
+                        type: string
+                        description: A stable identifier for the failure, such as `validation`
+                      message:
+                        type: string
+                        description: What went wrong, naming the field where the request named one
+        "422":
+          description: Request fails validation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "429":
+          description: Rate limit exceeded for this caller. The body is the shared error envelope with code `rate_limited`; `Retry-After` and the `x-ratelimit-*` headers carry the wait.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - error
+                properties:
+                  error:
+                    type: object
+                    required:
+                      - code
+                      - message
+                    properties:
+                      code:
+                        type: string
+                        description: Always `rate_limited` for this response.
+                        examples:
+                          - rate_limited
+                      message:
+                        type: string
+                        description: Human-readable message naming the wait.
         "500":
           description: Database or NATS error
           content:
@@ -1029,14 +3913,103 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/MigrateEmbeddingsResponse'
+        "400":
+          description: Malformed request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "401":
+          description: Missing or invalid bearer token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "403":
+          description: The API key is read-only and cannot use this method
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         "404":
           description: Collection not found or RAG disabled
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        "413":
+          description: The request body is larger than this deployment accepts
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - error
+                properties:
+                  error:
+                    type: object
+                    required:
+                      - code
+                      - message
+                    properties:
+                      code:
+                        type: string
+                        description: A stable identifier for the failure, such as `validation`
+                      message:
+                        type: string
+                        description: What went wrong, naming the field where the request named one
+        "415":
+          description: 'The request body was not sent with Content-Type: application/json'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - error
+                properties:
+                  error:
+                    type: object
+                    required:
+                      - code
+                      - message
+                    properties:
+                      code:
+                        type: string
+                        description: A stable identifier for the failure, such as `validation`
+                      message:
+                        type: string
+                        description: What went wrong, naming the field where the request named one
         "422":
           description: Invalid migration parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "429":
+          description: Rate limit exceeded for this caller. The body is the shared error envelope with code `rate_limited`; `Retry-After` and the `x-ratelimit-*` headers carry the wait.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - error
+                properties:
+                  error:
+                    type: object
+                    required:
+                      - code
+                      - message
+                    properties:
+                      code:
+                        type: string
+                        description: Always `rate_limited` for this response.
+                        examples:
+                          - rate_limited
+                      message:
+                        type: string
+                        description: Human-readable message naming the wait.
+        "500":
+          description: Database error
           content:
             application/json:
               schema:
@@ -1070,8 +4043,55 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/MigrateStatusResponse'
+        "400":
+          description: Malformed request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "401":
+          description: Missing or invalid bearer token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         "404":
           description: Job not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "422":
+          description: Request fails validation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "429":
+          description: Rate limit exceeded for this caller. The body is the shared error envelope with code `rate_limited`; `Retry-After` and the `x-ratelimit-*` headers carry the wait.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - error
+                properties:
+                  error:
+                    type: object
+                    required:
+                      - code
+                      - message
+                    properties:
+                      code:
+                        type: string
+                        description: Always `rate_limited` for this response.
+                        examples:
+                          - rate_limited
+                      message:
+                        type: string
+                        description: Human-readable message naming the wait.
+        "500":
+          description: Database error
           content:
             application/json:
               schema:
@@ -1105,14 +4125,103 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/RetrieveResponse'
+        "400":
+          description: Malformed request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "401":
+          description: Missing or invalid bearer token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "403":
+          description: The API key is read-only and cannot use this method
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         "404":
           description: Collection not found or RAG disabled
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        "413":
+          description: The request body is larger than this deployment accepts
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - error
+                properties:
+                  error:
+                    type: object
+                    required:
+                      - code
+                      - message
+                    properties:
+                      code:
+                        type: string
+                        description: A stable identifier for the failure, such as `validation`
+                      message:
+                        type: string
+                        description: What went wrong, naming the field where the request named one
+        "415":
+          description: 'The request body was not sent with Content-Type: application/json'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - error
+                properties:
+                  error:
+                    type: object
+                    required:
+                      - code
+                      - message
+                    properties:
+                      code:
+                        type: string
+                        description: A stable identifier for the failure, such as `validation`
+                      message:
+                        type: string
+                        description: What went wrong, naming the field where the request named one
         "422":
           description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "429":
+          description: Rate limit exceeded for this caller. The body is the shared error envelope with code `rate_limited`; `Retry-After` and the `x-ratelimit-*` headers carry the wait.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - error
+                properties:
+                  error:
+                    type: object
+                    required:
+                      - code
+                      - message
+                    properties:
+                      code:
+                        type: string
+                        description: Always `rate_limited` for this response.
+                        examples:
+                          - rate_limited
+                      message:
+                        type: string
+                        description: Human-readable message naming the wait.
+        "500":
+          description: Database error
           content:
             application/json:
               schema:
@@ -1165,12 +4274,53 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/RagJobStatusResponse'
+        "400":
+          description: Malformed request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "401":
+          description: Missing or invalid bearer token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         "404":
           description: Job not found or access denied
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        "422":
+          description: Invalid job ID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "429":
+          description: Rate limit exceeded for this caller. The body is the shared error envelope with code `rate_limited`; `Retry-After` and the `x-ratelimit-*` headers carry the wait.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - error
+                properties:
+                  error:
+                    type: object
+                    required:
+                      - code
+                      - message
+                    properties:
+                      code:
+                        type: string
+                        description: Always `rate_limited` for this response.
+                        examples:
+                          - rate_limited
+                      message:
+                        type: string
+                        description: Human-readable message naming the wait.
         "500":
           description: Database or NATS error
           content:
@@ -1195,7 +4345,7 @@ paths:
             format: int64
         - name: offset
           in: query
-          description: Pagination offset (default 0)
+          description: Pagination offset (default 0, clamped to max 1,000,000)
           required: false
           schema:
             type: integer
@@ -1207,6 +4357,47 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ListSavedPresetsResponse'
+        "400":
+          description: Malformed request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "401":
+          description: Missing or invalid bearer token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "422":
+          description: Request fails validation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "429":
+          description: Rate limit exceeded for this caller. The body is the shared error envelope with code `rate_limited`; `Retry-After` and the `x-ratelimit-*` headers carry the wait.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - error
+                properties:
+                  error:
+                    type: object
+                    required:
+                      - code
+                      - message
+                    properties:
+                      code:
+                        type: string
+                        description: Always `rate_limited` for this response.
+                        examples:
+                          - rate_limited
+                      message:
+                        type: string
+                        description: Human-readable message naming the wait.
         "500":
           description: Persistence error
           content:
@@ -1239,6 +4430,89 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        "401":
+          description: Missing or invalid bearer token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "403":
+          description: The API key is read-only and cannot use this method
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "413":
+          description: The request body is larger than this deployment accepts
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - error
+                properties:
+                  error:
+                    type: object
+                    required:
+                      - code
+                      - message
+                    properties:
+                      code:
+                        type: string
+                        description: A stable identifier for the failure, such as `validation`
+                      message:
+                        type: string
+                        description: What went wrong, naming the field where the request named one
+        "415":
+          description: 'The request body was not sent with Content-Type: application/json'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - error
+                properties:
+                  error:
+                    type: object
+                    required:
+                      - code
+                      - message
+                    properties:
+                      code:
+                        type: string
+                        description: A stable identifier for the failure, such as `validation`
+                      message:
+                        type: string
+                        description: What went wrong, naming the field where the request named one
+        "422":
+          description: Request fails validation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "429":
+          description: Rate limit exceeded for this caller. The body is the shared error envelope with code `rate_limited`; `Retry-After` and the `x-ratelimit-*` headers carry the wait.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - error
+                properties:
+                  error:
+                    type: object
+                    required:
+                      - code
+                      - message
+                    properties:
+                      code:
+                        type: string
+                        description: Always `rate_limited` for this response.
+                        examples:
+                          - rate_limited
+                      message:
+                        type: string
+                        description: Human-readable message naming the wait.
         "500":
           description: Persistence error
           content:
@@ -1268,12 +4542,53 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SavedPresetDetail'
+        "400":
+          description: Malformed request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "401":
+          description: Missing or invalid bearer token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         "404":
           description: Preset not found
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        "422":
+          description: Request fails validation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "429":
+          description: Rate limit exceeded for this caller. The body is the shared error envelope with code `rate_limited`; `Retry-After` and the `x-ratelimit-*` headers carry the wait.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - error
+                properties:
+                  error:
+                    type: object
+                    required:
+                      - code
+                      - message
+                    properties:
+                      code:
+                        type: string
+                        description: Always `rate_limited` for this response.
+                        examples:
+                          - rate_limited
+                      message:
+                        type: string
+                        description: Human-readable message naming the wait.
         "500":
           description: Persistence error
           content:
@@ -1298,6 +4613,59 @@ paths:
       responses:
         "204":
           description: Preset deleted
+        "400":
+          description: Malformed request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "401":
+          description: Missing or invalid bearer token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "403":
+          description: The API key is read-only and cannot use this method
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "404":
+          description: Preset not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "422":
+          description: Request fails validation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "429":
+          description: Rate limit exceeded for this caller. The body is the shared error envelope with code `rate_limited`; `Retry-After` and the `x-ratelimit-*` headers carry the wait.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - error
+                properties:
+                  error:
+                    type: object
+                    required:
+                      - code
+                      - message
+                    properties:
+                      code:
+                        type: string
+                        description: Always `rate_limited` for this response.
+                        examples:
+                          - rate_limited
+                      message:
+                        type: string
+                        description: Human-readable message naming the wait.
         "500":
           description: Persistence error
           content:
@@ -1338,6 +4706,95 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        "401":
+          description: Missing or invalid bearer token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "403":
+          description: The API key is read-only and cannot use this method
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "404":
+          description: Preset not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "413":
+          description: The request body is larger than this deployment accepts
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - error
+                properties:
+                  error:
+                    type: object
+                    required:
+                      - code
+                      - message
+                    properties:
+                      code:
+                        type: string
+                        description: A stable identifier for the failure, such as `validation`
+                      message:
+                        type: string
+                        description: What went wrong, naming the field where the request named one
+        "415":
+          description: 'The request body was not sent with Content-Type: application/json'
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - error
+                properties:
+                  error:
+                    type: object
+                    required:
+                      - code
+                      - message
+                    properties:
+                      code:
+                        type: string
+                        description: A stable identifier for the failure, such as `validation`
+                      message:
+                        type: string
+                        description: What went wrong, naming the field where the request named one
+        "422":
+          description: Request fails validation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "429":
+          description: Rate limit exceeded for this caller. The body is the shared error envelope with code `rate_limited`; `Retry-After` and the `x-ratelimit-*` headers carry the wait.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - error
+                properties:
+                  error:
+                    type: object
+                    required:
+                      - code
+                      - message
+                    properties:
+                      code:
+                        type: string
+                        description: Always `rate_limited` for this response.
+                        examples:
+                          - rate_limited
+                      message:
+                        type: string
+                        description: Human-readable message naming the wait.
         "500":
           description: Persistence error
           content:
@@ -1362,7 +4819,7 @@ paths:
             format: int64
         - name: offset
           in: query
-          description: Pagination offset (default 0)
+          description: Pagination offset (default 0, clamped to max 1,000,000)
           required: false
           schema:
             type: integer
@@ -1374,12 +4831,47 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ListTuningProfilesResponse'
+        "400":
+          description: Malformed request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         "401":
           description: Missing or invalid authentication
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        "422":
+          description: Request fails validation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "429":
+          description: Rate limit exceeded for this caller. The body is the shared error envelope with code `rate_limited`; `Retry-After` and the `x-ratelimit-*` headers carry the wait.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - error
+                properties:
+                  error:
+                    type: object
+                    required:
+                      - code
+                      - message
+                    properties:
+                      code:
+                        type: string
+                        description: Always `rate_limited` for this response.
+                        examples:
+                          - rate_limited
+                      message:
+                        type: string
+                        description: Human-readable message naming the wait.
         "500":
           description: Persistence error
           content:
@@ -1408,6 +4900,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/TuningProfileDetail'
+        "400":
+          description: Malformed request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         "401":
           description: Missing or invalid authentication
           content:
@@ -1420,6 +4918,35 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        "422":
+          description: Request fails validation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "429":
+          description: Rate limit exceeded for this caller. The body is the shared error envelope with code `rate_limited`; `Retry-After` and the `x-ratelimit-*` headers carry the wait.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - error
+                properties:
+                  error:
+                    type: object
+                    required:
+                      - code
+                      - message
+                    properties:
+                      code:
+                        type: string
+                        description: Always `rate_limited` for this response.
+                        examples:
+                          - rate_limited
+                      message:
+                        type: string
+                        description: Human-readable message naming the wait.
         "500":
           description: Persistence error
           content:
@@ -1443,8 +4970,20 @@ paths:
       responses:
         "204":
           description: Tuning profile deleted
+        "400":
+          description: Malformed request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         "401":
           description: Missing or invalid authentication
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "403":
+          description: The API key is read-only and cannot use this method
           content:
             application/json:
               schema:
@@ -1455,6 +4994,35 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        "422":
+          description: Request fails validation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "429":
+          description: Rate limit exceeded for this caller. The body is the shared error envelope with code `rate_limited`; `Retry-After` and the `x-ratelimit-*` headers carry the wait.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - error
+                properties:
+                  error:
+                    type: object
+                    required:
+                      - code
+                      - message
+                    properties:
+                      code:
+                        type: string
+                        description: Always `rate_limited` for this response.
+                        examples:
+                          - rate_limited
+                      message:
+                        type: string
+                        description: Human-readable message naming the wait.
         "500":
           description: Persistence error
           content:
@@ -1465,6 +5033,64 @@ paths:
         - bearer_auth: []
 components:
   schemas:
+    ApiKeyResponse:
+      type: object
+      description: |-
+        API key details for list operations. Never includes the full key, only
+        the prefix, for security.
+      required:
+        - id
+        - key_prefix
+        - scope
+        - created_at
+      properties:
+        created_at:
+          type: string
+          description: ISO 8601 creation timestamp.
+        expires_at:
+          type:
+            - string
+            - "null"
+          description: |-
+            Optional expiration date in ISO 8601 format. Enterprise-only; always
+            `None` on Pro.
+        id:
+          type: string
+          description: Unique API key identifier.
+        key_prefix:
+          type: string
+          description: Key prefix for identification (e.g. `"kz_abcdefgh"`).
+        last_used_at:
+          type:
+            - string
+            - "null"
+          description: Optional last-used timestamp in ISO 8601 format.
+        name:
+          type:
+            - string
+            - "null"
+          description: User-provided name for the key, when set.
+        revoked_at:
+          type:
+            - string
+            - "null"
+          description: Optional revocation timestamp in ISO 8601 format.
+        scope:
+          $ref: '#/components/schemas/ApiKeyScope'
+          description: 'What the key may do: `read` or `write`.'
+    ApiKeyScope:
+      type: string
+      description: |-
+        What an API key may do.
+
+        A `Read` key is refused on every request whose HTTP method is not safe.
+        The safe methods are GET, HEAD, OPTIONS and TRACE. A `Write` key has full
+        access. The rule is the method, not the route, so a read that is shaped as a
+        POST needs a `Write` key. The value is stored in `api_keys.scope` and
+        carried on the wire in lowercase.
+      enum:
+        - read
+        - write
     AuditEntry:
       type: object
       description: A single customer-facing audit log entry.
@@ -1690,7 +5316,7 @@ components:
         Send a text part named `request` carrying a JSON-encoded
         [`CreateAutoTuneJobRequest`], plus one binary part per document whose
         part name (or filename) matches a `documents[].filename` entry in the
-        request. ~keep
+        request.
       required:
         - request
         - file
@@ -1796,6 +5422,15 @@ components:
           description: |-
             OCR backends to sweep, in dominance order. `None` falls back to the deployment's default
             OCR ladder (see [`AutoTuneCapabilitiesResponse::default_ocr_ladder`]).
+    BeginOAuthResponse:
+      type: object
+      description: OAuth connection response.
+      required:
+        - authorize_url
+      properties:
+        authorize_url:
+          type: string
+          description: Provider authorization URL to send the user to.
     CollectionChunkingConfig:
       type: object
       description: |-
@@ -1920,6 +5555,78 @@ components:
             - string
             - "null"
           description: Last ingestion timestamp (RFC3339)
+    CreateApiKeyRequest:
+      type: object
+      description: Request to create a new API key.
+      properties:
+        expires_at:
+          type:
+            - string
+            - "null"
+          description: |-
+            Optional expiration date in ISO 8601 format. Enterprise-only; Pro
+            leaves this unset (Pro-issued keys never expire).
+        name:
+          type:
+            - string
+            - "null"
+          description: |-
+            Descriptive name for the API key. Optional on Pro (unnamed keys are
+            allowed); Enterprise requires a non-empty name at the handler level.
+        scope:
+          oneOf:
+            - type: "null"
+            - $ref: '#/components/schemas/ApiKeyScope'
+              description: |-
+                What the key may do. `read` keys are refused on POST, PUT, PATCH and
+                DELETE. Omitted means `write`.
+    CreateApiKeyResponse:
+      type: object
+      description: |-
+        API key details returned only on creation/regeneration. `key` contains
+        the full plaintext key and is only ever returned once.
+      required:
+        - id
+        - key
+        - key_prefix
+        - scope
+        - created_at
+      properties:
+        created_at:
+          type: string
+          description: ISO 8601 creation timestamp.
+        expires_at:
+          type:
+            - string
+            - "null"
+          description: |-
+            Optional expiration date in ISO 8601 format. Enterprise-only; always
+            `None` on Pro.
+        id:
+          type: string
+          description: Unique API key identifier.
+        key:
+          type: string
+          description: Full API key. Only returned once, on creation/regeneration.
+        key_prefix:
+          type: string
+          description: Key prefix for identification.
+        kind:
+          type:
+            - string
+            - "null"
+          description: |-
+            Key kind (e.g. `"project"`, `"sandbox"`). Pro-only today; Enterprise
+            always issues `"project"` keys from this endpoint but does not surface
+            the kind on the wire.
+        name:
+          type:
+            - string
+            - "null"
+          description: User-provided name for the key, when set.
+        scope:
+          $ref: '#/components/schemas/ApiKeyScope'
+          description: 'What the key may do: `read` or `write`.'
     CreateAutoTuneJobRequest:
       type: object
       description: Request to submit a new auto-tune job.
@@ -2272,6 +5979,78 @@ components:
               enum:
                 - chunks
       description: Document source variant for ingest
+    CreateIntegrationRequest:
+      type: object
+      description: |-
+        Request to create an integration.
+
+        Pro's own submission shape — see `api_types::CreateIntegrationRequest`'s
+        module doc for the unreconciled drift versus Enterprise's `provider` +
+        `client_id` + `client_secret` shape; adopting the shared request type is
+        deferred pending a product decision, so this stays a Pro-local struct.
+      required:
+        - name
+        - kind
+        - auth_type
+      properties:
+        auth_type:
+          type: string
+        config:
+          description: Additional configuration as a JSON object (optional; mirrors the backend).
+        credentials:
+          description: BYO client credentials (client_id, client_secret for OAuth2/OIDC).
+        kind:
+          type: string
+        name:
+          type: string
+    CreateProjectRequest:
+      type: object
+      description: |-
+        Request to create a new project.
+
+        `name` is the only field the Enterprise backend accepts — it derives a
+        unique slug server-side. Pro's control plane requires the caller to supply
+        `slug` directly and additionally accepts per-project quota overrides;
+        those fields are optional here and are Pro-only until Enterprise grows the
+        same override capability.
+      required:
+        - name
+      properties:
+        max_file_size_mb:
+          type:
+            - integer
+            - "null"
+          format: int32
+          description: |-
+            Maximum upload file size (MB) override. Pro-only; Enterprise applies a
+            service-wide default instead.
+        max_monthly_jobs:
+          type:
+            - integer
+            - "null"
+          format: int32
+          description: |-
+            Monthly job quota override. Pro-only; Enterprise applies a
+            service-wide default instead.
+        max_monthly_pages:
+          type:
+            - integer
+            - "null"
+          format: int32
+          description: |-
+            Monthly page quota override. Pro-only; Enterprise applies a
+            service-wide default instead.
+        name:
+          type: string
+          description: Project name.
+        slug:
+          type:
+            - string
+            - "null"
+          description: |-
+            URL-safe project slug. Enterprise-only omission: Enterprise derives a
+            unique slug from `name` server-side and rejects this field being
+            meaningfully used; Pro requires the caller to supply it.
     CreateSavedPresetRequest:
       type: object
       description: Request to create a saved preset.
@@ -2298,7 +6077,7 @@ components:
           description: Preset name (must be unique per project).
         preferred_call_mode:
           type: string
-          description: Preferred orchestration path (text_only, vision_first, etc.).
+          description: Preferred orchestration path (text_only, vision_only, or text_plus_vision).
         schema:
           description: JSON Schema (Draft 2020-12) for the extraction result.
         system_prompt:
@@ -2400,6 +6179,35 @@ components:
             MIME type of the document. For an integration-sourced document this is
             a hint only — the receiving service prefers the connector-reported
             type at fetch time.
+    DocumentResponse:
+      type: object
+      description: Single document's metadata, as reported by a connected integration.
+      required:
+        - id
+        - name
+        - mime_type
+      properties:
+        id:
+          type: string
+          description: Source-specific stable document identifier.
+        mime_type:
+          type: string
+          description: MIME type of the document.
+        modified_at:
+          type:
+            - string
+            - "null"
+          description: Last-modified timestamp (RFC 3339), when reported by the source.
+        name:
+          type: string
+          description: Human-readable document name.
+        size_bytes:
+          type:
+            - integer
+            - "null"
+          format: int64
+          description: Size in bytes, when reported by the source.
+          minimum: 0
     DocumentSubmission:
       type: object
       description: Per-document submission detail included in [`ExtractResponse::documents`].
@@ -2478,6 +6286,23 @@ components:
             - type: "null"
             - $ref: '#/components/schemas/ExtractionOptions'
               description: Extraction options shared by every document/URL in this request.
+        project_id:
+          type:
+            - string
+            - "null"
+          format: uuid
+          description: |-
+            Project the job is written into. Absent writes into the project the
+            credential carries.
+
+            A session token freezes its project at login, so a user who belongs to
+            several projects needs a way to name the one the dashboard shows. The
+            Pro service authorizes any other project against the projects the
+            caller can see, exactly as the job reads do.
+
+            The Enterprise API service cannot make that check — its credential
+            names no user — so it rejects a value that names any project other
+            than the one the credential carries.
         urls:
           type: array
           items:
@@ -2490,6 +6315,7 @@ components:
             - type: "null"
             - $ref: '#/components/schemas/WebhookConfig'
               description: Webhook configuration for async result delivery.
+      additionalProperties: false
     ExtractResponse:
       type: object
       description: |-
@@ -2566,6 +6392,7 @@ components:
           description: |-
             When true and a document is a PDF, enable multi-document boundary
             detection and fan-out orchestration. Enterprise-only; Pro ignores it.
+      additionalProperties: false
     GetJobResponse:
       type: object
       description: Job metadata returned by `GET /v1/jobs/{id}`.
@@ -2585,6 +6412,11 @@ components:
             - "null"
         created_at:
           type: string
+        error:
+          type:
+            - string
+            - "null"
+          description: Failure reason for a failed job, from the most recent recorded error.
         filename:
           type: string
         id:
@@ -2601,11 +6433,12 @@ components:
             - integer
             - "null"
           format: int32
-        processing_duration_ms:
+        processing_time_ms:
           type:
             - integer
             - "null"
           format: int64
+          description: Wall-clock processing time. Named as on Enterprise's job response.
         status:
           $ref: '#/components/schemas/JobStatus'
         tables_extracted:
@@ -2671,33 +6504,57 @@ components:
         resource_id:
           type: string
           description: Connector-specific document identifier (e.g. a Google Drive file id).
+    IntegrationResponse:
+      type: object
+      description: |-
+        Integration details for get/list/create responses. Never includes
+        secrets or credentials, only integration metadata.
+      required:
+        - id
+        - name
+        - kind
+        - auth_type
+        - provider
+      properties:
+        auth_type:
+          type: string
+          description: Authentication type.
+        id:
+          type: string
+          description: Unique integration identifier.
+        kind:
+          type: string
+          description: Integration kind.
+        name:
+          type: string
+          description: User-friendly integration name.
+        project_id:
+          type:
+            - string
+            - "null"
+          description: |-
+            Owning project ID. Pro-only; Enterprise omits it (already scoped by
+            the request path).
+        provider:
+          type: string
+          description: Provider name.
     JobResult:
       type: object
       description: |-
-        Canonical result payload for job-result retrieval
-        (`GET /v1/jobs/{id}/result` on Pro; the result-bearing portion of
-        `GET /v1/jobs/{id}` on Enterprise).
+        The result envelope `GET /v1/jobs/{id}/result` serves on both tiers.
 
-        `results` holds the extracted document(s) produced by *this* job, in
-        discovery order — a one-element vector for the common single-document case.
+        `results` holds the extracted document(s) produced by this job, in
+        discovery order: a one-element vector for the common single-document case.
         The two tiers model multi-document splits differently, and this DTO carries
-        both: Pro may inline several `ExtractedDocument`s in `results`, while
-        Enterprise spawns child jobs and lists their IDs in `child_job_ids` (each
-        retrieved via `GET /v1/jobs/{child_id}`).
+        both. Pro inlines every document in `results`. Enterprise runs one document
+        per job, spawns child jobs for a split, and lists their IDs in
+        `child_job_ids`, each retrievable on this route.
 
-        **Known incompatibility (flagged for review):** neither service currently
-        emits this exact shape on the wire. Pro's `results/{job_id}.json` is the
-        raw `xberg::ExtractionResult` envelope (no `job_id`/`status` wrapper).
-        Enterprise's worker writes a NATS-KV-backed wrapper
-        (`{job_id, project_id, status, completed_at, result}`) whose `result` is
-        `messages::results::ExtractionResult` — a narrower, independently
-        evolving shape, distinct from both `xberg::ExtractionResult` and this
-        crate's [`crate::ExtractionResult`] (`xberg::types::ExtractedDocument`).
-        Adopting `JobResult` requires each service to translate its internal
-        representation at the HTTP boundary; this DTO intentionally reuses
-        `crate::ExtractionResult` (already the crate's public per-document result
-        alias) rather than introducing a fourth type also named
-        `ExtractionResult`.
+        Each tier stores the result in its own layout (Pro: an object per job;
+        Enterprise: a NATS KV envelope with a 12 hour TTL, offloaded to object
+        storage above a size threshold). Both translate to this envelope at the
+        HTTP boundary, and both answer 409 with [`JobResult::not_ready_message`]
+        while the job is not in a terminal successful state.
       required:
         - job_id
         - status
@@ -2730,12 +6587,11 @@ components:
             Extracted documents, present once the job reaches a terminal
             successful state (`completed` or `partial_success`).
 
-            Documented as opaque JSON: the per-document payload is
-            `xberg::types::ExtractedDocument`, a deeply-nested engine type whose
-            full schema graph isn't registered as OpenAPI components. Typing it as
-            `serde_json::Value` here keeps the spec self-contained (and codegen-able)
-            without dragging the engine's entire schema into the API surface. Wire
-            serialization is unchanged — `value_type` only affects schema generation.
+            Opaque JSON on purpose: each document is `xberg::types::ExtractedDocument`
+            plus the keys the structured pipeline merges in (`structured_output`,
+            `structured_output_flat`). Passing the stored document through untouched
+            is what keeps those keys on the wire; a typed round trip through the
+            engine's document type dropped every key that type does not declare.
         status:
           $ref: '#/components/schemas/JobStatus'
           description: Job status at the time the result was read.
@@ -2916,6 +6772,32 @@ components:
         state:
           type: string
           description: '"licensed", "expired", "invalid", or "unlicensed"'
+    ListApiKeysResponse:
+      type: object
+      description: Response for the paginated API key list endpoint.
+      required:
+        - api_keys
+        - total
+        - limit
+        - offset
+      properties:
+        api_keys:
+          type: array
+          items:
+            $ref: '#/components/schemas/ApiKeyResponse'
+          description: API keys in the current page.
+        limit:
+          type: integer
+          format: int64
+          description: Page size used.
+        offset:
+          type: integer
+          format: int64
+          description: Offset used for pagination.
+        total:
+          type: integer
+          format: int64
+          description: Total number of API keys for the project.
     ListAuditEntriesResponse:
       type: object
       description: |-
@@ -2991,6 +6873,47 @@ components:
           type: integer
           format: int32
           description: Total number of collections for this project
+    ListDocumentsResponse:
+      type: object
+      description: |-
+        Response body for the integration document list endpoint.
+
+        See the module-level doc for why this intentionally omits
+        `total`/`limit`/`offset`.
+      required:
+        - documents
+      properties:
+        documents:
+          type: array
+          items:
+            $ref: '#/components/schemas/DocumentResponse'
+          description: Documents matching the filter, in source-reported order.
+    ListIntegrationsResponse:
+      type: object
+      description: Response for the paginated integration list endpoint.
+      required:
+        - integrations
+        - total
+        - limit
+        - offset
+      properties:
+        integrations:
+          type: array
+          items:
+            $ref: '#/components/schemas/IntegrationResponse'
+          description: Integrations in the current page.
+        limit:
+          type: integer
+          format: int64
+          description: Page size used.
+        offset:
+          type: integer
+          format: int64
+          description: Offset used for pagination.
+        total:
+          type: integer
+          format: int64
+          description: Total number of integrations for the project.
     ListJobsResponse:
       type: object
       description: Response for `GET /v1/jobs` (paginated job list).
@@ -3017,6 +6940,32 @@ components:
           type: integer
           format: int64
           description: Total number of jobs for the project.
+    ListProjectsResponse:
+      type: object
+      description: Response for the paginated project list endpoint.
+      required:
+        - projects
+        - total
+        - limit
+        - offset
+      properties:
+        limit:
+          type: integer
+          format: int64
+          description: Page size used.
+        offset:
+          type: integer
+          format: int64
+          description: Offset used for pagination.
+        projects:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProjectResponse'
+          description: Projects in the current page.
+        total:
+          type: integer
+          format: int64
+          description: Total number of projects for the caller.
     ListSavedPresetsResponse:
       type: object
       description: Response from listing saved presets.
@@ -3110,7 +7059,12 @@ components:
       properties:
         target_embedding_source:
           type: string
-          description: Target embedding source (e.g. "preset:quality", "preset:fast").
+          description: |-
+            Target embedding source, for example `managed_local`,
+            `managed_local:quality` or `provider:<name>`.
+
+            The legacy `preset:<name>` spelling is still accepted. It is not what
+            comes back: see [`MigrateEmbeddingsResponse::to_source`].
         target_embedding_version:
           type: integer
           format: int32
@@ -3141,7 +7095,9 @@ components:
           description: Collection being migrated.
         from_source:
           type: string
-          description: Current embedding source.
+          description: |-
+            Current embedding source, as stored, which is the spelling the create
+            request used rather than a canonical rendering.
         from_version:
           type: integer
           format: int32
@@ -3158,7 +7114,14 @@ components:
           description: Current migration status.
         to_source:
           type: string
-          description: Target embedding source.
+          description: |-
+            Target embedding source, in its canonical spelling.
+
+            This is the parsed rendering, not the string the request carried, so a
+            request sending the legacy `preset:balanced` gets `managed_local` back.
+            The same value reaches the migration message and, on completion,
+            `vector_collections.embedding_source`, which is what keeps that column
+            on one spelling. Match on it by parsing rather than by string equality.
         to_version:
           type: integer
           format: int32
@@ -3259,8 +7222,120 @@ components:
             - "null"
           description: |-
             Provider label derived from the configured issuer (`"google"`,
-            `"firebase"`, `"oidc"`), or `None` when disabled or running in mock
-            mode without a configured issuer.
+            `"github"`, `"firebase"`, `"oidc"`), or `None` when disabled or running
+            in mock mode without a configured issuer.
+    PresetCallMode:
+      type: string
+      description: Preferred call mode for a preset.
+      enum:
+        - text_only
+        - vision_only
+        - text_plus_vision
+    PresetCategory:
+      type: string
+      description: High-level category used to group presets in the registry UI.
+      enum:
+        - finance
+        - identity
+        - legal
+        - logistics
+        - medical
+        - hr
+        - other
+    PresetDetail:
+      type: object
+      description: Full preset detail, returned by `GET /v1/presets/{id}`.
+      required:
+        - id
+        - version
+        - schema_name
+        - description
+        - category
+        - schema
+        - system_prompt
+        - preferred_call_mode
+        - emit_citations
+        - fingerprint
+      properties:
+        category:
+          $ref: '#/components/schemas/PresetCategory'
+        context_template:
+          type:
+            - string
+            - "null"
+        description:
+          type: string
+        emit_citations:
+          type: boolean
+        fingerprint:
+          type: string
+        id:
+          type: string
+        preferred_call_mode:
+          $ref: '#/components/schemas/PresetCallMode'
+        sample:
+          oneOf:
+            - type: "null"
+            - $ref: '#/components/schemas/PresetSampleRef'
+        schema:
+          description: JSON Schema (Draft 2020-12) describing the structured output shape.
+        schema_name:
+          type: string
+        system_prompt:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        version:
+          type: string
+    PresetSampleRef:
+      type: object
+      description: Public pointer to bundled sample data exposed via `GET /v1/presets/{id}/sample`.
+      required:
+        - input_url
+        - output_url
+      properties:
+        input_url:
+          type: string
+          description: URL path (relative to the API root) to fetch the sample input bytes.
+        output_url:
+          type: string
+          description: URL path (relative to the API root) to fetch the reference output JSON.
+    PresetSummary:
+      type: object
+      description: Lightweight projection of a preset, returned by `GET /v1/presets`.
+      required:
+        - id
+        - version
+        - schema_name
+        - description
+        - category
+        - preferred_call_mode
+        - emit_citations
+        - fingerprint
+      properties:
+        category:
+          $ref: '#/components/schemas/PresetCategory'
+        description:
+          type: string
+        emit_citations:
+          type: boolean
+        fingerprint:
+          type: string
+          description: Stable sha256 fingerprint used by clients to detect updates.
+        id:
+          type: string
+        preferred_call_mode:
+          $ref: '#/components/schemas/PresetCallMode'
+        schema_name:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        version:
+          type: string
     PrimaryScore:
       oneOf:
         - type: object
@@ -3294,15 +7369,17 @@ components:
         - type: object
           description: RRF-fused vector + full-text.
           required:
-            - vector
-            - full_text
             - rrf
             - kind
           properties:
             full_text:
-              type: number
+              type:
+                - number
+                - "null"
               format: float
-              description: Full-text component.
+              description: |-
+                Full-text component. `null` when the chunk matched only the
+                vector leg.
             kind:
               type: string
               enum:
@@ -3312,9 +7389,13 @@ components:
               format: float
               description: Reciprocal-rank-fusion combined score.
             vector:
-              type: number
+              type:
+                - number
+                - "null"
               format: float
-              description: Vector component.
+              description: |-
+                Vector component. `null` when the chunk matched only the
+                full-text leg.
       description: JSON-friendly mirror of vectorstore's internal `PrimaryScore`.
     ProjectInfo:
       type: object
@@ -3339,6 +7420,62 @@ components:
             User role for this session (`OWNER` or `MEMBER`). See
             [`compute_role`] for how this is derived.
           example: OWNER
+    ProjectResponse:
+      type: object
+      description: |-
+        Project details, as returned by create/get/list.
+
+        Mirrors the Enterprise backend's `ProjectResponse` exactly. Pro's current
+        HTTP DTOs (`ProjectSummary`, `CreateProjectResponse`) expose a subset of
+        these fields, but Pro's `persistence::ProjectSummary` model already tracks
+        every one of them (`owner_user_id`, `api_key_count`, `webhook_count`,
+        `total_pages_extracted`) — adopting this full shape is a handler-level
+        wiring change, not a schema gap, so no field here is `Option`.
+      required:
+        - id
+        - name
+        - slug
+        - status
+        - owner_user_id
+        - created_at
+        - updated_at
+        - api_key_count
+        - webhook_count
+        - total_pages_extracted
+      properties:
+        api_key_count:
+          type: integer
+          format: int32
+          description: Number of active (non-revoked) API keys.
+        created_at:
+          type: string
+          description: ISO 8601 creation timestamp.
+        id:
+          type: string
+          description: Unique project identifier.
+        name:
+          type: string
+          description: Human-readable project name.
+        owner_user_id:
+          type: string
+          description: User ID of the project owner (from the identity provider).
+        slug:
+          type: string
+          description: URL-safe identifier.
+        status:
+          type: string
+          description: Project status (e.g. `"ACTIVE"`, `"SUSPENDED"`, `"INACTIVE"`).
+        total_pages_extracted:
+          type: integer
+          format: int64
+          description: Total billable pages extracted (excluding cancelled jobs).
+        updated_at:
+          type: string
+          description: ISO 8601 last update timestamp.
+        webhook_count:
+          type: integer
+          format: int32
+          description: Number of active (non-deleted) webhooks.
     PromoteProfileRequest:
       type: object
       description: |-
@@ -3390,6 +7527,11 @@ components:
         - ingest
         - reindex
         - migrate
+    RagJobPendingReason:
+      type: string
+      description: Why a pending job has not started
+      enum:
+        - embedding_model_download
     RagJobProgress:
       type: object
       description: Progress details for long-running operations (migrate only)
@@ -3460,6 +7602,13 @@ components:
         kind:
           $ref: '#/components/schemas/RagJobKind'
           description: 'Operation type: "ingest", "reindex", or "migrate"'
+        pending_reason:
+          oneOf:
+            - type: "null"
+            - $ref: '#/components/schemas/RagJobPendingReason'
+              description: |-
+                Why the job has not started yet. Absent unless state = pending, and
+                absent when the job is simply queued.
         progress:
           oneOf:
             - type: "null"
@@ -3468,6 +7617,38 @@ components:
         state:
           $ref: '#/components/schemas/RagJobState'
           description: Current job state
+    ReadinessChecks:
+      type: object
+      description: Per-dependency readiness results.
+      required:
+        - database
+        - maintenance_database
+        - storage
+      properties:
+        database:
+          type: string
+          description: '`ok` or `unhealthy`: a connection was checked out of the pool.'
+        maintenance_database:
+          type: string
+          description: '`ok` or `unhealthy`: the maintenance login acquired a connection.'
+        storage:
+          type: string
+          description: |-
+            `ok` or `unhealthy`: the object store answered a metadata request. A
+            refusal counts as an answer; the check proves reachability, not
+            credentials.
+    ReadinessResponse:
+      type: object
+      description: 'Readiness report: the process can serve traffic only when both checks pass.'
+      required:
+        - status
+        - checks
+      properties:
+        checks:
+          $ref: '#/components/schemas/ReadinessChecks'
+        status:
+          type: string
+          description: '`ready` or `not_ready`'
     ReindexRequest:
       type: object
       description: Request to reindex a document (re-chunk, re-enrich, re-embed)
@@ -3499,7 +7680,11 @@ components:
           properties:
             name:
               type: string
-              description: 'Preset name: `fast | balanced | quality | multilingual`.'
+              description: |-
+                Model name, for example `bge-reranker-v2-m3`, or one of the
+                aliases `fast`, `balanced`, `quality`, `multilingual`. An alias
+                can point at a different model between releases; name the model
+                to pin it. The RAG concepts guide lists the shipped models.
             type:
               type: string
               enum:
@@ -3868,7 +8053,7 @@ components:
           description: Preset name.
         preferred_call_mode:
           type: string
-          description: Preferred orchestration path (text_only, vision_first, etc.).
+          description: Preferred orchestration path (text_only, vision_only, or text_plus_vision).
         schema:
           description: JSON Schema (Draft 2020-12) for the extraction result.
         system_prompt:
@@ -3946,7 +8131,11 @@ components:
           type:
             - object
             - "null"
-          description: Optional key-value metadata included in the webhook payload.
+          description: |-
+            Optional key-value metadata included in the webhook payload. At most
+            100 entries, keys 1-255 characters, values up to 1024 characters, and
+            the whole map at most 8192 bytes JSON-encoded. Both tiers refuse a
+            larger map with a 400.
           additionalProperties:
             type: string
           propertyNames:
@@ -3959,6 +8148,84 @@ components:
         url:
           type: string
           description: URL to deliver results to.
+    WebhookEvent:
+      type: object
+      description: |-
+        Webhook event payload delivered to customer endpoints when a job reaches
+        a terminal status.
+
+        This is the exact JSON body sent via HTTP POST to the webhook URL. When a
+        secret is configured the request carries an `X-Webhook-Signature` header
+        with the value `t=<unix seconds>,v1=<hex HMAC-SHA256>` over
+        `"<t>.<body>"`; reject a delivery whose `t` is older than five minutes.
+
+        `results` is present only on `job.completed`, and only when the extraction
+        result fits in the body (100 KiB); otherwise fetch it from the job endpoint.
+        `error` is present only on `job.failed`.
+      required:
+        - event
+        - event_id
+        - job_id
+        - timestamp
+      properties:
+        error:
+          oneOf:
+            - type: "null"
+            - $ref: '#/components/schemas/WebhookEventError'
+              description: Error details, present only on `job.failed`.
+        event:
+          $ref: '#/components/schemas/WebhookEventType'
+          description: Which terminal status the job reached.
+        event_id:
+          type: string
+          format: uuid
+          description: |-
+            Stable identity of this event. Every delivery attempt of one event
+            carries the same id, so a receiver deduplicates on it.
+        job_id:
+          type: string
+          description: The job that reached the terminal status.
+        metadata:
+          type:
+            - object
+            - "null"
+          description: |-
+            Metadata from the webhook configuration, echoed back for correlation.
+            Absent when the configuration carried none. Sorted, so the signed body
+            is byte-identical on every delivery attempt.
+          additionalProperties:
+            type: string
+          propertyNames:
+            type: string
+        results:
+          description: |-
+            The extraction result, present only on `job.completed` and only when it
+            fits in the body. The shape is the `result` of `GET /v1/jobs/{id}`.
+        timestamp:
+          type: string
+          description: RFC 3339 time at which the job reached the terminal status.
+    WebhookEventError:
+      type: object
+      description: Error information included in webhook failure events.
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: string
+          description: Error code naming the failure cause (for example `EXTRACTION_ERROR`).
+        message:
+          type: string
+          description: Human-readable error message.
+    WebhookEventType:
+      type: string
+      description: |-
+        The terminal job events a webhook can carry. The serialized names are the
+        `event` field of the body and the names a managed subscription registers.
+      enum:
+        - job.completed
+        - job.failed
+        - job.cancelled
   securitySchemes:
     bearer_auth:
       type: http
@@ -3976,6 +8243,10 @@ tags:
     description: OIDC/Google human login endpoints
   - name: projects
     description: Project management endpoints
+  - name: integrations
+    description: Project integration endpoints
+  - name: presets
+    description: Public curated preset registry
   - name: saved-presets
     description: User-created extraction schema preset CRUD
   - name: health
