@@ -16,6 +16,8 @@ includes:
     taskfile: ./tasks/spec.yml
   version:
     taskfile: ./tasks/version.yml
+  pro:
+    taskfile: ./tasks/pro.yml
 
 tasks:
   default:
