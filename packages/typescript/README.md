@@ -112,21 +112,41 @@ Shared surface (both tiers):
 | `listJobs({ limit?, offset? })` | `Promise<ListJobsResponse>` |
 | `audit({ action?, limit?, offset? })` | `Promise<ListAuditEntriesResponse>` |
 | `presets()`, `getPreset(id)`, `getPresetSample(id, name)` | Curated preset registry |
+| `listSavedPresets({ limit?, offset? })`, `createSavedPreset(body)`, `getSavedPreset(id)`, `updateSavedPreset(id, body)`, `deleteSavedPreset(id)` | Project-owned saved presets |
+| `listAutoTuneJobs({ limit?, offset? })`, `submitAutoTune({ request, files })`, `getAutoTuneCapabilities()`, `getAutoTuneStatus(id)`, `getAutoTuneResult(id)`, `promoteAutoTuneProfile(id, body)`, `deleteAutoTuneJob(id)` | Auto-tune |
+| `listTuningProfiles({ limit?, offset? })`, `getTuningProfile(id)`, `deleteTuningProfile(id)` | Tuning profiles |
 | `listRagCollections()`, `createRagCollection(body)`, `ragRetrieve(name, body)`, … | RAG surface |
 
 `Job` is the job envelope (`GET /v1/jobs/{id}`); `JobResult` is the stored
 extraction result (`GET /v1/jobs/{id}/result`). They are different schemas — the
 polling helpers return the former, `getJobResult` the latter.
 
-Xberg Pro only: `login`, `authConfig`, `listSavedPresets` / `createSavedPreset` /
-`deleteSavedPreset`, `getRagConfig` / `setRagConfig`, and the control plane —
-`listProjects` / `createProject`, `listApiKeys` / `createApiKey` / `revokeApiKey`,
-`listIntegrations` / `createIntegration` / `getIntegration` / `deleteIntegration`,
-`connectIntegration` / `disconnectIntegration`, `listIntegrationDocuments` /
-`fetchIntegrationDocument`.
+Saved presets are shared but the two products spell the route differently —
+Enterprise serves `/v1/saved_presets`, Pro `/v1/saved-presets`, with identical
+schemas. The client resolves the tier and picks the spelling for you.
 
-Xberg Enterprise only: `versions`, `diff` / `getDiffJob`, `presignUpload` /
-`confirmUpload`, `usage`.
+Xberg Pro only: `login`, `authConfig`, `getRagConfig` / `setRagConfig`, and the
+control plane — `listProjects` / `createProject`, `listApiKeys` / `createApiKey` /
+`revokeApiKey`, `listIntegrations` / `createIntegration` / `getIntegration` /
+`deleteIntegration`, `connectIntegration` / `disconnectIntegration`,
+`listIntegrationDocuments` / `fetchIntegrationDocument`.
+
+Xberg Enterprise only: `getDocument`, `versions`, `diff` / `getDiffJob`,
+`presignUpload` / `confirmUpload`, `usage`, `listExtractionEvents`, `getJobPage`,
+`submitEnrich` / `getEnrichStatus`.
+
+`getPresetSample`, `fetchIntegrationDocument`, and `getJobPage` return raw
+`Uint8Array` bytes rather than JSON; `getJobPage` serves `image/png`.
+
+### Not covered
+
+A few documented endpoints are deliberately left out of the client:
+
+- `GET /readyz` — an infrastructure readiness probe for orchestrators, not
+  application surface. `GET /healthz` *is* used: it backs the tier probe.
+- `GET /v1/oauth/callback` and `DELETE /auth/account` (Pro) — browser
+  redirect/cookie flows, not API-key surface. `POST /auth/login`, which does
+  work with a verified ID token, is exposed.
 
 Errors throw subclasses of `XbergError` (`AuthError`, `RateLimitError`,
 `ValidationError`, `NotFoundError`, `ServerError`, `TimeoutError`). Each

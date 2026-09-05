@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Breaking, saved presets.** `list_saved_presets` takes `limit`/`offset`; Go's
+  `ListSavedPresets` gains those parameters and `DeleteSavedPreset` returns a bare `error`
+  (TypeScript's `deleteSavedPreset` likewise resolves to `void`), matching the 204 the spec
+  declares and the other delete methods.
 - **Rebrand kreuzberg → xberg.** Package identity is now PyPI `xberg-io-sdk` (import
   `xberg_io_sdk`), npm `@xberg-io/sdk`, Go `github.com/xberg-io/sdks/packages/go/v1`. Main clients
   are `XbergClient` / `AsyncXbergClient`; error base is `XbergError` (the `Auth/Validation/NotFound/
@@ -48,12 +52,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Spec sync pulled from `main`**, a deploy-only branch hundreds of commits behind, which is why
   the bot reported zero drift while the vendored specs went stale. It now defaults to
   `development`.
+- **Saved presets used the Pro spelling on both tiers and were gated to Pro.** Enterprise serves
+  `/v1/saved_presets` (underscore, `{preset_id}`) and Pro serves `/v1/saved-presets` (hyphen,
+  `{id}`); neither serves the other's spelling, so all five operations were unreachable on
+  Enterprise. The path is now rendered from the resolved tier and the gate is gone. The premise is
+  asserted against a live Pro instance by `task pro:verify`, which confirms Pro 404s the underscore
+  form.
 
 ### Added
 
 - **The Pro control plane** — projects, api-keys and integrations (13 operations) — in all three
   languages. Without these a Pro user could not create a project or mint an API key, so the client
   could not reach an instance it had not been handed a key for out of band.
+- **The operations no client could reach**, in all three languages: auto-tune (7) and
+  tuning-profiles (3) on both tiers, and enrich (2), `GET /v1/documents/{id}`, `GET /v1/extractions`
+  and `GET /v1/jobs/{id}/pages/{n}` on Enterprise, plus the missing `get_saved_preset` and
+  `update_saved_preset`. Enterprise coverage goes from 27 of 49 operations to 47, Pro from 42 of 56
+  to 52. auto-tune is the notable one: a licensed Pro instance advertises `auto_tune` as enabled,
+  so the SDK named a feature it could not call.
+- Each package README now lists what is **deliberately** not exposed — `GET /readyz` (an
+  infrastructure probe; `/healthz` is the tier probe and is used) and Pro's redirect/cookie login
+  flows — so an absence reads as a decision rather than an oversight.
 - `task pro:up|down|reset|key|verify`, which run the SDKs against a real Pro container instead of a
   mock. The existing fixtures encoded a shape neither spec declares, so they agreed with the client
   and with nothing else.

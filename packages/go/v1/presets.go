@@ -8,8 +8,8 @@ import (
 // The curated preset registry is part of the shared surface: `GET /v1/presets`,
 // `GET /v1/presets/{id}` and `GET /v1/presets/{id}/sample/{name}` are declared
 // by both the Enterprise and the Pro spec, so none of these methods is
-// tier-gated. Saved (user-authored) presets are a different, Pro-only surface —
-// see [Client.ListSavedPresets].
+// tier-gated. Saved (user-authored) presets are a separate surface, also shared
+// but with a per-tier route spelling — see saved_presets.go.
 
 const presetsPath = "/v1/presets"
 

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"strconv"
 	"sync"
 	"time"
 )
@@ -18,6 +19,15 @@ const (
 	maxWaitPollInterval     = 30 * time.Second
 )
 
+// jobsPath is the root of the job surface, shared by Enterprise and Pro.
+const jobsPath = "/v1/jobs"
+
+// jobPath renders a job-scoped route, escaping the job ID. suffix is appended
+// verbatim and must already start with "/" when non-empty.
+func jobPath(jobID, suffix string) string {
+	return jobsPath + "/" + url.PathEscape(jobID) + suffix
+}
+
 // GetJob fetches the current status of a single job by ID.
 //
 // Part of the shared surface (Enterprise + Pro).
@@ -26,7 +36,7 @@ func (c *Client) GetJob(ctx context.Context, jobID string) (*JobResponse, error)
 		return nil, fmt.Errorf("xberg: GetJob requires a non-empty jobID")
 	}
 	var job JobResponse
-	if err := c.getJSON(ctx, "/v1/jobs/"+url.PathEscape(jobID), &job); err != nil {
+	if err := c.getJSON(ctx, jobPath(jobID, ""), &job); err != nil {
 		return nil, err
 	}
 	return &job, nil
@@ -45,10 +55,24 @@ func (c *Client) GetJobResult(ctx context.Context, jobID string) (*JobResult, er
 		return nil, fmt.Errorf("xberg: GetJobResult requires a non-empty jobID")
 	}
 	var result JobResult
-	if err := c.getJSON(ctx, "/v1/jobs/"+url.PathEscape(jobID)+"/result", &result); err != nil {
+	if err := c.getJSON(ctx, jobPath(jobID, "/result"), &result); err != nil {
 		return nil, err
 	}
 	return &result, nil
+}
+
+// GetJobPage downloads one page raster persisted during a structured
+// extraction (GET /v1/jobs/{jobID}/pages/{pageNumber}). Page numbers are
+// 1-indexed and the endpoint serves image/png, so the body is returned
+// undecoded. Enterprise only.
+func (c *Client) GetJobPage(ctx context.Context, jobID string, pageNumber int) ([]byte, error) {
+	if err := c.requireTier(ctx, TargetEnterprise, "GetJobPage"); err != nil {
+		return nil, err
+	}
+	if jobID == "" {
+		return nil, fmt.Errorf("xberg: GetJobPage requires a non-empty jobID")
+	}
+	return c.getBytes(ctx, jobPath(jobID, "/pages/"+strconv.Itoa(pageNumber)))
 }
 
 // ListJobs lists jobs via GET /v1/jobs (paginated). A non-positive limit or
@@ -56,7 +80,7 @@ func (c *Client) GetJobResult(ctx context.Context, jobID string) (*JobResult, er
 //
 // Part of the shared surface (Enterprise + Pro).
 func (c *Client) ListJobs(ctx context.Context, limit, offset int) (*ListJobsResponse, error) {
-	path := "/v1/jobs" + pageQuery(limit, offset)
+	path := jobsPath + pageQuery(limit, offset)
 	var out ListJobsResponse
 	if err := c.getJSON(ctx, path, &out); err != nil {
 		return nil, err
@@ -69,20 +93,11 @@ func (c *Client) ListJobs(ctx context.Context, limit, offset int) (*ListJobsResp
 //
 // Part of the shared surface (Enterprise + Pro).
 func (c *Client) Audit(ctx context.Context, action string, limit, offset int) (*ListAuditEntriesResponse, error) {
-	q := url.Values{}
+	q := pageValues(limit, offset)
 	if action != "" {
 		q.Set("action", action)
 	}
-	if limit > 0 {
-		q.Set("limit", fmt.Sprintf("%d", limit))
-	}
-	if offset > 0 {
-		q.Set("offset", fmt.Sprintf("%d", offset))
-	}
-	path := "/v1/audit"
-	if encoded := q.Encode(); encoded != "" {
-		path += "?" + encoded
-	}
+	path := "/v1/audit" + querySuffix(q)
 	var out ListAuditEntriesResponse
 	if err := c.getJSON(ctx, path, &out); err != nil {
 		return nil, err
@@ -255,17 +270,28 @@ func jobFailureDetail(job *JobResponse) string {
 	return ""
 }
 
-// pageQuery builds a "?limit=&offset=" suffix, omitting non-positive values.
-func pageQuery(limit, offset int) string {
+// pageValues builds the shared limit/offset query values, omitting
+// non-positive values so the server's own defaults apply.
+func pageValues(limit, offset int) url.Values {
 	q := url.Values{}
 	if limit > 0 {
-		q.Set("limit", fmt.Sprintf("%d", limit))
+		q.Set("limit", strconv.Itoa(limit))
 	}
 	if offset > 0 {
-		q.Set("offset", fmt.Sprintf("%d", offset))
+		q.Set("offset", strconv.Itoa(offset))
 	}
-	if encoded := q.Encode(); encoded != "" {
+	return q
+}
+
+// querySuffix renders values as a "?k=v" suffix, or "" when nothing is set.
+func querySuffix(values url.Values) string {
+	if encoded := values.Encode(); encoded != "" {
 		return "?" + encoded
 	}
 	return ""
+}
+
+// pageQuery builds a "?limit=&offset=" suffix, omitting non-positive values.
+func pageQuery(limit, offset int) string {
+	return querySuffix(pageValues(limit, offset))
 }

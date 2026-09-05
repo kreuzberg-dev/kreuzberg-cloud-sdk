@@ -35,9 +35,10 @@ and [Xberg Pro](https://enterprise.xberg.io) document-processing APIs — one
 client, two targets.
 
 - httpx-based, sync (`XbergClient`) and async (`AsyncXbergClient`) surfaces
-- One client speaks to both products: shared extraction/jobs/curated-presets/RAG
-  surface, plus capability-gated tier-specific methods (Pro auth, saved presets
-  and control plane; Enterprise uploads/usage/document diff)
+- One client speaks to both products: shared
+  extraction/jobs/presets/auto-tune/RAG surface, plus capability-gated
+  tier-specific methods (Pro auth and control plane; Enterprise
+  uploads/usage/document diff/enrichment)
 - Generated from two OpenAPI 3.1 specs (Enterprise + Pro), then wrapped in
   ergonomic helpers
 - Configurable retry engine (honors `Retry-After`, exponential backoff)
@@ -78,8 +79,13 @@ from xberg_io_sdk import XbergClient
 
 with XbergClient(api_key="kz_...", base_url="https://pro.internal", target="pro") as client:
     config = client.auth_config()          # Pro-only
-    presets = client.list_saved_presets()  # Pro-only
+    presets = client.list_saved_presets()  # both tiers; the path spelling follows the tier
 ```
+
+Saved presets are served by both products under different spellings —
+`/v1/saved_presets` on Enterprise, `/v1/saved-presets` on Pro. The client
+renders the right one from the resolved tier, so the same call works against
+either target.
 
 ### Async — batch extract with parallel waits
 
@@ -118,13 +124,30 @@ Shared methods (both tiers):
 | `list_jobs(...)`, `audit(...)` | List jobs / read the audit log. |
 | `list_rag_collections()`, `rag_retrieve(name, body)`, `get_rag_job(job_id)`, … | RAG collections/documents/retrieval. |
 | `presets()`, `get_preset(id)`, `get_preset_sample(id, name)` | Curated managed presets. |
+| `list_saved_presets(...)`, `create_saved_preset(body)`, `get_saved_preset(id)`, `update_saved_preset(id, body)`, `delete_saved_preset(id)` | Project-owned saved presets (path spelling follows the tier). |
+| `list_auto_tune_jobs(...)`, `submit_auto_tune(request, files)`, `get_auto_tune_status(id)`, `get_auto_tune_result(id)`, `delete_auto_tune_job(id)` | Auto-tune runs (`submit_auto_tune` is multipart). |
+| `get_auto_tune_capabilities()`, `promote_auto_tune_profile(id, body)` | Discover tunable knobs; promote a run to a named profile. |
+| `list_tuning_profiles(...)`, `get_tuning_profile(id)`, `delete_tuning_profile(id)` | Promoted tuning profiles. |
 
 Tier-specific methods are capability-gated — calling one against the wrong tier
 raises a clear error instead of a raw 404:
 
-- **Pro only:** `login`, `auth_config`, `list_saved_presets`/`create_saved_preset`/`delete_saved_preset`, `get_rag_config`/`set_rag_config`
+- **Pro only:** `login`, `auth_config`, `get_rag_config`/`set_rag_config`
 - **Pro only (control plane):** `list_projects`/`create_project`, `list_api_keys`/`create_api_key`/`revoke_api_key`, `list_integrations`/`create_integration`/`get_integration`/`delete_integration`, `connect_integration`/`disconnect_integration`, `list_integration_documents`/`fetch_integration_document`
-- **Enterprise only:** `versions`, `diff`/`get_diff_job`, `presign_upload`/`confirm_upload`, `usage`
+- **Enterprise only:** `versions`, `get_document`, `diff`/`get_diff_job`, `presign_upload`/`confirm_upload`, `usage`, `list_extraction_events`, `get_job_page` (raw `image/png` bytes), `submit_enrich`/`get_enrich_status`
+
+### Deliberately not exposed
+
+Three documented routes have no client method, on purpose:
+
+- `GET /readyz` — an infrastructure readiness probe for orchestrators, not
+  caller-facing API surface. `GET /healthz` is exposed indirectly: it is the
+  tier probe behind `target=None`.
+- `GET /v1/oauth/callback` (Pro) — a browser redirect leg of the OIDC flow. The
+  provider calls it, not an API client.
+- `DELETE /auth/account` (Pro) — a session-cookie account-deletion flow, not
+  API-key surface. `POST /auth/login` is exposed because it mints the session
+  JWT this client can then send as a bearer token.
 
 Errors are raised as one of:
 `XbergError` (base), `AuthError` (401 **and** 403), `ValidationError`,

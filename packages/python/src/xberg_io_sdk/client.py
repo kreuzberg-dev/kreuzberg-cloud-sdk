@@ -2,8 +2,9 @@
 
 One :class:`XbergClient` (and its async twin :class:`AsyncXbergClient`) speaks to
 either product. The shared surface — extraction, jobs (including job results),
-audit, managed presets, and the RAG API — is written once and carries no tier
-gate. Tier-specific methods are capability-gated: they probe the
+audit, managed presets, saved presets, auto-tune, tuning profiles, and the RAG
+API — is written once and carries no tier gate. Tier-specific methods are
+capability-gated: they probe the
 connected instance (``GET /healthz``'s ``tier``, or an explicit ``target``) and
 raise a clear error instead of a raw 404 when invoked against the wrong tier.
 
@@ -25,11 +26,27 @@ from typing import TYPE_CHECKING, Any, BinaryIO, Literal, Protocol
 
 import httpx
 
+from xberg_io_sdk._generated_api.models.auto_tune_capabilities_response import AutoTuneCapabilitiesResponse
+from xberg_io_sdk._generated_api.models.auto_tune_job_status import AutoTuneJobStatus
+from xberg_io_sdk._generated_api.models.auto_tune_result import AutoTuneResult
+from xberg_io_sdk._generated_api.models.create_auto_tune_job_response import CreateAutoTuneJobResponse
+from xberg_io_sdk._generated_api.models.create_saved_preset_response import CreateSavedPresetResponse
+from xberg_io_sdk._generated_api.models.enrich_job_status_type_0 import EnrichJobStatusType0
+from xberg_io_sdk._generated_api.models.enrich_job_status_type_1 import EnrichJobStatusType1
+from xberg_io_sdk._generated_api.models.enrich_job_status_type_2 import EnrichJobStatusType2
+from xberg_io_sdk._generated_api.models.enrich_job_submitted import EnrichJobSubmitted
 from xberg_io_sdk._generated_api.models.extraction_options import ExtractionOptions
 from xberg_io_sdk._generated_api.models.job_response import JobResponse
 from xberg_io_sdk._generated_api.models.job_result import JobResult
+from xberg_io_sdk._generated_api.models.list_auto_tune_jobs_response import ListAutoTuneJobsResponse
+from xberg_io_sdk._generated_api.models.list_extraction_events_response import ListExtractionEventsResponse
+from xberg_io_sdk._generated_api.models.list_saved_presets_response import ListSavedPresetsResponse
+from xberg_io_sdk._generated_api.models.list_tuning_profiles_response import ListTuningProfilesResponse
 from xberg_io_sdk._generated_api.models.preset_detail import PresetDetail
 from xberg_io_sdk._generated_api.models.preset_summary import PresetSummary
+from xberg_io_sdk._generated_api.models.saved_preset_detail import SavedPresetDetail
+from xberg_io_sdk._generated_api.models.tuning_profile_detail import TuningProfileDetail
+from xberg_io_sdk._generated_api.models.update_saved_preset_response import UpdateSavedPresetResponse
 from xberg_io_sdk._generated_pro.models.begin_o_auth_response import BeginOAuthResponse
 from xberg_io_sdk._generated_pro.models.create_api_key_response import CreateApiKeyResponse
 from xberg_io_sdk._generated_pro.models.integration_response import IntegrationResponse
@@ -46,6 +63,11 @@ if TYPE_CHECKING:
     from collections.abc import Iterable
     from types import TracebackType
 
+    from xberg_io_sdk._generated_api.models.create_auto_tune_job_request import CreateAutoTuneJobRequest
+    from xberg_io_sdk._generated_api.models.create_saved_preset_request import CreateSavedPresetRequest
+    from xberg_io_sdk._generated_api.models.enrich_text_request import EnrichTextRequest
+    from xberg_io_sdk._generated_api.models.promote_profile_request import PromoteProfileRequest
+    from xberg_io_sdk._generated_api.models.update_saved_preset_request import UpdateSavedPresetRequest
     from xberg_io_sdk._generated_pro.models.create_api_key_request import CreateApiKeyRequest
     from xberg_io_sdk._generated_pro.models.create_integration_request import CreateIntegrationRequest
     from xberg_io_sdk._generated_pro.models.create_project_request import CreateProjectRequest
@@ -57,6 +79,16 @@ if TYPE_CHECKING:
 
 DEFAULT_ENTERPRISE_BASE_URL = "https://api.xberg.io"
 DEFAULT_TIMEOUT_SECONDS = 30.0
+
+# The two specs spell the saved-preset collection differently; every saved-preset
+# call renders its path from the resolved tier via ``_saved_presets_path``.
+_SAVED_PRESETS_PATH_ENTERPRISE = "/v1/saved_presets"
+_SAVED_PRESETS_PATH_PRO = "/v1/saved-presets"
+
+_AUTO_TUNE_PATH = "/v1/auto-tune"
+_TUNING_PROFILES_PATH = "/v1/tuning-profiles"
+_ENRICH_PATH = "/v1/enrich"
+_EXTRACTIONS_PATH = "/v1/extractions"
 
 _TERMINAL_STATUSES: frozenset[str] = frozenset({"completed", "failed", "cancelled", "partial_success"})
 _FAILED_STATUSES: frozenset[str] = frozenset({"failed", "cancelled"})
@@ -90,6 +122,17 @@ class _SupportsToDict(Protocol):
 
 BodyInput = _SupportsToDict | Mapping[str, Any]
 """Accepted shapes for a typed JSON request body: a generated request model or a plain mapping."""
+
+EnrichJobStatus = EnrichJobStatusType0 | EnrichJobStatusType1 | EnrichJobStatusType2
+"""The three ``status``-discriminated variants ``GET /v1/enrich/{job_id}`` can return."""
+
+_EnrichJobStatusModel = type[EnrichJobStatusType0] | type[EnrichJobStatusType1] | type[EnrichJobStatusType2]
+
+_ENRICH_STATUS_MODELS: dict[str, _EnrichJobStatusModel] = {
+    "pending": EnrichJobStatusType0,
+    "completed": EnrichJobStatusType1,
+    "failed": EnrichJobStatusType2,
+}
 
 
 def _user_agent() -> str:
@@ -139,6 +182,12 @@ def _multipart_data(options: OptionsInput, webhook: Mapping[str, Any] | None) ->
     return data
 
 
+def _saved_presets_path(tier: str, preset_id: str | None = None) -> str:
+    """Render the saved-preset route for ``tier`` — Pro hyphenates the collection, Enterprise underscores it."""
+    base = _SAVED_PRESETS_PATH_PRO if tier == "pro" else _SAVED_PRESETS_PATH_ENTERPRISE
+    return base if preset_id is None else f"{base}/{preset_id}"
+
+
 def _job_ids_from_extract_response(payload: Any) -> list[str]:
     """Pluck the ``job_ids`` list out of a ``POST /v1/extract`` response body."""
     if not isinstance(payload, dict):
@@ -156,11 +205,25 @@ def _coerce_body(body: BodyInput) -> dict[str, Any]:
     return body.to_dict()
 
 
+def _auto_tune_multipart_data(request: BodyInput) -> dict[str, str]:
+    """Build the ``data=`` argument carrying the JSON-encoded ``request`` part of a submit-auto-tune call."""
+    return {"request": json.dumps(_coerce_body(request))}
+
+
 def _expect_object(payload: Any, what: str) -> Mapping[str, Any]:
     """Assert a decoded response body is a JSON object before handing it to a model parser."""
     if not isinstance(payload, Mapping):
         raise ValueError(f"unexpected {what} response shape: {payload!r}")
     return payload
+
+
+def _parse_enrich_status(payload: Any) -> EnrichJobStatus:
+    """Parse a ``GET /v1/enrich/{job_id}`` body into the generated variant its ``status`` names."""
+    body = _expect_object(payload, "enrich status")
+    model = _ENRICH_STATUS_MODELS.get(str(body.get("status", "")))
+    if model is None:
+        raise ValueError(f"unexpected enrich status response shape: {payload!r}")
+    return model.from_dict(body)
 
 
 def _parse_job(payload: Any) -> JobResponse:
@@ -554,6 +617,110 @@ class XbergClient(_BaseClient):
         """Fetch a preset's bundled sample document (``GET /v1/presets/{id}/sample/{name}``, raw bytes)."""
         return self._request_bytes("GET", f"/v1/presets/{preset_id}/sample/{name}")
 
+    def list_saved_presets(
+        self,
+        *,
+        limit: int | None = None,
+        offset: int | None = None,
+    ) -> ListSavedPresetsResponse:
+        """List the project's saved presets (``GET /v1/saved_presets``; Pro spells it ``/v1/saved-presets``)."""
+        path = _saved_presets_path(self._resolve_tier())
+        payload = self._request_json("GET", path, params=_pagination(limit, offset))
+        return ListSavedPresetsResponse.from_dict(_expect_object(payload, "saved preset list"))
+
+    def create_saved_preset(self, body: CreateSavedPresetRequest | Mapping[str, Any]) -> CreateSavedPresetResponse:
+        """Create a saved preset (``POST /v1/saved_presets``; Pro spells it ``/v1/saved-presets``)."""
+        path = _saved_presets_path(self._resolve_tier())
+        payload = self._request_json("POST", path, json_body=_coerce_body(body))
+        return CreateSavedPresetResponse.from_dict(_expect_object(payload, "saved preset"))
+
+    def get_saved_preset(self, preset_id: str) -> SavedPresetDetail:
+        """Fetch one saved preset in full (``GET /v1/saved_presets/{preset_id}``)."""
+        path = _saved_presets_path(self._resolve_tier(), preset_id)
+        return SavedPresetDetail.from_dict(_expect_object(self._request_json("GET", path), "saved preset"))
+
+    def update_saved_preset(
+        self,
+        preset_id: str,
+        body: UpdateSavedPresetRequest | Mapping[str, Any],
+    ) -> UpdateSavedPresetResponse:
+        """Replace a saved preset's definition (``PATCH /v1/saved_presets/{preset_id}``)."""
+        path = _saved_presets_path(self._resolve_tier(), preset_id)
+        payload = self._request_json("PATCH", path, json_body=_coerce_body(body))
+        return UpdateSavedPresetResponse.from_dict(_expect_object(payload, "saved preset"))
+
+    def delete_saved_preset(self, preset_id: str) -> None:
+        """Delete a saved preset (``DELETE /v1/saved_presets/{preset_id}``, 204)."""
+        self._request_json("DELETE", _saved_presets_path(self._resolve_tier(), preset_id))
+
+    def list_auto_tune_jobs(self, *, limit: int | None = None, offset: int | None = None) -> ListAutoTuneJobsResponse:
+        """List auto-tune jobs (``GET /v1/auto-tune``, paginated)."""
+        payload = self._request_json("GET", _AUTO_TUNE_PATH, params=_pagination(limit, offset))
+        return ListAutoTuneJobsResponse.from_dict(_expect_object(payload, "auto-tune job list"))
+
+    def submit_auto_tune(
+        self,
+        request: CreateAutoTuneJobRequest | Mapping[str, Any],
+        files: Iterable[FileInput],
+    ) -> CreateAutoTuneJobResponse:
+        """Submit an auto-tune job (``POST /v1/auto-tune``: a JSON ``request`` part plus one ``file`` part each)."""
+        materialized = list(files)
+        if not materialized:
+            raise XbergError("submit_auto_tune called with no files", status_code=None)
+        payload = self._request_json(
+            "POST",
+            _AUTO_TUNE_PATH,
+            files=_multipart_files(materialized),
+            data=_auto_tune_multipart_data(request),
+        )
+        return CreateAutoTuneJobResponse.from_dict(_expect_object(payload, "auto-tune job"))
+
+    def get_auto_tune_capabilities(self) -> AutoTuneCapabilitiesResponse:
+        """Fetch the tunable knobs and OCR backends this instance offers (``GET /v1/auto-tune/capabilities``)."""
+        payload = self._request_json("GET", f"{_AUTO_TUNE_PATH}/capabilities")
+        return AutoTuneCapabilitiesResponse.from_dict(_expect_object(payload, "auto-tune capabilities"))
+
+    def get_auto_tune_status(self, auto_tune_job_id: str) -> AutoTuneJobStatus:
+        """Fetch an auto-tune job's progress (``GET /v1/auto-tune/{id}``)."""
+        payload = self._request_json("GET", f"{_AUTO_TUNE_PATH}/{auto_tune_job_id}")
+        return AutoTuneJobStatus.from_dict(_expect_object(payload, "auto-tune status"))
+
+    def delete_auto_tune_job(self, auto_tune_job_id: str) -> None:
+        """Delete an auto-tune job and its artifacts (``DELETE /v1/auto-tune/{id}``, 204)."""
+        self._request_json("DELETE", f"{_AUTO_TUNE_PATH}/{auto_tune_job_id}")
+
+    def promote_auto_tune_profile(
+        self,
+        auto_tune_job_id: str,
+        body: PromoteProfileRequest | Mapping[str, Any],
+    ) -> TuningProfileDetail:
+        """Promote an auto-tune result to a named tuning profile (``POST /v1/auto-tune/{id}/promote``)."""
+        payload = self._request_json(
+            "POST", f"{_AUTO_TUNE_PATH}/{auto_tune_job_id}/promote", json_body=_coerce_body(body)
+        )
+        return TuningProfileDetail.from_dict(_expect_object(payload, "tuning profile"))
+
+    def get_auto_tune_result(self, auto_tune_job_id: str) -> AutoTuneResult:
+        """Fetch a finished auto-tune job's leaderboard and winning profile (``GET /v1/auto-tune/{id}/result``)."""
+        payload = self._request_json("GET", f"{_AUTO_TUNE_PATH}/{auto_tune_job_id}/result")
+        return AutoTuneResult.from_dict(_expect_object(payload, "auto-tune result"))
+
+    def list_tuning_profiles(
+        self, *, limit: int | None = None, offset: int | None = None
+    ) -> ListTuningProfilesResponse:
+        """List the promoted tuning profiles (``GET /v1/tuning-profiles``, paginated)."""
+        payload = self._request_json("GET", _TUNING_PROFILES_PATH, params=_pagination(limit, offset))
+        return ListTuningProfilesResponse.from_dict(_expect_object(payload, "tuning profile list"))
+
+    def get_tuning_profile(self, profile_id: str) -> TuningProfileDetail:
+        """Fetch one tuning profile in full (``GET /v1/tuning-profiles/{id}``)."""
+        payload = self._request_json("GET", f"{_TUNING_PROFILES_PATH}/{profile_id}")
+        return TuningProfileDetail.from_dict(_expect_object(payload, "tuning profile"))
+
+    def delete_tuning_profile(self, profile_id: str) -> None:
+        """Delete a tuning profile (``DELETE /v1/tuning-profiles/{id}``, 204)."""
+        self._request_json("DELETE", f"{_TUNING_PROFILES_PATH}/{profile_id}")
+
     # -- Pro-only surface --------------------------------------------------
 
     def auth_config(self) -> Any:
@@ -565,21 +732,6 @@ class XbergClient(_BaseClient):
         """Pro only: exchange a verified OIDC ID token for a Pro session JWT (``POST /auth/login``)."""
         self._require_tier("pro", "login")
         return self._request_json("POST", "/auth/login", json_body=body)
-
-    def list_saved_presets(self) -> Any:
-        """Pro only: list saved presets (``GET /v1/saved-presets``)."""
-        self._require_tier("pro", "list_saved_presets")
-        return self._request_json("GET", "/v1/saved-presets")
-
-    def create_saved_preset(self, body: Mapping[str, Any]) -> Any:
-        """Pro only: create a saved preset (``POST /v1/saved-presets``)."""
-        self._require_tier("pro", "create_saved_preset")
-        return self._request_json("POST", "/v1/saved-presets", json_body=body)
-
-    def delete_saved_preset(self, preset_id: str) -> Any:
-        """Pro only: delete a saved preset (``DELETE /v1/saved-presets/{id}``)."""
-        self._require_tier("pro", "delete_saved_preset")
-        return self._request_json("DELETE", f"/v1/saved-presets/{preset_id}")
 
     def get_rag_config(self, project_id: str) -> Any:
         """Pro only: fetch a project's RAG config (``GET /v1/projects/{project_id}/rag-config``)."""
@@ -739,6 +891,43 @@ class XbergClient(_BaseClient):
         """Enterprise only: fetch usage/metering data (``GET /v1/usage``)."""
         self._require_tier("enterprise", "usage")
         return self._request_json("GET", "/v1/usage", params=params)
+
+    def get_document(self, document_id: str) -> Any:
+        """Enterprise only: fetch a document's latest version (``GET /v1/documents/{document_id}``).
+
+        The spec declares an inline response schema, so the decoded body is returned as-is.
+        """
+        self._require_tier("enterprise", "get_document")
+        return self._request_json("GET", f"/v1/documents/{document_id}")
+
+    def get_job_page(self, job_id: str, page_number: int) -> bytes:
+        """Enterprise only: fetch a rendered page image (``GET /v1/jobs/{id}/pages/{n}``, ``image/png`` bytes)."""
+        self._require_tier("enterprise", "get_job_page")
+        return self._request_bytes("GET", f"/v1/jobs/{job_id}/pages/{page_number}")
+
+    def list_extraction_events(
+        self,
+        *,
+        days: int | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
+    ) -> ListExtractionEventsResponse:
+        """Enterprise only: list recent extraction events (``GET /v1/extractions``)."""
+        self._require_tier("enterprise", "list_extraction_events")
+        params = _query_params(days=days, limit=limit, offset=offset)
+        payload = self._request_json("GET", _EXTRACTIONS_PATH, params=params)
+        return ListExtractionEventsResponse.from_dict(_expect_object(payload, "extraction event list"))
+
+    def submit_enrich(self, body: EnrichTextRequest | Mapping[str, Any]) -> EnrichJobSubmitted:
+        """Enterprise only: submit text for enrichment (``POST /v1/enrich``, 202 Accepted)."""
+        self._require_tier("enterprise", "submit_enrich")
+        payload = self._request_json("POST", _ENRICH_PATH, json_body=_coerce_body(body))
+        return EnrichJobSubmitted.from_dict(_expect_object(payload, "enrich submission"))
+
+    def get_enrich_status(self, job_id: str) -> EnrichJobStatus:
+        """Enterprise only: poll an enrichment job (``GET /v1/enrich/{job_id}``)."""
+        self._require_tier("enterprise", "get_enrich_status")
+        return _parse_enrich_status(self._request_json("GET", f"{_ENRICH_PATH}/{job_id}"))
 
 
 class AsyncXbergClient(_BaseClient):
@@ -1018,6 +1207,121 @@ class AsyncXbergClient(_BaseClient):
         """Async equivalent of :meth:`XbergClient.get_preset_sample`."""
         return await self._request_bytes("GET", f"/v1/presets/{preset_id}/sample/{name}")
 
+    async def list_saved_presets(
+        self,
+        *,
+        limit: int | None = None,
+        offset: int | None = None,
+    ) -> ListSavedPresetsResponse:
+        """Async equivalent of :meth:`XbergClient.list_saved_presets`."""
+        path = _saved_presets_path(await self._resolve_tier())
+        payload = await self._request_json("GET", path, params=_pagination(limit, offset))
+        return ListSavedPresetsResponse.from_dict(_expect_object(payload, "saved preset list"))
+
+    async def create_saved_preset(
+        self,
+        body: CreateSavedPresetRequest | Mapping[str, Any],
+    ) -> CreateSavedPresetResponse:
+        """Async equivalent of :meth:`XbergClient.create_saved_preset`."""
+        path = _saved_presets_path(await self._resolve_tier())
+        payload = await self._request_json("POST", path, json_body=_coerce_body(body))
+        return CreateSavedPresetResponse.from_dict(_expect_object(payload, "saved preset"))
+
+    async def get_saved_preset(self, preset_id: str) -> SavedPresetDetail:
+        """Async equivalent of :meth:`XbergClient.get_saved_preset`."""
+        path = _saved_presets_path(await self._resolve_tier(), preset_id)
+        return SavedPresetDetail.from_dict(_expect_object(await self._request_json("GET", path), "saved preset"))
+
+    async def update_saved_preset(
+        self,
+        preset_id: str,
+        body: UpdateSavedPresetRequest | Mapping[str, Any],
+    ) -> UpdateSavedPresetResponse:
+        """Async equivalent of :meth:`XbergClient.update_saved_preset`."""
+        path = _saved_presets_path(await self._resolve_tier(), preset_id)
+        payload = await self._request_json("PATCH", path, json_body=_coerce_body(body))
+        return UpdateSavedPresetResponse.from_dict(_expect_object(payload, "saved preset"))
+
+    async def delete_saved_preset(self, preset_id: str) -> None:
+        """Async equivalent of :meth:`XbergClient.delete_saved_preset`."""
+        await self._request_json("DELETE", _saved_presets_path(await self._resolve_tier(), preset_id))
+
+    async def list_auto_tune_jobs(
+        self,
+        *,
+        limit: int | None = None,
+        offset: int | None = None,
+    ) -> ListAutoTuneJobsResponse:
+        """Async equivalent of :meth:`XbergClient.list_auto_tune_jobs`."""
+        payload = await self._request_json("GET", _AUTO_TUNE_PATH, params=_pagination(limit, offset))
+        return ListAutoTuneJobsResponse.from_dict(_expect_object(payload, "auto-tune job list"))
+
+    async def submit_auto_tune(
+        self,
+        request: CreateAutoTuneJobRequest | Mapping[str, Any],
+        files: Iterable[FileInput],
+    ) -> CreateAutoTuneJobResponse:
+        """Async equivalent of :meth:`XbergClient.submit_auto_tune`."""
+        materialized = list(files)
+        if not materialized:
+            raise XbergError("submit_auto_tune called with no files", status_code=None)
+        payload = await self._request_json(
+            "POST",
+            _AUTO_TUNE_PATH,
+            files=_multipart_files(materialized),
+            data=_auto_tune_multipart_data(request),
+        )
+        return CreateAutoTuneJobResponse.from_dict(_expect_object(payload, "auto-tune job"))
+
+    async def get_auto_tune_capabilities(self) -> AutoTuneCapabilitiesResponse:
+        """Async equivalent of :meth:`XbergClient.get_auto_tune_capabilities`."""
+        payload = await self._request_json("GET", f"{_AUTO_TUNE_PATH}/capabilities")
+        return AutoTuneCapabilitiesResponse.from_dict(_expect_object(payload, "auto-tune capabilities"))
+
+    async def get_auto_tune_status(self, auto_tune_job_id: str) -> AutoTuneJobStatus:
+        """Async equivalent of :meth:`XbergClient.get_auto_tune_status`."""
+        payload = await self._request_json("GET", f"{_AUTO_TUNE_PATH}/{auto_tune_job_id}")
+        return AutoTuneJobStatus.from_dict(_expect_object(payload, "auto-tune status"))
+
+    async def delete_auto_tune_job(self, auto_tune_job_id: str) -> None:
+        """Async equivalent of :meth:`XbergClient.delete_auto_tune_job`."""
+        await self._request_json("DELETE", f"{_AUTO_TUNE_PATH}/{auto_tune_job_id}")
+
+    async def promote_auto_tune_profile(
+        self,
+        auto_tune_job_id: str,
+        body: PromoteProfileRequest | Mapping[str, Any],
+    ) -> TuningProfileDetail:
+        """Async equivalent of :meth:`XbergClient.promote_auto_tune_profile`."""
+        payload = await self._request_json(
+            "POST", f"{_AUTO_TUNE_PATH}/{auto_tune_job_id}/promote", json_body=_coerce_body(body)
+        )
+        return TuningProfileDetail.from_dict(_expect_object(payload, "tuning profile"))
+
+    async def get_auto_tune_result(self, auto_tune_job_id: str) -> AutoTuneResult:
+        """Async equivalent of :meth:`XbergClient.get_auto_tune_result`."""
+        payload = await self._request_json("GET", f"{_AUTO_TUNE_PATH}/{auto_tune_job_id}/result")
+        return AutoTuneResult.from_dict(_expect_object(payload, "auto-tune result"))
+
+    async def list_tuning_profiles(
+        self,
+        *,
+        limit: int | None = None,
+        offset: int | None = None,
+    ) -> ListTuningProfilesResponse:
+        """Async equivalent of :meth:`XbergClient.list_tuning_profiles`."""
+        payload = await self._request_json("GET", _TUNING_PROFILES_PATH, params=_pagination(limit, offset))
+        return ListTuningProfilesResponse.from_dict(_expect_object(payload, "tuning profile list"))
+
+    async def get_tuning_profile(self, profile_id: str) -> TuningProfileDetail:
+        """Async equivalent of :meth:`XbergClient.get_tuning_profile`."""
+        payload = await self._request_json("GET", f"{_TUNING_PROFILES_PATH}/{profile_id}")
+        return TuningProfileDetail.from_dict(_expect_object(payload, "tuning profile"))
+
+    async def delete_tuning_profile(self, profile_id: str) -> None:
+        """Async equivalent of :meth:`XbergClient.delete_tuning_profile`."""
+        await self._request_json("DELETE", f"{_TUNING_PROFILES_PATH}/{profile_id}")
+
     # -- Pro-only surface --------------------------------------------------
 
     async def auth_config(self) -> Any:
@@ -1029,21 +1333,6 @@ class AsyncXbergClient(_BaseClient):
         """Pro only: async equivalent of :meth:`XbergClient.login`."""
         await self._require_tier("pro", "login")
         return await self._request_json("POST", "/auth/login", json_body=body)
-
-    async def list_saved_presets(self) -> Any:
-        """Pro only: async equivalent of :meth:`XbergClient.list_saved_presets`."""
-        await self._require_tier("pro", "list_saved_presets")
-        return await self._request_json("GET", "/v1/saved-presets")
-
-    async def create_saved_preset(self, body: Mapping[str, Any]) -> Any:
-        """Pro only: async equivalent of :meth:`XbergClient.create_saved_preset`."""
-        await self._require_tier("pro", "create_saved_preset")
-        return await self._request_json("POST", "/v1/saved-presets", json_body=body)
-
-    async def delete_saved_preset(self, preset_id: str) -> Any:
-        """Pro only: async equivalent of :meth:`XbergClient.delete_saved_preset`."""
-        await self._require_tier("pro", "delete_saved_preset")
-        return await self._request_json("DELETE", f"/v1/saved-presets/{preset_id}")
 
     async def get_rag_config(self, project_id: str) -> Any:
         """Pro only: async equivalent of :meth:`XbergClient.get_rag_config`."""
@@ -1202,11 +1491,46 @@ class AsyncXbergClient(_BaseClient):
         await self._require_tier("enterprise", "usage")
         return await self._request_json("GET", "/v1/usage", params=params)
 
+    async def get_document(self, document_id: str) -> Any:
+        """Enterprise only: async equivalent of :meth:`XbergClient.get_document`."""
+        await self._require_tier("enterprise", "get_document")
+        return await self._request_json("GET", f"/v1/documents/{document_id}")
+
+    async def get_job_page(self, job_id: str, page_number: int) -> bytes:
+        """Enterprise only: async equivalent of :meth:`XbergClient.get_job_page`."""
+        await self._require_tier("enterprise", "get_job_page")
+        return await self._request_bytes("GET", f"/v1/jobs/{job_id}/pages/{page_number}")
+
+    async def list_extraction_events(
+        self,
+        *,
+        days: int | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
+    ) -> ListExtractionEventsResponse:
+        """Enterprise only: async equivalent of :meth:`XbergClient.list_extraction_events`."""
+        await self._require_tier("enterprise", "list_extraction_events")
+        params = _query_params(days=days, limit=limit, offset=offset)
+        payload = await self._request_json("GET", _EXTRACTIONS_PATH, params=params)
+        return ListExtractionEventsResponse.from_dict(_expect_object(payload, "extraction event list"))
+
+    async def submit_enrich(self, body: EnrichTextRequest | Mapping[str, Any]) -> EnrichJobSubmitted:
+        """Enterprise only: async equivalent of :meth:`XbergClient.submit_enrich`."""
+        await self._require_tier("enterprise", "submit_enrich")
+        payload = await self._request_json("POST", _ENRICH_PATH, json_body=_coerce_body(body))
+        return EnrichJobSubmitted.from_dict(_expect_object(payload, "enrich submission"))
+
+    async def get_enrich_status(self, job_id: str) -> EnrichJobStatus:
+        """Enterprise only: async equivalent of :meth:`XbergClient.get_enrich_status`."""
+        await self._require_tier("enterprise", "get_enrich_status")
+        return _parse_enrich_status(await self._request_json("GET", f"{_ENRICH_PATH}/{job_id}"))
+
 
 __all__ = [
     "AsyncXbergClient",
     "BackoffStrategy",
     "BodyInput",
+    "EnrichJobStatus",
     "FileInput",
     "OptionsInput",
     "Target",

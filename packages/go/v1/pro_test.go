@@ -2,7 +2,6 @@ package xberg_test
 
 import (
 	"context"
-	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -15,33 +14,11 @@ const (
 	testIntegrationID = "int-1"
 )
 
-// proServer spins up a Pro-targeted client whose transport records the method,
+// proClient spins up a Pro-targeted client whose transport records the method,
 // path and query of the single request the method under test issues.
-type recordedRequest struct {
-	method string
-	path   string
-	query  string
-	body   string
-}
-
 func proClient(t *testing.T, status int, response string, seen *recordedRequest) *xberg.Client {
 	t.Helper()
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		body, err := io.ReadAll(r.Body)
-		if err != nil {
-			t.Errorf("reading request body: %v", err)
-		}
-		seen.method = r.Method
-		seen.path = r.URL.Path
-		seen.query = r.URL.RawQuery
-		seen.body = string(body)
-		w.WriteHeader(status)
-		if response != "" {
-			_, _ = io.WriteString(w, response)
-		}
-	}))
-	t.Cleanup(server.Close)
-	return mustClient(t, xberg.WithBaseURL(server.URL), xberg.WithTarget(xberg.TargetPro))
+	return targetClient(t, xberg.TargetPro, status, response, seen)
 }
 
 // -- projects -----------------------------------------------------------------

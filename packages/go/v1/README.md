@@ -55,15 +55,38 @@ pro, _ := xberg.New(
 
 Shared methods: `Extract`, `ExtractBatch`, `GetJob`, `GetJobResult`, `ListJobs`,
 `WaitForJob`, `WaitForJobs`, `ExtractAndWait`, `Audit`, the curated preset registry
-(`Presets`, `GetPreset`, `GetPresetSample`), and the RAG surface
-(`ListRagCollections`, `RagRetrieve`, …). Pro-only: `AuthConfig`, `Login`, saved
-presets, `GetRagConfig`/`SetRagConfig`, and the control plane — projects
+(`Presets`, `GetPreset`, `GetPresetSample`), saved presets (`ListSavedPresets`,
+`CreateSavedPreset`, `GetSavedPreset`, `UpdateSavedPreset`, `DeleteSavedPreset`),
+auto-tune (`ListAutoTuneJobs`, `SubmitAutoTune`, `GetAutoTuneCapabilities`,
+`GetAutoTuneStatus`, `DeleteAutoTuneJob`, `PromoteAutoTuneProfile`,
+`GetAutoTuneResult`) and its tuning-profile registry (`ListTuningProfiles`,
+`GetTuningProfile`, `DeleteTuningProfile`), and the RAG surface
+(`ListRagCollections`, `RagRetrieve`, …). Pro-only: `AuthConfig`, `Login`,
+`GetRagConfig`/`SetRagConfig`, and the control plane — projects
 (`ListProjects`, `CreateProject`), API keys (`ListAPIKeys`, `CreateAPIKey`,
 `RevokeAPIKey`) and integrations (`ListIntegrations`, `CreateIntegration`,
 `GetIntegration`, `DeleteIntegration`, `ConnectIntegration`,
 `DisconnectIntegration`, `ListIntegrationDocuments`, `FetchIntegrationDocument`).
-Enterprise-only: `Versions`, `Diff`, uploads (`PresignUpload`/`ConfirmUpload`),
-`Usage`.
+Enterprise-only: `GetDocument`, `Versions`, `Diff`, `GetDiffJob`, `GetJobPage`,
+`ListExtractionEvents`, enrichment (`SubmitEnrich`, `GetEnrichStatus`), uploads
+(`PresignUpload`/`ConfirmUpload`), `Usage`.
+
+Saved presets are served by both products under different spellings —
+`/v1/saved_presets` on Enterprise, `/v1/saved-presets` on Pro. The client
+resolves the tier and picks the spelling for you; the method names and payloads
+are identical either way.
+
+### Deliberate exclusions
+
+A few endpoints in the two specs are intentionally not surfaced:
+
+- `GET /readyz` — an infrastructure readiness probe for orchestrators, not
+  client surface. (`GET /healthz` *is* used: it is how an untargeted client
+  discovers the tier.)
+- Pro's `GET /v1/oauth/callback` and `DELETE /auth/account` — browser redirect
+  and cookie-session flows that a bearer-token client cannot drive. Pro's
+  `POST /auth/login` is exposed because it exchanges a verified OIDC ID token
+  for a session JWT over a plain JSON request.
 
 ## Quickstart — explicit API key
 

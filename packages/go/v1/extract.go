@@ -45,13 +45,8 @@ func (c *Client) ExtractBatch(
 	if len(files) == 0 {
 		return nil, fmt.Errorf("xberg: ExtractBatch requires at least one file")
 	}
-	for i, f := range files {
-		if f.Name == "" {
-			return nil, fmt.Errorf("xberg: file %d: Name must not be empty", i)
-		}
-		if f.Reader == nil {
-			return nil, fmt.Errorf("xberg: file %d (%s): Reader must not be nil", i, f.Name)
-		}
+	if err := validateFileSources(files); err != nil {
+		return nil, err
 	}
 	body, contentType, err := buildMultipartBody(files, opts)
 	if err != nil {
@@ -101,26 +96,8 @@ func buildMultipartBody(
 ) ([]byte, string, error) {
 	var buf bytes.Buffer
 	writer := multipart.NewWriter(&buf)
-	for _, file := range files {
-		header := textproto.MIMEHeader{}
-		header.Set(
-			"Content-Disposition",
-			fmt.Sprintf(
-				`form-data; name="file"; filename=%q`,
-				strings.ReplaceAll(file.Name, `"`, `\"`),
-			),
-		)
-		header.Set("Content-Type", sniffContentType(file.Name))
-		part, err := writer.CreatePart(header)
-		if err != nil {
-			return nil, "", fmt.Errorf("xberg: creating multipart part: %w", err)
-		}
-		if _, err := io.Copy(part, file.Reader); err != nil {
-			return nil, "", fmt.Errorf(
-				"xberg: copying file %q into multipart body: %w",
-				file.Name, err,
-			)
-		}
+	if err := writeFileParts(writer, files); err != nil {
+		return nil, "", err
 	}
 	if opts != nil {
 		encoded, err := json.Marshal(opts)
@@ -138,6 +115,45 @@ func buildMultipartBody(
 		return nil, "", fmt.Errorf("xberg: closing multipart writer: %w", err)
 	}
 	return buf.Bytes(), writer.FormDataContentType(), nil
+}
+
+// writeFileParts appends one "file" part per document to writer, tagging each
+// with a filename and a sniffed media type. Shared by the extraction and
+// auto-tune submissions, which use the same repeated "file" part convention.
+func writeFileParts(writer *multipart.Writer, files []FileSource) error {
+	for _, file := range files {
+		header := textproto.MIMEHeader{}
+		header.Set(
+			"Content-Disposition",
+			fmt.Sprintf(
+				`form-data; name="file"; filename=%q`,
+				strings.ReplaceAll(file.Name, `"`, `\"`),
+			),
+		)
+		header.Set("Content-Type", sniffContentType(file.Name))
+		part, err := writer.CreatePart(header)
+		if err != nil {
+			return fmt.Errorf("xberg: creating multipart part: %w", err)
+		}
+		if _, err := io.Copy(part, file.Reader); err != nil {
+			return fmt.Errorf("xberg: copying file %q into multipart body: %w", file.Name, err)
+		}
+	}
+	return nil
+}
+
+// validateFileSources rejects file sources that cannot be serialized into a
+// multipart body, naming the offending index so the caller can fix it.
+func validateFileSources(files []FileSource) error {
+	for i, f := range files {
+		if f.Name == "" {
+			return fmt.Errorf("xberg: file %d: Name must not be empty", i)
+		}
+		if f.Reader == nil {
+			return fmt.Errorf("xberg: file %d (%s): Reader must not be nil", i, f.Name)
+		}
+	}
+	return nil
 }
 
 // sniffContentType picks a reasonable multipart Content-Type for a filename.

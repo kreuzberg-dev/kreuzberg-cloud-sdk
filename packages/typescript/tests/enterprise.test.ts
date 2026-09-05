@@ -18,6 +18,30 @@ function makeClient(): XbergClient {
   });
 }
 
+const PRO_URL = "https://pro.example.test";
+
+function proClient(): XbergClient {
+  return new XbergClient({ apiKey: "k", baseUrl: PRO_URL, target: "pro", sleep: async () => {} });
+}
+
+/** Records the method and pathname of the request the handler saw. */
+interface Seen {
+  method: string;
+  path: string;
+  search: string;
+}
+
+function seen(): Seen {
+  return { method: "", path: "", search: "" };
+}
+
+function record(target: Seen, request: Request): void {
+  const parsed = new URL(request.url);
+  target.method = request.method;
+  target.path = parsed.pathname;
+  target.search = parsed.search;
+}
+
 describe("enterprise-only surface", () => {
   it("versions lists a document's versions", async () => {
     server.use(
@@ -110,5 +134,92 @@ describe("enterprise-only surface", () => {
     server.use(http.get(url("/v1/jobs"), () => HttpResponse.json({ jobs: [], total: 0 }, { status: 200 })));
     const result = await makeClient().listJobs({ limit: 5, offset: 10 });
     expect(result).toEqual({ jobs: [], total: 0 });
+  });
+
+  it("getDocument issues GET /v1/documents/{documentId}", async () => {
+    const got = seen();
+    server.use(
+      http.get(url("/v1/documents/:id"), ({ request }) => {
+        record(got, request);
+        return HttpResponse.json({ document_id: "doc 1", version: 3 }, { status: 200 });
+      }),
+    );
+    const result = await makeClient().getDocument("doc 1");
+    expect(result).toEqual({ document_id: "doc 1", version: 3 });
+    expect(got.method).toBe("GET");
+    expect(got.path).toBe("/v1/documents/doc%201");
+  });
+
+  it("listExtractionEvents issues GET /v1/extractions with days and pagination params", async () => {
+    const got = seen();
+    server.use(
+      http.get(url("/v1/extractions"), ({ request }) => {
+        record(got, request);
+        return HttpResponse.json({ events: [], total: 0, page: 0, limit: 50 }, { status: 200 });
+      }),
+    );
+    const result = await makeClient().listExtractionEvents({ days: 7, limit: 5, offset: 10 });
+    expect(result).toEqual({ events: [], total: 0, page: 0, limit: 50 });
+    expect(got.method).toBe("GET");
+    expect(got.path).toBe("/v1/extractions");
+    expect(got.search).toBe("?days=7&limit=5&offset=10");
+  });
+
+  it("getJobPage issues GET /v1/jobs/{jobId}/pages/{pageNumber} and returns the raw PNG bytes", async () => {
+    const got = seen();
+    const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47]);
+    server.use(
+      http.get(url("/v1/jobs/:jobId/pages/:pageNumber"), ({ request }) => {
+        record(got, request);
+        return HttpResponse.arrayBuffer(png.buffer, { status: 200, headers: { "content-type": "image/png" } });
+      }),
+    );
+    const bytes = await makeClient().getJobPage("job-1", 3);
+    expect(bytes).toBeInstanceOf(Uint8Array);
+    expect([...bytes]).toEqual([0x89, 0x50, 0x4e, 0x47]);
+    expect(got.method).toBe("GET");
+    expect(got.path).toBe("/v1/jobs/job-1/pages/3");
+  });
+
+  it("submitEnrich issues POST /v1/enrich", async () => {
+    const got = seen();
+    let receivedBody: unknown;
+    server.use(
+      http.post(url("/v1/enrich"), async ({ request }) => {
+        record(got, request);
+        receivedBody = await request.json();
+        return HttpResponse.json({ job_id: "enrich-1" }, { status: 202 });
+      }),
+    );
+    const result = await makeClient().submitEnrich({ text: "hello", options: { entities: true } });
+    expect(result).toEqual({ job_id: "enrich-1" });
+    expect(receivedBody).toEqual({ text: "hello", options: { entities: true } });
+    expect(got.method).toBe("POST");
+    expect(got.path).toBe("/v1/enrich");
+  });
+
+  it("getEnrichStatus issues GET /v1/enrich/{jobId}", async () => {
+    const got = seen();
+    server.use(
+      http.get(url("/v1/enrich/:jobId"), ({ request }) => {
+        record(got, request);
+        return HttpResponse.json({ job_id: "enrich-1", status: "completed" }, { status: 200 });
+      }),
+    );
+    const result = await makeClient().getEnrichStatus("enrich-1");
+    expect(result).toEqual({ job_id: "enrich-1", status: "completed" });
+    expect(got.method).toBe("GET");
+    expect(got.path).toBe("/v1/enrich/enrich-1");
+  });
+});
+
+describe("enterprise-only tier gating", () => {
+  it("rejects each enterprise-only method on the pro tier without an HTTP call", async () => {
+    const client = proClient();
+    await expect(client.getDocument("doc-1")).rejects.toThrow(/not available on the 'pro' tier/);
+    await expect(client.listExtractionEvents()).rejects.toThrow(/not available on the 'pro' tier/);
+    await expect(client.getJobPage("job-1", 1)).rejects.toThrow(/not available on the 'pro' tier/);
+    await expect(client.submitEnrich({ text: "hello" })).rejects.toThrow(/not available on the 'pro' tier/);
+    await expect(client.getEnrichStatus("enrich-1")).rejects.toThrow(/not available on the 'pro' tier/);
   });
 });

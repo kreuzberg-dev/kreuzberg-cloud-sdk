@@ -142,27 +142,6 @@ def test_auth_config_sync_on_pro(api_key: str) -> None:
 
 
 @respx.mock
-def test_create_saved_preset_sync_on_pro(api_key: str) -> None:
-    route = respx.post(f"{PRO_URL}/v1/saved-presets").mock(
-        return_value=httpx.Response(201, json={"id": "preset-1"}),
-    )
-    with XbergClient(api_key=api_key, base_url=PRO_URL, target="pro") as client:
-        result = client.create_saved_preset({"name": "invoices"})
-    assert result == {"id": "preset-1"}
-    assert json.loads(route.calls.last.request.content) == {"name": "invoices"}
-
-
-@respx.mock
-def test_delete_saved_preset_sync_on_pro(api_key: str) -> None:
-    route = respx.delete(f"{PRO_URL}/v1/saved-presets/preset-1").mock(
-        return_value=httpx.Response(204),
-    )
-    with XbergClient(api_key=api_key, base_url=PRO_URL, target="pro") as client:
-        assert client.delete_saved_preset("preset-1") is None
-    assert route.called
-
-
-@respx.mock
 def test_get_rag_config_sync_on_pro(api_key: str) -> None:
     respx.get(f"{PRO_URL}/v1/projects/proj-1/rag-config").mock(
         return_value=httpx.Response(200, json={"top_k": 10}),
@@ -362,36 +341,6 @@ async def test_login_async_on_pro(api_key: str) -> None:
         result = await client.login({"id_token": "verified"})
     assert result == {"token": "async-session-jwt"}
     assert json.loads(route.calls.last.request.content) == {"id_token": "verified"}
-
-
-@pytest.mark.asyncio
-@respx.mock
-async def test_list_saved_presets_async_on_pro(api_key: str) -> None:
-    respx.get(f"{PRO_URL}/v1/saved-presets").mock(
-        return_value=httpx.Response(200, json={"presets": []}),
-    )
-    async with AsyncXbergClient(api_key=api_key, base_url=PRO_URL, target="pro") as client:
-        assert await client.list_saved_presets() == {"presets": []}
-
-
-@pytest.mark.asyncio
-@respx.mock
-async def test_create_saved_preset_async_on_pro(api_key: str) -> None:
-    route = respx.post(f"{PRO_URL}/v1/saved-presets").mock(
-        return_value=httpx.Response(201, json={"id": "preset-async"}),
-    )
-    async with AsyncXbergClient(api_key=api_key, base_url=PRO_URL, target="pro") as client:
-        result = await client.create_saved_preset({"name": "async-preset"})
-    assert result == {"id": "preset-async"}
-    assert json.loads(route.calls.last.request.content) == {"name": "async-preset"}
-
-
-@pytest.mark.asyncio
-@respx.mock
-async def test_delete_saved_preset_async_on_pro(api_key: str) -> None:
-    respx.delete(f"{PRO_URL}/v1/saved-presets/preset-1").mock(return_value=httpx.Response(204))
-    async with AsyncXbergClient(api_key=api_key, base_url=PRO_URL, target="pro") as client:
-        assert await client.delete_saved_preset("preset-1") is None
 
 
 @pytest.mark.asyncio

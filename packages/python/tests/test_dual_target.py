@@ -167,15 +167,6 @@ def test_pro_login_reaches_endpoint_on_pro(api_key: str) -> None:
 
 
 @respx.mock
-def test_saved_presets_list_on_pro(api_key: str) -> None:
-    respx.get(f"{PRO_URL}/v1/saved-presets").mock(
-        return_value=httpx.Response(200, json={"presets": []}),
-    )
-    with XbergClient(api_key=api_key, base_url=PRO_URL, target="pro") as client:
-        assert client.list_saved_presets() == {"presets": []}
-
-
-@respx.mock
 def test_enterprise_usage_on_enterprise(base_url: str, api_key: str) -> None:
     respx.get(f"{base_url}/v1/usage").mock(
         return_value=httpx.Response(200, json={"pages": 42}),

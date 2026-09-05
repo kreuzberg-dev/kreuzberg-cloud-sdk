@@ -27,6 +27,7 @@ const (
 	methodGet    = "GET"
 	methodPost   = "POST"
 	methodPut    = "PUT"
+	methodPatch  = "PATCH"
 	methodDelete = "DELETE"
 )
 

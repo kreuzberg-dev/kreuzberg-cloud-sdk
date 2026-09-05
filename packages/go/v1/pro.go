@@ -2,15 +2,19 @@ package xberg
 
 import (
 	"context"
-	"encoding/json"
 	"net/url"
 	"strconv"
 )
 
-// This file holds the Pro-only surface. Every method is capability-gated: it
-// verifies the connected instance is the Pro tier (an explicit [WithTarget], or
-// probed from GET /healthz) and returns a [TierError] rather than issuing a
-// request that would 404 on Enterprise.
+// This file holds the Pro-only surface — authentication and the control plane
+// (projects, API keys, integrations, per-project RAG configuration). Every
+// method is capability-gated: it verifies the connected instance is the Pro
+// tier (an explicit [WithTarget], or probed from GET /healthz) and returns a
+// [TierError] rather than issuing a request that would 404 on Enterprise.
+//
+// Saved presets used to live here. They are declared by both specs — only the
+// route spelling differs — so they moved to saved_presets.go and are no longer
+// tier-gated.
 
 // projectsPath is the root of the Pro control plane. Projects own API keys,
 // integrations and RAG configuration, so every control-plane route below is
@@ -55,45 +59,6 @@ func (c *Client) Login(ctx context.Context, body LoginRequest) (*LoginResponse, 
 		return nil, err
 	}
 	return &out, nil
-}
-
-// -- saved presets ------------------------------------------------------------
-
-// ListSavedPresets lists saved presets (GET /v1/saved-presets). Pro only.
-func (c *Client) ListSavedPresets(ctx context.Context) (*ListSavedPresetsResponse, error) {
-	if err := c.requireTier(ctx, TargetPro, "ListSavedPresets"); err != nil {
-		return nil, err
-	}
-	var out ListSavedPresetsResponse
-	if err := c.getJSON(ctx, "/v1/saved-presets", &out); err != nil {
-		return nil, err
-	}
-	return &out, nil
-}
-
-// CreateSavedPreset creates a saved preset (POST /v1/saved-presets). Pro only.
-func (c *Client) CreateSavedPreset(ctx context.Context, body CreateSavedPresetRequest) (*CreateSavedPresetResponse, error) {
-	if err := c.requireTier(ctx, TargetPro, "CreateSavedPreset"); err != nil {
-		return nil, err
-	}
-	var out CreateSavedPresetResponse
-	if err := c.callJSON(ctx, methodPost, "/v1/saved-presets", body, &out); err != nil {
-		return nil, err
-	}
-	return &out, nil
-}
-
-// DeleteSavedPreset deletes a saved preset (DELETE /v1/saved-presets/{id}).
-// Pro only.
-func (c *Client) DeleteSavedPreset(ctx context.Context, presetID string) (json.RawMessage, error) {
-	if err := c.requireTier(ctx, TargetPro, "DeleteSavedPreset"); err != nil {
-		return nil, err
-	}
-	var out json.RawMessage
-	if err := c.callJSON(ctx, methodDelete, "/v1/saved-presets/"+url.PathEscape(presetID), nil, &out); err != nil {
-		return nil, err
-	}
-	return out, nil
 }
 
 // -- projects -----------------------------------------------------------------

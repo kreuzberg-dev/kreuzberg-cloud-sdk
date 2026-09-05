@@ -15,20 +15,41 @@
 
 import createOpenApiClient, { type Client } from "openapi-fetch";
 import type { paths } from "./_generated/api.js";
+import {
+  DEFAULT_BACKOFF_FACTOR,
+  DEFAULT_ENTERPRISE_BASE_URL,
+  DEFAULT_RETRY_BACKOFF_CAP_MS,
+  buildQueryString,
+  defaultSleep,
+  describeFile,
+  nextBackoffInterval,
+  parseRetryAfterHeader,
+  resolveBaseUrl,
+  toBlob,
+} from "./_internal.js";
+import type { BackoffStrategy, FileLike, QueryParams, Target } from "./_internal.js";
 import { RateLimitError, TimeoutError, XbergError, raiseForStatus } from "./errors.js";
 import type {
   AuthConfigResponse,
+  AutoTuneCapabilitiesResponse,
+  AutoTuneJobStatus,
+  AutoTuneResult,
   BeginOAuthResponse,
   ConfirmUploadRequest,
   ConfirmUploadResponse,
   CreateApiKeyRequest,
   CreateApiKeyResponse,
+  CreateAutoTuneJobRequest,
+  CreateAutoTuneJobResponse,
   CreateIntegrationRequest,
   CreateProjectRequest,
   CreateSavedPresetRequest,
   CreateSavedPresetResponse,
   DiffResponse,
   DocumentVersionEntry,
+  EnrichJobStatus,
+  EnrichJobSubmitted,
+  EnrichTextRequest,
   ExtractResponse,
   ExtractionOptions,
   IntegrationResponse,
@@ -36,11 +57,14 @@ import type {
   JobResult,
   ListApiKeysResponse,
   ListAuditEntriesResponse,
+  ListAutoTuneJobsResponse,
   ListDocumentsResponse,
+  ListExtractionEventsResponse,
   ListIntegrationsResponse,
   ListJobsResponse,
   ListProjectsResponse,
   ListSavedPresetsResponse,
+  ListTuningProfilesResponse,
   LoginRequest,
   LoginResponse,
   PresetDetail,
@@ -48,34 +72,45 @@ import type {
   PresignUploadRequest,
   PresignUploadResponse,
   ProjectResponse,
+  PromoteProfileRequest,
   RagConfigResponse,
+  SavedPresetDetail,
   SetRagConfigRequest,
+  TuningProfileDetail,
+  UpdateSavedPresetRequest,
+  UpdateSavedPresetResponse,
   UsageResponse,
   WebhookConfig,
 } from "./types.js";
 import { SUCCESS_JOB_STATUSES, TERMINAL_JOB_STATUSES } from "./types.js";
 import { VERSION } from "./version.js";
 
-const DEFAULT_ENTERPRISE_BASE_URL = "https://api.xberg.io";
+/**
+ * Public types that live in the internal helper module because the helpers
+ * there operate on them; re-exported so `./client.js` stays their import site.
+ */
+export type { BackoffStrategy, FileLike, Target } from "./_internal.js";
+
 const USER_AGENT = `xberg-io-sdk-typescript/${VERSION}`;
 const DEFAULT_TIMEOUT_MS = 30_000;
 const DEFAULT_POLL_INTERVAL_MS = 1_000;
 const DEFAULT_WAIT_TIMEOUT_MS = 5 * 60_000;
 const DEFAULT_RETRY_STATUSES: readonly number[] = [429, 502, 503, 504];
 const DEFAULT_RETRY_BACKOFF_BASE_MS = 200;
-const DEFAULT_RETRY_BACKOFF_CAP_MS = 30_000;
-const DEFAULT_BACKOFF_FACTOR = 2;
 
 /**
- * Backoff strategy for retries and `waitForJob` polling.
- *
- * - `exponential` — interval doubles after every attempt, capped at 30s.
- * - `constant` — interval stays the same on every attempt.
+ * Saved presets are the one shared resource whose *path* differs per tier:
+ * Enterprise serves `/v1/saved_presets` (underscore), Pro `/v1/saved-presets`
+ * (hyphen). The request and response schemas are identical.
  */
-export type BackoffStrategy = "exponential" | "constant";
-
-/** Which product the client targets. */
-export type Target = "enterprise" | "pro";
+const SAVED_PRESETS_PATH_ENTERPRISE = "/v1/saved_presets";
+const SAVED_PRESETS_PATH_PRO = "/v1/saved-presets";
+const AUTO_TUNE_PATH = "/v1/auto-tune";
+const TUNING_PROFILES_PATH = "/v1/tuning-profiles";
+const ENRICH_PATH = "/v1/enrich";
+const EXTRACTIONS_PATH = "/v1/extractions";
+const DOCUMENTS_PATH = "/v1/documents";
+const JOBS_PATH = "/v1/jobs";
 
 export interface XbergClientOptions {
   apiKey?: string;
@@ -95,8 +130,6 @@ export interface XbergClientOptions {
   /** Sleep helper, swappable in tests. Defaults to `setTimeout`. */
   sleep?: (ms: number) => Promise<void>;
 }
-
-export type FileLike = File | Blob | Uint8Array | { name?: string; data: Blob | Uint8Array; mimeType?: string };
 
 export interface ExtractParams {
   file: FileLike;
@@ -132,10 +165,24 @@ export interface AuditParams {
   offset?: number;
 }
 
-/** Offset pagination accepted by the Pro control-plane list endpoints. */
+/** Offset pagination accepted by the paginated list endpoints. */
 export interface PaginationParams {
   limit?: number;
   offset?: number;
+}
+
+/** Filters accepted by `listExtractionEvents`. */
+export interface ListExtractionEventsParams extends PaginationParams {
+  /** How many days to look back. Defaults to 30 server-side, clamped to 1..=365. */
+  days?: number;
+}
+
+/** The two multipart parts `submitAutoTune` sends. */
+export interface SubmitAutoTuneParams {
+  /** JSON-encoded into the required `request` part. */
+  request: CreateAutoTuneJobRequest;
+  /** One binary `file` part per document referenced by `request.documents[].filename`. */
+  files: readonly FileLike[];
 }
 
 /** Filters accepted by `listIntegrationDocuments`. */
@@ -148,27 +195,8 @@ export interface ListIntegrationDocumentsParams {
   maxResults?: number;
 }
 
-/** Query-string values accepted by the internal request engine. */
-type QueryParams = Record<string, string | number | undefined>;
-
 /** Underlying `openapi-fetch` client, typed over the Enterprise API schema. */
 export type XbergRawClient = Client<paths>;
-
-/**
- * Resolve the effective base URL, enforcing that Pro requires an explicit one.
- */
-function resolveBaseUrl(baseUrl: string | undefined, target: Target | undefined): string {
-  if (baseUrl !== undefined) {
-    return baseUrl.replace(/\/+$/, "");
-  }
-  if (target === "pro") {
-    throw new XbergError(
-      "Xberg Pro has no default base URL (its spec ships no servers block); pass baseUrl pointing at your Pro instance.",
-      { status: 0, body: null },
-    );
-  }
-  return DEFAULT_ENTERPRISE_BASE_URL;
-}
 
 /**
  * High-level dual-target client. Construct with `new XbergClient({ apiKey })`.
@@ -270,7 +298,7 @@ export class XbergClient {
 
   /** Fetch the current state of a job. */
   public async getJob(jobId: string): Promise<Job> {
-    return await this.requestJson<Job>("GET", `/v1/jobs/${encodeURIComponent(jobId)}`);
+    return await this.requestJson<Job>("GET", `${JOBS_PATH}/${encodeURIComponent(jobId)}`);
   }
 
   /**
@@ -281,12 +309,12 @@ export class XbergClient {
    * returns the job's metadata record.
    */
   public async getJobResult(jobId: string): Promise<JobResult> {
-    return await this.requestJson<JobResult>("GET", `/v1/jobs/${encodeURIComponent(jobId)}/result`);
+    return await this.requestJson<JobResult>("GET", `${JOBS_PATH}/${encodeURIComponent(jobId)}/result`);
   }
 
   /** List jobs (paginated) via `GET /v1/jobs`. */
   public async listJobs(params: ListJobsParams = {}): Promise<ListJobsResponse> {
-    return await this.requestJson<ListJobsResponse>("GET", "/v1/jobs", {
+    return await this.requestJson<ListJobsResponse>("GET", JOBS_PATH, {
       params: { limit: params.limit, offset: params.offset },
     });
   }
@@ -431,6 +459,118 @@ export class XbergClient {
     return await this.requestJson("GET", `/v1/rag/jobs/${encodeURIComponent(jobId)}`);
   }
 
+  // -- Shared saved presets ----------------------------------------------
+  //
+  // Both tiers serve the same schemas under a different spelling, so every
+  // method here resolves the tier and renders its path from it.
+
+  /** List the project's saved presets (`GET /v1/saved_presets`, `/v1/saved-presets` on Pro). */
+  public async listSavedPresets(params: PaginationParams = {}): Promise<ListSavedPresetsResponse> {
+    const path = await this.savedPresetsPath();
+    return await this.requestJson<ListSavedPresetsResponse>("GET", path, {
+      params: { limit: params.limit, offset: params.offset },
+    });
+  }
+
+  /** Create a saved preset (`POST /v1/saved_presets`, `/v1/saved-presets` on Pro). */
+  public async createSavedPreset(body: CreateSavedPresetRequest): Promise<CreateSavedPresetResponse> {
+    const path = await this.savedPresetsPath();
+    return await this.requestJson<CreateSavedPresetResponse>("POST", path, { json: body });
+  }
+
+  /** Fetch one saved preset (`GET /v1/saved_presets/{presetId}`, `/v1/saved-presets/{id}` on Pro). */
+  public async getSavedPreset(presetId: string): Promise<SavedPresetDetail> {
+    const path = await this.savedPresetsPath(presetId);
+    return await this.requestJson<SavedPresetDetail>("GET", path);
+  }
+
+  /** Update a saved preset (`PATCH /v1/saved_presets/{presetId}`, `/v1/saved-presets/{id}` on Pro). */
+  public async updateSavedPreset(presetId: string, body: UpdateSavedPresetRequest): Promise<UpdateSavedPresetResponse> {
+    const path = await this.savedPresetsPath(presetId);
+    return await this.requestJson<UpdateSavedPresetResponse>("PATCH", path, { json: body });
+  }
+
+  /** Delete a saved preset (`DELETE /v1/saved_presets/{presetId}`, `/v1/saved-presets/{id}` on Pro). */
+  public async deleteSavedPreset(presetId: string): Promise<void> {
+    const path = await this.savedPresetsPath(presetId);
+    await this.requestJson("DELETE", path);
+  }
+
+  // -- Shared auto-tune surface ------------------------------------------
+
+  /** List the project's auto-tune jobs (`GET /v1/auto-tune`). */
+  public async listAutoTuneJobs(params: PaginationParams = {}): Promise<ListAutoTuneJobsResponse> {
+    return await this.requestJson<ListAutoTuneJobsResponse>("GET", AUTO_TUNE_PATH, {
+      params: { limit: params.limit, offset: params.offset },
+    });
+  }
+
+  /**
+   * Submit an auto-tune job (`POST /v1/auto-tune`). Sent as `multipart/form-data`:
+   * a JSON `request` part plus one binary `file` part per document.
+   */
+  public async submitAutoTune(params: SubmitAutoTuneParams): Promise<CreateAutoTuneJobResponse> {
+    if (params.files.length === 0) {
+      throw new XbergError("submitAutoTune called with no files", { status: 400, body: null });
+    }
+    const form = new FormData();
+    form.append("request", JSON.stringify(params.request));
+    for (const file of params.files) {
+      const { blob, filename } = toBlob(file);
+      form.append("file", blob, filename);
+    }
+    return await this.requestJson<CreateAutoTuneJobResponse>("POST", AUTO_TUNE_PATH, { body: form });
+  }
+
+  /** Fetch the deployment's tunable knobs and OCR backends (`GET /v1/auto-tune/capabilities`). */
+  public async getAutoTuneCapabilities(): Promise<AutoTuneCapabilitiesResponse> {
+    return await this.requestJson<AutoTuneCapabilitiesResponse>("GET", `${AUTO_TUNE_PATH}/capabilities`);
+  }
+
+  /** Fetch an auto-tune job's status (`GET /v1/auto-tune/{id}`). */
+  public async getAutoTuneStatus(autoTuneJobId: string): Promise<AutoTuneJobStatus> {
+    return await this.requestJson<AutoTuneJobStatus>("GET", this.autoTunePath(autoTuneJobId));
+  }
+
+  /** Delete an auto-tune job (`DELETE /v1/auto-tune/{id}`). */
+  public async deleteAutoTuneJob(autoTuneJobId: string): Promise<void> {
+    await this.requestJson("DELETE", this.autoTunePath(autoTuneJobId));
+  }
+
+  /** Promote an auto-tune result to a named tuning profile (`POST /v1/auto-tune/{id}/promote`). */
+  public async promoteAutoTuneProfile(
+    autoTuneJobId: string,
+    body: PromoteProfileRequest,
+  ): Promise<TuningProfileDetail> {
+    return await this.requestJson<TuningProfileDetail>("POST", `${this.autoTunePath(autoTuneJobId)}/promote`, {
+      json: body,
+    });
+  }
+
+  /** Fetch a completed auto-tune job's result (`GET /v1/auto-tune/{id}/result`). */
+  public async getAutoTuneResult(autoTuneJobId: string): Promise<AutoTuneResult> {
+    return await this.requestJson<AutoTuneResult>("GET", `${this.autoTunePath(autoTuneJobId)}/result`);
+  }
+
+  // -- Shared tuning profiles --------------------------------------------
+
+  /** List the project's tuning profiles (`GET /v1/tuning-profiles`). */
+  public async listTuningProfiles(params: PaginationParams = {}): Promise<ListTuningProfilesResponse> {
+    return await this.requestJson<ListTuningProfilesResponse>("GET", TUNING_PROFILES_PATH, {
+      params: { limit: params.limit, offset: params.offset },
+    });
+  }
+
+  /** Fetch one tuning profile (`GET /v1/tuning-profiles/{id}`). */
+  public async getTuningProfile(profileId: string): Promise<TuningProfileDetail> {
+    return await this.requestJson<TuningProfileDetail>("GET", this.tuningProfilePath(profileId));
+  }
+
+  /** Delete a tuning profile (`DELETE /v1/tuning-profiles/{id}`). */
+  public async deleteTuningProfile(profileId: string): Promise<void> {
+    await this.requestJson("DELETE", this.tuningProfilePath(profileId));
+  }
+
   // -- Pro-only surface --------------------------------------------------
 
   /** Pro only: fetch the instance's accepted auth methods (`GET /auth/config`). */
@@ -443,24 +583,6 @@ export class XbergClient {
   public async login(body: LoginRequest): Promise<LoginResponse> {
     await this.requireTier("pro", "login");
     return this.requestJson<LoginResponse>("POST", "/auth/login", { json: body });
-  }
-
-  /** Pro only: list saved presets (`GET /v1/saved-presets`). */
-  public async listSavedPresets(): Promise<ListSavedPresetsResponse> {
-    await this.requireTier("pro", "listSavedPresets");
-    return this.requestJson<ListSavedPresetsResponse>("GET", "/v1/saved-presets");
-  }
-
-  /** Pro only: create a saved preset (`POST /v1/saved-presets`). */
-  public async createSavedPreset(body: CreateSavedPresetRequest): Promise<CreateSavedPresetResponse> {
-    await this.requireTier("pro", "createSavedPreset");
-    return this.requestJson<CreateSavedPresetResponse>("POST", "/v1/saved-presets", { json: body });
-  }
-
-  /** Pro only: delete a saved preset (`DELETE /v1/saved-presets/{id}`). */
-  public async deleteSavedPreset(presetId: string): Promise<unknown> {
-    await this.requireTier("pro", "deleteSavedPreset");
-    return this.requestJson("DELETE", `/v1/saved-presets/${encodeURIComponent(presetId)}`);
   }
 
   /** Pro only: fetch a project's RAG config (`GET /v1/projects/{projectId}/rag-config`). */
@@ -593,24 +715,65 @@ export class XbergClient {
 
   // -- Enterprise-only surface ------------------------------------------
 
+  /**
+   * Enterprise only: fetch a document's latest version with its extraction
+   * result (`GET /v1/documents/{documentId}`). The spec declares an inline
+   * schema, so the body is returned untyped.
+   */
+  public async getDocument(documentId: string): Promise<unknown> {
+    await this.requireTier("enterprise", "getDocument");
+    return this.requestJson("GET", this.documentPath(documentId));
+  }
+
   /** Enterprise only: list a document's versions (`GET /v1/documents/{id}/versions`). */
   public async versions(documentId: string): Promise<DocumentVersionEntry[]> {
     await this.requireTier("enterprise", "versions");
-    return this.requestJson<DocumentVersionEntry[]>("GET", `/v1/documents/${encodeURIComponent(documentId)}/versions`);
+    return this.requestJson<DocumentVersionEntry[]>("GET", `${this.documentPath(documentId)}/versions`);
   }
 
   /** Enterprise only: diff document versions (`GET /v1/documents/{id}/diff`). */
   public async diff(documentId: string, params?: QueryParams): Promise<DiffResponse> {
     await this.requireTier("enterprise", "diff");
     const init: RequestParts = params !== undefined ? { params } : {};
-    return this.requestJson<DiffResponse>("GET", `/v1/documents/${encodeURIComponent(documentId)}/diff`, init);
+    return this.requestJson<DiffResponse>("GET", `${this.documentPath(documentId)}/diff`, init);
   }
 
   /** Enterprise only: poll a diff job (`GET /v1/documents/{id}/diff/{diffJobId}`). */
   public async getDiffJob(documentId: string, diffJobId: string): Promise<DiffResponse> {
     await this.requireTier("enterprise", "getDiffJob");
-    const path = `/v1/documents/${encodeURIComponent(documentId)}/diff/${encodeURIComponent(diffJobId)}`;
+    const path = `${this.documentPath(documentId)}/diff/${encodeURIComponent(diffJobId)}`;
     return this.requestJson<DiffResponse>("GET", path);
+  }
+
+  /** Enterprise only: list the project's extraction events (`GET /v1/extractions`). */
+  public async listExtractionEvents(params: ListExtractionEventsParams = {}): Promise<ListExtractionEventsResponse> {
+    await this.requireTier("enterprise", "listExtractionEvents");
+    return this.requestJson<ListExtractionEventsResponse>("GET", EXTRACTIONS_PATH, {
+      params: { days: params.days, limit: params.limit, offset: params.offset },
+    });
+  }
+
+  /**
+   * Enterprise only: download one rendered page of an extraction job
+   * (`GET /v1/jobs/{jobId}/pages/{pageNumber}`). The response is a PNG image —
+   * raw bytes, not JSON. `pageNumber` is 1-indexed.
+   */
+  public async getJobPage(jobId: string, pageNumber: number): Promise<Uint8Array> {
+    await this.requireTier("enterprise", "getJobPage");
+    const path = `${JOBS_PATH}/${encodeURIComponent(jobId)}/pages/${encodeURIComponent(String(pageNumber))}`;
+    return this.requestBytes("GET", path);
+  }
+
+  /** Enterprise only: submit text for enrichment (`POST /v1/enrich`). */
+  public async submitEnrich(body: EnrichTextRequest): Promise<EnrichJobSubmitted> {
+    await this.requireTier("enterprise", "submitEnrich");
+    return this.requestJson<EnrichJobSubmitted>("POST", ENRICH_PATH, { json: body });
+  }
+
+  /** Enterprise only: fetch an enrichment job's status (`GET /v1/enrich/{jobId}`). */
+  public async getEnrichStatus(jobId: string): Promise<EnrichJobStatus> {
+    await this.requireTier("enterprise", "getEnrichStatus");
+    return this.requestJson<EnrichJobStatus>("GET", `${ENRICH_PATH}/${encodeURIComponent(jobId)}`);
   }
 
   /** Enterprise only: request a presigned upload URL (`POST /v1/uploads/presign`). */
@@ -642,6 +805,32 @@ export class XbergClient {
   /** Build `/v1/projects/{projectId}/integrations/{integrationId}`. */
   private integrationPath(projectId: string, integrationId: string): string {
     return `${this.projectPath(projectId)}/integrations/${encodeURIComponent(integrationId)}`;
+  }
+
+  /** Build `/v1/documents/{documentId}` with the id percent-encoded. */
+  private documentPath(documentId: string): string {
+    return `${DOCUMENTS_PATH}/${encodeURIComponent(documentId)}`;
+  }
+
+  /** Build `/v1/auto-tune/{id}` with the id percent-encoded. */
+  private autoTunePath(autoTuneJobId: string): string {
+    return `${AUTO_TUNE_PATH}/${encodeURIComponent(autoTuneJobId)}`;
+  }
+
+  /** Build `/v1/tuning-profiles/{id}` with the id percent-encoded. */
+  private tuningProfilePath(profileId: string): string {
+    return `${TUNING_PROFILES_PATH}/${encodeURIComponent(profileId)}`;
+  }
+
+  /**
+   * Resolve the tier and render the saved-preset path in that tier's spelling:
+   * `/v1/saved-presets` on Pro, `/v1/saved_presets` everywhere else. Pass a
+   * `presetId` for the single-preset routes.
+   */
+  private async savedPresetsPath(presetId?: string): Promise<string> {
+    const tier = await this.resolveTier();
+    const base = tier === "pro" ? SAVED_PRESETS_PATH_PRO : SAVED_PRESETS_PATH_ENTERPRISE;
+    return presetId === undefined ? base : `${base}/${encodeURIComponent(presetId)}`;
   }
 
   /**
@@ -779,103 +968,4 @@ export function createClient(options: CreateClientOptions = {}): XbergRawClient 
     headers,
     ...(options.fetch !== undefined ? { fetch: options.fetch } : {}),
   });
-}
-
-function defaultSleep(ms: number): Promise<void> {
-  return new Promise((resolve) => {
-    setTimeout(resolve, ms);
-  });
-}
-
-function buildQueryString(params: QueryParams | undefined): string {
-  if (params === undefined) {
-    return "";
-  }
-  const search = new URLSearchParams();
-  for (const [key, value] of Object.entries(params)) {
-    if (value !== undefined) {
-      search.append(key, String(value));
-    }
-  }
-  const query = search.toString();
-  return query.length > 0 ? `?${query}` : "";
-}
-
-function nextBackoffInterval(current: number, strategy: BackoffStrategy): number {
-  if (strategy === "constant") {
-    return current;
-  }
-  return Math.min(current * DEFAULT_BACKOFF_FACTOR, DEFAULT_RETRY_BACKOFF_CAP_MS);
-}
-
-function parseRetryAfterHeader(value: string | null): number | undefined {
-  if (value === null) {
-    return undefined;
-  }
-  const seconds = Number(value);
-  if (Number.isFinite(seconds) && seconds >= 0) {
-    return seconds;
-  }
-  const parsed = Date.parse(value);
-  if (Number.isNaN(parsed)) {
-    return undefined;
-  }
-  return Math.max(0, Math.ceil((parsed - Date.now()) / 1000));
-}
-
-/** Convert a {@link FileLike} input into a `Blob` plus best-guess filename. */
-function toBlob(file: FileLike): { blob: Blob; filename: string } {
-  if (typeof File !== "undefined" && file instanceof File) {
-    return { blob: file, filename: file.name };
-  }
-  if (file instanceof Blob) {
-    return { blob: file, filename: "upload.bin" };
-  }
-  if (file instanceof Uint8Array) {
-    return {
-      blob: new Blob([new Uint8Array(file)], { type: "application/octet-stream" }),
-      filename: "upload.bin",
-    };
-  }
-  const wrapper = file;
-  const name = wrapper.name ?? "upload.bin";
-  const mimeType = wrapper.mimeType ?? guessMimeType(name);
-  if (wrapper.data instanceof Blob) {
-    return { blob: wrapper.data, filename: name };
-  }
-  return {
-    blob: new Blob([new Uint8Array(wrapper.data)], { type: mimeType }),
-    filename: name,
-  };
-}
-
-function guessMimeType(filename: string): string {
-  const lower = filename.toLowerCase();
-  if (lower.endsWith(".csv")) {
-    return "text/csv";
-  }
-  if (lower.endsWith(".md")) {
-    return "text/markdown";
-  }
-  if (lower.endsWith(".pdf")) {
-    return "application/pdf";
-  }
-  if (lower.endsWith(".txt")) {
-    return "text/plain";
-  }
-  if (lower.endsWith(".docx")) {
-    return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
-  }
-  return "application/octet-stream";
-}
-
-/** Guess a display name for a file (used to populate `Job.filename`). */
-function describeFile(file: FileLike): string {
-  if (typeof File !== "undefined" && file instanceof File) {
-    return file.name;
-  }
-  if (file instanceof Blob || file instanceof Uint8Array) {
-    return "upload.bin";
-  }
-  return file.name ?? "upload.bin";
 }

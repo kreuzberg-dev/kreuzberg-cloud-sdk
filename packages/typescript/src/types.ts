@@ -34,6 +34,30 @@ export type JobResult = components["schemas"]["JobResult"];
 /** A non-fatal per-document error attached to a {@link JobResult}. */
 export type JobResultError = components["schemas"]["JobResultError"];
 
+// -- Shared saved presets (both specs declare these identically) --
+export type ListSavedPresetsResponse = components["schemas"]["ListSavedPresetsResponse"];
+export type SavedPresetSummary = components["schemas"]["SavedPresetSummary"];
+export type SavedPresetDetail = components["schemas"]["SavedPresetDetail"];
+export type CreateSavedPresetRequest = components["schemas"]["CreateSavedPresetRequest"];
+export type CreateSavedPresetResponse = components["schemas"]["CreateSavedPresetResponse"];
+export type UpdateSavedPresetRequest = components["schemas"]["UpdateSavedPresetRequest"];
+export type UpdateSavedPresetResponse = components["schemas"]["UpdateSavedPresetResponse"];
+
+// -- Shared auto-tune surface (both specs declare these identically) --
+export type ListAutoTuneJobsResponse = components["schemas"]["ListAutoTuneJobsResponse"];
+export type AutoTuneJobSummary = components["schemas"]["AutoTuneJobSummary"];
+export type CreateAutoTuneJobRequest = components["schemas"]["CreateAutoTuneJobRequest"];
+export type CreateAutoTuneJobResponse = components["schemas"]["CreateAutoTuneJobResponse"];
+export type AutoTuneCapabilitiesResponse = components["schemas"]["AutoTuneCapabilitiesResponse"];
+export type AutoTuneJobStatus = components["schemas"]["AutoTuneJobStatus"];
+export type AutoTuneResult = components["schemas"]["AutoTuneResult"];
+export type PromoteProfileRequest = components["schemas"]["PromoteProfileRequest"];
+
+// -- Shared tuning profiles (both specs declare these identically) --
+export type ListTuningProfilesResponse = components["schemas"]["ListTuningProfilesResponse"];
+export type TuningProfileSummary = components["schemas"]["TuningProfileSummary"];
+export type TuningProfileDetail = components["schemas"]["TuningProfileDetail"];
+
 // -- Enterprise-only surface (api schema) --
 export type UsageResponse = components["schemas"]["UsageResponse"];
 export type DiffResponse = components["schemas"]["DiffResponse"];
@@ -42,16 +66,18 @@ export type PresignUploadRequest = components["schemas"]["PresignUploadRequest"]
 export type PresignUploadResponse = components["schemas"]["PresignUploadResponse"];
 export type ConfirmUploadRequest = components["schemas"]["ConfirmUploadRequest"];
 export type ConfirmUploadResponse = components["schemas"]["ConfirmUploadResponse"];
+export type EnrichTextRequest = components["schemas"]["EnrichTextRequest"];
+export type EnrichRequestOptions = components["schemas"]["EnrichRequestOptions"];
+export type EnrichJobSubmitted = components["schemas"]["EnrichJobSubmitted"];
+export type EnrichJobStatus = components["schemas"]["EnrichJobStatus"];
+export type ListExtractionEventsResponse = components["schemas"]["ListExtractionEventsResponse"];
+export type ExtractionEventSummary = components["schemas"]["ExtractionEventSummary"];
 
 // -- Pro-only surface (pro schema) --
 export type GetJobResponse = proComponents["schemas"]["GetJobResponse"];
 export type AuthConfigResponse = proComponents["schemas"]["AuthConfigResponse"];
 export type LoginRequest = proComponents["schemas"]["LoginRequest"];
 export type LoginResponse = proComponents["schemas"]["LoginResponse"];
-export type ListSavedPresetsResponse = proComponents["schemas"]["ListSavedPresetsResponse"];
-export type SavedPresetDetail = proComponents["schemas"]["SavedPresetDetail"];
-export type CreateSavedPresetRequest = proComponents["schemas"]["CreateSavedPresetRequest"];
-export type CreateSavedPresetResponse = proComponents["schemas"]["CreateSavedPresetResponse"];
 export type SetRagConfigRequest = proComponents["schemas"]["SetRagConfigRequest"];
 export type RagConfigResponse = proComponents["schemas"]["RagConfigResponse"];
 

@@ -462,3 +462,41 @@ func TestGetJobResult_SurfacesNotReadyConflict(t *testing.T) {
 		t.Errorf("Message = %q, want the server-supplied reason", apiErr.Message)
 	}
 }
+
+func TestGetJobPage_ReturnsRawPNGBytes(t *testing.T) {
+	t.Parallel()
+	page := []byte("\x89PNG\r\n\x1a\npage raster")
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v1/jobs/"+jobUUID+"/pages/3" {
+			t.Errorf("path = %q, want /v1/jobs/%s/pages/3", r.URL.Path, jobUUID)
+		}
+		if r.Method != http.MethodGet {
+			t.Errorf("method = %q, want GET", r.Method)
+		}
+		// The route serves image/png, so the SDK must not insist on JSON.
+		if accept := r.Header.Get("Accept"); accept != "*/*" {
+			t.Errorf("Accept = %q, want */*", accept)
+		}
+		w.Header().Set("Content-Type", "image/png")
+		_, _ = w.Write(page)
+	}))
+	defer server.Close()
+	client := mustClient(t, xberg.WithBaseURL(server.URL), xberg.WithTarget(xberg.TargetEnterprise))
+
+	got, err := client.GetJobPage(context.Background(), jobUUID, 3)
+	if err != nil {
+		t.Fatalf("GetJobPage: %v", err)
+	}
+	if string(got) != string(page) {
+		t.Errorf("bytes = %q, want the raw PNG payload", got)
+	}
+}
+
+func TestGetJobPage_RejectsEmptyID(t *testing.T) {
+	t.Parallel()
+	client := mustClient(t, xberg.WithBaseURL("https://example.test"), xberg.WithTarget(xberg.TargetEnterprise))
+	_, err := client.GetJobPage(context.Background(), "", 1)
+	if err == nil || !strings.Contains(err.Error(), "non-empty jobID") {
+		t.Fatalf("error = %v, want it to reject an empty jobID", err)
+	}
+}
