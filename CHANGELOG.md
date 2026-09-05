@@ -14,7 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (TypeScript's `deleteSavedPreset` likewise resolves to `void`), matching the 204 the spec
   declares and the other delete methods.
 - **Rebrand kreuzberg → xberg.** Package identity is now PyPI `xberg-io-sdk` (import
-  `xberg_io_sdk`), npm `@xberg-io/sdk`, Go `github.com/xberg-io/sdks/packages/go/v1`. Main clients
+  `xberg_io_sdk`), npm `@xberg-io/sdk`, Go `github.com/xberg-io/sdks/packages/go`. Main clients
   are `XbergClient` / `AsyncXbergClient`; error base is `XbergError` (the `Auth/Validation/NotFound/
   RateLimit/Server/Timeout` subclasses keep their suffixes). The legal entity `Kreuzberg, Inc.`
   is unchanged.

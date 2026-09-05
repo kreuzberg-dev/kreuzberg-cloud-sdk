@@ -1,4 +1,4 @@
-module github.com/xberg-io/sdks/packages/go/v1
+module github.com/xberg-io/sdks/packages/go
 
 go 1.26
 

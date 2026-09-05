@@ -15,10 +15,10 @@ exclude = [
   "coverage/**",
   "dist/**",
   "node_modules/**",
-  "packages/go/v1/generated_api.go",
-  "packages/go/v1/generated_pro.go",
-  "packages/go/v1/oapi-codegen-pro.gen.yaml",
-  "packages/go/v1/spec-pro.gen.yaml",
+  "packages/go/generated_api.go",
+  "packages/go/generated_pro.go",
+  "packages/go/oapi-codegen-pro.gen.yaml",
+  "packages/go/spec-pro.gen.yaml",
   "packages/python/src/xberg_io_sdk/_generated_api/**",
   "packages/python/src/xberg_io_sdk/_generated_pro/**",
   "packages/typescript/src/_generated/**",
@@ -36,8 +36,8 @@ exclude = [
 # one discrete unit of work.
 # TODO(quality-debt): pay this down file by file and delete each entry as it goes green.
 # Do not add new paths here without a very good reason. ~keep
-"packages/go/v1/extract_test.go" = ["function-too-long"]
-"packages/go/v1/jobs_test.go" = ["cyclomatic-complexity"]
+"packages/go/extract_test.go" = ["function-too-long"]
+"packages/go/jobs_test.go" = ["cyclomatic-complexity"]
 "packages/python/src/xberg_io_sdk/client.py" = ["file-too-long", "type-too-long"]
 "packages/typescript/src/client.ts" = ["type-too-long"]
 # --- end quality-debt baseline ---
@@ -223,10 +223,10 @@ lint = { exclude = [
   "coverage/**",
   "dist/**",
   "node_modules/**",
-  "packages/go/v1/generated_api.go",
-  "packages/go/v1/generated_pro.go",
-  "packages/go/v1/oapi-codegen-pro.gen.yaml",
-  "packages/go/v1/spec-pro.gen.yaml",
+  "packages/go/generated_api.go",
+  "packages/go/generated_pro.go",
+  "packages/go/oapi-codegen-pro.gen.yaml",
+  "packages/go/spec-pro.gen.yaml",
   "packages/python/src/xberg_io_sdk/_generated_api/**",
   "packages/python/src/xberg_io_sdk/_generated_pro/**",
   "packages/typescript/src/_generated/**",
@@ -245,10 +245,10 @@ fmt = { exclude = [
   "coverage/**",
   "dist/**",
   "node_modules/**",
-  "packages/go/v1/generated_api.go",
-  "packages/go/v1/generated_pro.go",
-  "packages/go/v1/oapi-codegen-pro.gen.yaml",
-  "packages/go/v1/spec-pro.gen.yaml",
+  "packages/go/generated_api.go",
+  "packages/go/generated_pro.go",
+  "packages/go/oapi-codegen-pro.gen.yaml",
+  "packages/go/spec-pro.gen.yaml",
   "packages/python/src/xberg_io_sdk/_generated_api/**",
   "packages/python/src/xberg_io_sdk/_generated_pro/**",
   "packages/typescript/src/_generated/**",
@@ -268,10 +268,10 @@ file_safety = { exclude = [
   "coverage/**",
   "dist/**",
   "node_modules/**",
-  "packages/go/v1/generated_api.go",
-  "packages/go/v1/generated_pro.go",
-  "packages/go/v1/oapi-codegen-pro.gen.yaml",
-  "packages/go/v1/spec-pro.gen.yaml",
+  "packages/go/generated_api.go",
+  "packages/go/generated_pro.go",
+  "packages/go/oapi-codegen-pro.gen.yaml",
+  "packages/go/spec-pro.gen.yaml",
   "packages/python/src/xberg_io_sdk/_generated_api/**",
   "packages/python/src/xberg_io_sdk/_generated_pro/**",
   "packages/typescript/src/_generated/**",

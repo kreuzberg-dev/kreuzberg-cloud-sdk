@@ -85,7 +85,7 @@ jobs:
           file_version=$(cat VERSION)
           py_version=$(grep -E '^version = ' packages/python/pyproject.toml | head -1 | sed 's/version = "\(.*\)"/\1/')
           ts_version=$(python3 -c 'import json; print(json.load(open("packages/typescript/package.json"))["version"])')
-          go_version=$(grep -E '^const Version = ' packages/go/v1/version.go | sed 's/.*"\(.*\)".*/\1/')
+          go_version=$(grep -E '^const Version = ' packages/go/version.go | sed 's/.*"\(.*\)".*/\1/')
           for v in "$file_version" "$py_version" "$ts_version" "$go_version"; do
             if [ "$v" != "$VERSION" ]; then
               echo "version mismatch: tag=$VERSION file=$file_version py=$py_version ts=$ts_version go=$go_version" >&2
@@ -245,7 +245,7 @@ jobs:
       - uses: xberg-io/actions/finalize-release@v1
         with:
           tag: ${{ needs.prepare.outputs.tag }}
-          go-module-path: packages/go/v1
+          go-module-path: packages/go
           dry-run: ${{ needs.prepare.outputs.dry_run }}
 
   github-release:

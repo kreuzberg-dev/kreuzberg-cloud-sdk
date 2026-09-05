@@ -8,7 +8,7 @@
 
 <div align="center" style="display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin: 20px 0;">
 
-<a href="https://pkg.go.dev/github.com/xberg-io/sdks/packages/go/v1"><img src="https://img.shields.io/badge/Go-pkg.go.dev-007ec6?logo=go&logoColor=white" alt="Go Reference"></a>
+<a href="https://pkg.go.dev/github.com/xberg-io/sdks/packages/go"><img src="https://img.shields.io/badge/Go-pkg.go.dev-007ec6?logo=go&logoColor=white" alt="Go Reference"></a>
 <a href="https://github.com/xberg-io/sdks/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License"></a>
 <a href="https://enterprise.xberg.io"><img src="https://img.shields.io/badge/docs-enterprise.xberg.io-007ec6" alt="Documentation"></a>
 <a href="https://github.com/xberg-io/sdks/actions/workflows/validate.yml"><img src="https://github.com/xberg-io/sdks/actions/workflows/validate.yml/badge.svg" alt="CI"></a>
@@ -25,7 +25,7 @@ Official Go client for the [Xberg Enterprise](https://enterprise.xberg.io) and
 Xberg Pro document-processing APIs. One `Client` speaks to either product.
 
 ```sh
-go get github.com/xberg-io/sdks/packages/go/v1
+go get github.com/xberg-io/sdks/packages/go
 ```
 
 Requires Go 1.26+.
@@ -99,7 +99,7 @@ import (
     "log"
     "os"
 
-    xberg "github.com/xberg-io/sdks/packages/go/v1"
+    xberg "github.com/xberg-io/sdks/packages/go"
 )
 
 func main() {
@@ -141,7 +141,7 @@ import (
     "log"
     "os"
 
-    xberg "github.com/xberg-io/sdks/packages/go/v1"
+    xberg "github.com/xberg-io/sdks/packages/go"
 )
 
 func main() {

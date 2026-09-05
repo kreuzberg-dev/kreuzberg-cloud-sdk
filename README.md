@@ -11,7 +11,7 @@
 
 <a href="https://pypi.org/project/xberg-io-sdk/"><img src="https://img.shields.io/pypi/v/xberg-io-sdk?label=PyPI&color=007ec6" alt="PyPI"></a>
 <a href="https://www.npmjs.com/package/@xberg-io/sdk"><img src="https://img.shields.io/npm/v/%40xberg-io%2Fsdk?label=npm&color=007ec6" alt="npm"></a>
-<a href="https://pkg.go.dev/github.com/xberg-io/sdks/packages/go/v1"><img src="https://img.shields.io/badge/Go-pkg.go.dev-007ec6?logo=go&logoColor=white" alt="Go Reference"></a>
+<a href="https://pkg.go.dev/github.com/xberg-io/sdks/packages/go"><img src="https://img.shields.io/badge/Go-pkg.go.dev-007ec6?logo=go&logoColor=white" alt="Go Reference"></a>
 <a href="https://github.com/xberg-io/sdks/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License"></a>
 <a href="https://enterprise.xberg.io"><img src="https://img.shields.io/badge/docs-enterprise.xberg.io-007ec6" alt="Documentation"></a>
 <a href="https://github.com/xberg-io/sdks/actions/workflows/validate.yml"><img src="https://github.com/xberg-io/sdks/actions/workflows/validate.yml/badge.svg" alt="CI"></a>
@@ -33,7 +33,7 @@ methods available on that target. Generated from the upstream OpenAPI 3.1 specif
 |----------|---------|----------|---------|
 | Python | `xberg-io-sdk` | [PyPI](https://pypi.org/project/xberg-io-sdk/) | openapi-python-client (httpx) |
 | TypeScript / Node.js | `@xberg-io/sdk` | [npm](https://www.npmjs.com/package/@xberg-io/sdk) | openapi-typescript (openapi-fetch) |
-| Go | `github.com/xberg-io/sdks/packages/go/v1` | [pkg.go.dev](https://pkg.go.dev/github.com/xberg-io/sdks/packages/go/v1) | oapi-codegen |
+| Go | `github.com/xberg-io/sdks/packages/go` | [pkg.go.dev](https://pkg.go.dev/github.com/xberg-io/sdks/packages/go) | oapi-codegen |
 
 ## Install
 
@@ -54,7 +54,7 @@ pnpm add @xberg-io/sdk
 **Go:**
 
 ```sh
-go get github.com/xberg-io/sdks/packages/go/v1
+go get github.com/xberg-io/sdks/packages/go
 ```
 
 For language-specific quickstarts, examples, and API documentation, see the per-language READMEs in `packages/{python,typescript,go/v1}/`.

@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"testing"
 
-	xberg "github.com/xberg-io/sdks/packages/go/v1"
+	xberg "github.com/xberg-io/sdks/packages/go"
 )
 
 const (

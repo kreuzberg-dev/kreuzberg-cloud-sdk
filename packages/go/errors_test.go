@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	xberg "github.com/xberg-io/sdks/packages/go/v1"
+	xberg "github.com/xberg-io/sdks/packages/go"
 )
 
 func TestError_AuthErrorOn401(t *testing.T) {

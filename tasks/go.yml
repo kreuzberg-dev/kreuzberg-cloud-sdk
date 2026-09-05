@@ -3,20 +3,20 @@ version: "3"
 # ~keep The Go SDK ships ONE package (`xberg`) with ONE dual-target client, generated
 # from TWO OpenAPI specs kept as separate schema sets in the same package (never
 # merged; see xberg-enterprise ADR-0072):
-#   - spec/api/openapi.yaml -> packages/go/v1/generated_api.go  (Xberg Enterprise + shared)
-#   - spec/pro/openapi.yaml -> packages/go/v1/generated_pro.go  (Xberg Pro-only)
+#   - spec/api/openapi.yaml -> packages/go/generated_api.go  (Xberg Enterprise + shared)
+#   - spec/pro/openapi.yaml -> packages/go/generated_pro.go  (Xberg Pro-only)
 # No Go identifier may be declared twice in one package, so tools/oapi-pro-config
 # splits what both specs declare. An operation, or a schema whose two definitions
 # generate IDENTICAL Go, is skipped by the Pro generation. A schema the specs
 # declare with DIFFERENT structures cannot be skipped — that would hand Pro the
 # Enterprise shape — so it is renamed behind a `Pro` prefix in a derived copy of
-# the Pro spec (packages/go/v1/spec-pro.gen.yaml), and oapi-codegen reads that
+# the Pro spec (packages/go/spec-pro.gen.yaml), and oapi-codegen reads that
 # copy. The vendored spec is left untouched so `task spec:check` still compares
 # it byte-for-byte with upstream. Both the exclusion set and the renames are
 # DERIVED from the two specs on every run — never hand-maintained — so a spec
 # sync cannot leave them stale.
 vars:
-  PKG_DIR: packages/go/v1
+  PKG_DIR: packages/go
   TOOLS_DIR: tools/oapi-pro-config
   API_SPEC: spec/api/openapi.yaml
   PRO_SPEC: spec/pro/openapi.yaml
@@ -33,7 +33,10 @@ tasks:
     cmds:
       - |
         set -euo pipefail
-        ROOT="$(cd ../../.. && pwd)"
+        # ROOT_DIR is the repo root go-task resolved, so this survives PKG_DIR
+        # moving depth. Counting `../` broke when packages/go/v1 became
+        # packages/go and the spec was looked up a level above the repo.
+        ROOT="{{.ROOT_DIR}}"
         go tool oapi-codegen --config oapi-codegen-api.yaml "$ROOT/{{.API_SPEC}}"
         go run {{.CONFIG_TOOL}} \
           -api "$ROOT/{{.API_SPEC}}" \

@@ -1,6 +1,6 @@
 go 1.26
 
 use (
-	./packages/go/v1
+	./packages/go
 	./tools/oapi-pro-config
 )

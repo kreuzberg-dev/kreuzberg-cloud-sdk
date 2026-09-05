@@ -41,13 +41,13 @@ tools/oapi-pro-config/oapi-pro-config
 packages/python/src/xberg_io_sdk/_generated_api/
 packages/python/src/xberg_io_sdk/_generated_pro/
 packages/typescript/src/_generated/
-packages/go/v1/generated_api.go
-packages/go/v1/generated_pro.go
+packages/go/generated_api.go
+packages/go/generated_pro.go
 # Derived oapi-codegen config for the Pro schema set, and the derived Pro spec
 # it is generated against (both written by tools/oapi-pro-config from
 # oapi-codegen-pro.yaml + both vendored specs).
-packages/go/v1/oapi-codegen-pro.gen.yaml
-packages/go/v1/spec-pro.gen.yaml
+packages/go/oapi-codegen-pro.gen.yaml
+packages/go/spec-pro.gen.yaml
 
 # Editor
 .idea/

@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	xberg "github.com/xberg-io/sdks/packages/go/v1"
+	xberg "github.com/xberg-io/sdks/packages/go"
 )
 
 // jobUUID is a valid UUID used across job fixtures — the generated JobResponse

@@ -1,5 +1,5 @@
 // Build tooling for the Go SDK. Kept in its own module so the published SDK
-// module (packages/go/v1) does not gain a dependency on a YAML parser.
+// module (packages/go) does not gain a dependency on a YAML parser.
 module github.com/xberg-io/sdks/tools/oapi-pro-config
 
 go 1.26

@@ -12,7 +12,7 @@ import (
 	"strings"
 	"testing"
 
-	xberg "github.com/xberg-io/sdks/packages/go/v1"
+	xberg "github.com/xberg-io/sdks/packages/go"
 )
 
 // UUID fixtures for extract tests — the generated JobResponse types its id as a
