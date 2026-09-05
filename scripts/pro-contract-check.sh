@@ -51,11 +51,17 @@ key="$("$root/scripts/pro-project-key.sh" "$api" || true)"
 assert "minted a project API key" key_was_minted
 
 echo "== JobResult"
+# /v1/extract is application/json only: an ExtractRequest carrying base64
+# document bytes. A multipart POST here returns 415.
 job=""
 if [ -n "$key" ]; then
-  job="$(curl -fsS -X POST "$api/v1/extract" -H "Authorization: Bearer $key" \
-    -F "files=@$root/scripts/pro-contract-check.sh;filename=sample.txt" |
-    python3 -c 'import json,sys; d=json.load(sys.stdin); print(d.get("job_id") or d["jobs"][0]["id"])' 2>/dev/null || true)"
+  printf 'contract check sample document\n' |
+    python3 -c 'import base64,json,sys; print(json.dumps({"documents":[{"filename":"sample.txt","mime_type":"text/plain","data":base64.b64encode(sys.stdin.buffer.read()).decode()}]}))' \
+      > /tmp/pro-extract-request.json
+  job="$(curl -fsS -X POST "$api/v1/extract" \
+    -H "Authorization: Bearer $key" -H 'Content-Type: application/json' \
+    --data @/tmp/pro-extract-request.json |
+    python3 -c 'import json,sys; print(json.load(sys.stdin)["job_ids"][0])' 2>/dev/null || true)"
 fi
 
 if [ -z "$job" ]; then
