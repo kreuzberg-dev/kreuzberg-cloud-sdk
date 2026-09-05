@@ -50,6 +50,27 @@ echo "== control plane (the 13 operations no SDK could reach)"
 key="$("$root/scripts/pro-project-key.sh" "$api" || true)"
 assert "minted a project API key" key_was_minted
 
+echo "== paths the tier-dependent and tier-gated operations depend on"
+# Saved presets are why the client was wrong: Enterprise spells the collection
+# `/v1/saved_presets` and Pro spells it `/v1/saved-presets`, and neither serves
+# the other's spelling. The client now picks the spelling from the probed tier,
+# so assert that premise against the server instead of trusting it.
+status_of() { # path
+  curl -o /dev/null -s -w '%{http_code}' "$api$1" -H "Authorization: Bearer $key"
+}
+serves() { [ "$(status_of "$1")" != "404" ]; }
+does_not_serve() { [ "$(status_of "$1")" = "404" ]; }
+
+assert "Pro serves /v1/saved-presets (hyphen)" serves /v1/saved-presets
+assert "Pro does not serve /v1/saved_presets (underscore)" does_not_serve /v1/saved_presets
+assert "Pro serves /v1/auto-tune" serves /v1/auto-tune
+assert "Pro serves /v1/auto-tune/capabilities" serves /v1/auto-tune/capabilities
+assert "Pro serves /v1/tuning-profiles" serves /v1/tuning-profiles
+# Enrich and extraction events are Enterprise-only and the client gates them to
+# that tier, so confirm Pro really does not answer them.
+assert "Pro does not serve /v1/enrich" does_not_serve /v1/enrich
+assert "Pro does not serve /v1/extractions" does_not_serve /v1/extractions
+
 echo "== JobResult"
 # /v1/extract is application/json only: an ExtractRequest carrying base64
 # document bytes. A multipart POST here returns 415.
