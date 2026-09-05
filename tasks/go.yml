@@ -16,6 +16,8 @@ vars:
   PRO_SPEC: spec/pro/openapi.yaml
   PRO_CONFIG_BASE: oapi-codegen-pro.yaml
   PRO_CONFIG_DERIVED: oapi-codegen-pro.gen.yaml
+  # Written by oapi-pro-config beside the derived config; see tools/oapi-pro-config.
+  PRO_SPEC_DERIVED: spec-pro.gen.yaml
   CONFIG_TOOL: github.com/xberg-io/sdks/tools/oapi-pro-config
 
 tasks:
@@ -32,7 +34,9 @@ tasks:
           -pro "$ROOT/{{.PRO_SPEC}}" \
           -base "{{.PRO_CONFIG_BASE}}" \
           -out "{{.PRO_CONFIG_DERIVED}}"
-        go tool oapi-codegen --config "{{.PRO_CONFIG_DERIVED}}" "$ROOT/{{.PRO_SPEC}}"
+        # The derived spec, not the vendored one: oapi-pro-config renames any schema
+        # the two specs declare with different shapes, so both can live in one package.
+        go tool oapi-codegen --config "{{.PRO_CONFIG_DERIVED}}" "{{.PRO_SPEC_DERIVED}}"
       - go fmt ./...
 
   install:

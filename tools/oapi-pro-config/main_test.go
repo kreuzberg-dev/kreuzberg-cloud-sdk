@@ -271,3 +271,202 @@ func equal(got, want []string) bool {
 	}
 	return true
 }
+
+// divergedProSpec is the Pro fixture with JobStatus given a different type, so
+// the two specs declare one name with two shapes.
+func divergedProSpec(t *testing.T, directory string) string {
+	t.Helper()
+	path := filepath.Join(directory, "pro-diverged.yaml")
+	diverged := strings.Replace(proSpecFixture, "    JobStatus:\n      type: string\n",
+		"    JobStatus:\n      type: integer\n", 1)
+	if err := os.WriteFile(path, []byte(diverged), 0o600); err != nil {
+		t.Fatalf("writing fixture: %v", err)
+	}
+	return path
+}
+
+func TestRunKeepsDivergentSharedSchemasOutOfTheExclusionList(t *testing.T) {
+	directory, apiPath, _, basePath, outPath := writeFixtures(t, baseConfigFixture)
+	proPath := divergedProSpec(t, directory)
+
+	if err := run(apiPath, proPath, basePath, outPath); err != nil {
+		t.Fatalf("run: %v", err)
+	}
+
+	// Excluding JobStatus would give Pro the Enterprise `string` type for a
+	// field the Pro API declares as an integer.
+	config := readDerived(t, outPath)
+	if got := config.OutputOptions.ExcludeSchemas; !equal(got, []string{"JobResult"}) {
+		t.Errorf("exclude-schemas = %v, want [JobResult]", got)
+	}
+}
+
+func TestRunRejectsARenameThatWouldCollide(t *testing.T) {
+	directory, apiPath, _, basePath, outPath := writeFixtures(t, baseConfigFixture)
+	diverged := strings.Replace(proSpecFixture, "    JobStatus:\n      type: string\n",
+		"    JobStatus:\n      type: integer\n    ProJobStatus:\n      type: object\n", 1)
+	proPath := filepath.Join(directory, "pro-collision.yaml")
+	if err := os.WriteFile(proPath, []byte(diverged), 0o600); err != nil {
+		t.Fatalf("writing fixture: %v", err)
+	}
+
+	err := run(apiPath, proPath, basePath, outPath)
+	if err == nil {
+		t.Fatal("run accepted a rename onto an already-declared schema name")
+	}
+	if !strings.Contains(err.Error(), "ProJobStatus") {
+		t.Errorf("error = %q, want it to name the colliding type", err)
+	}
+}
+
+func mustRead(t *testing.T, path string) []byte {
+	t.Helper()
+	raw, err := os.ReadFile(path) //nolint:gosec // test fixture path
+	if err != nil {
+		t.Fatalf("reading %s: %v", path, err)
+	}
+	return raw
+}
+
+func TestDivergentClosureFollowsRefsIntoDivergentSchemas(t *testing.T) {
+	// Wrapper is structurally identical in both specs, but it references
+	// JobStatus, which is not. Sharing it would give Pro a Wrapper whose field
+	// is the Enterprise JobStatus.
+	directory := t.TempDir()
+	const wrapper = "    Wrapper:\n      type: object\n      properties:\n        status:\n          $ref: '#/components/schemas/JobStatus'\n"
+
+	apiPath := filepath.Join(directory, "api.yaml")
+	if err := os.WriteFile(apiPath, []byte(apiSpecFixture+wrapper), 0o600); err != nil {
+		t.Fatalf("writing fixture: %v", err)
+	}
+	diverged := strings.Replace(proSpecFixture, "    JobStatus:\n      type: string\n",
+		"    JobStatus:\n      type: integer\n", 1)
+	proPath := filepath.Join(directory, "pro.yaml")
+	if err := os.WriteFile(proPath, []byte(diverged+wrapper), 0o600); err != nil {
+		t.Fatalf("writing fixture: %v", err)
+	}
+
+	apiSpec, err := loadSpec(apiPath)
+	if err != nil {
+		t.Fatalf("loadSpec: %v", err)
+	}
+	proSpec, err := loadSpec(proPath)
+	if err != nil {
+		t.Fatalf("loadSpec: %v", err)
+	}
+
+	shared := []string{"JobResult", "JobStatus", "Wrapper"}
+	if got := divergentClosure(apiSpec, proSpec, shared); !equal(got, []string{"JobStatus", "Wrapper"}) {
+		t.Errorf("divergentClosure = %v, want [JobStatus Wrapper]", got)
+	}
+	// JobResult reaches nothing divergent, so it stays shared.
+	if got := divergentSharedSchemas(apiSpec, proSpec, shared); !equal(got, []string{"JobStatus"}) {
+		t.Errorf("divergentSharedSchemas = %v, want [JobStatus]", got)
+	}
+}
+
+func TestSchemaRefsFindsNestedReferences(t *testing.T) {
+	var schema any
+	if err := yaml.Unmarshal([]byte(
+		"type: object\nproperties:\n  one:\n    $ref: '#/components/schemas/Alpha'\n"+
+			"  many:\n    type: array\n    items:\n      $ref: '#/components/schemas/Beta'\n"), &schema); err != nil {
+		t.Fatalf("parsing fixture: %v", err)
+	}
+
+	refs := schemaRefs(schema)
+	for _, want := range []string{"Alpha", "Beta"} {
+		if _, present := refs[want]; !present {
+			t.Errorf("schemaRefs missing %q (got %v)", want, refs)
+		}
+	}
+	if len(refs) != 2 {
+		t.Errorf("schemaRefs = %v, want exactly 2 entries", refs)
+	}
+}
+
+type derivedSpecDocument struct {
+	Components struct {
+		Schemas map[string]any `yaml:"schemas"`
+	} `yaml:"components"`
+}
+
+func readDerivedSpec(t *testing.T, outPath string) derivedSpecDocument {
+	t.Helper()
+	var document derivedSpecDocument
+	if err := yaml.Unmarshal(mustRead(t, derivedSpecPathFor(outPath)), &document); err != nil {
+		t.Fatalf("parsing derived spec: %v", err)
+	}
+	return document
+}
+
+func TestRunRenamesDivergentSchemasInTheDerivedSpec(t *testing.T) {
+	directory, apiPath, _, basePath, outPath := writeFixtures(t, baseConfigFixture)
+	proPath := divergedProSpec(t, directory)
+
+	if err := run(apiPath, proPath, basePath, outPath); err != nil {
+		t.Fatalf("run: %v", err)
+	}
+
+	schemas := readDerivedSpec(t, outPath).Components.Schemas
+	if _, present := schemas["ProJobStatus"]; !present {
+		t.Error("derived spec has no ProJobStatus")
+	}
+	if _, present := schemas["JobStatus"]; present {
+		// Leaving the old key would redeclare the Enterprise type.
+		t.Error("derived spec still declares JobStatus")
+	}
+	if _, present := schemas["JobResult"]; !present {
+		t.Error("derived spec dropped the untouched JobResult")
+	}
+}
+
+func TestRunRewritesReferencesToRenamedSchemas(t *testing.T) {
+	directory := t.TempDir()
+	const wrapper = "    Wrapper:\n      type: object\n      properties:\n        status:\n          $ref: '#/components/schemas/JobStatus'\n"
+	apiPath := filepath.Join(directory, "api.yaml")
+	if err := os.WriteFile(apiPath, []byte(apiSpecFixture+wrapper), 0o600); err != nil {
+		t.Fatalf("writing fixture: %v", err)
+	}
+	diverged := strings.Replace(proSpecFixture, "    JobStatus:\n      type: string\n",
+		"    JobStatus:\n      type: integer\n", 1)
+	proPath := filepath.Join(directory, "pro.yaml")
+	if err := os.WriteFile(proPath, []byte(diverged+wrapper), 0o600); err != nil {
+		t.Fatalf("writing fixture: %v", err)
+	}
+	basePath := filepath.Join(directory, "base.yaml")
+	if err := os.WriteFile(basePath, []byte(baseConfigFixture), 0o600); err != nil {
+		t.Fatalf("writing fixture: %v", err)
+	}
+	outPath := filepath.Join(directory, "derived.yaml")
+
+	if err := run(apiPath, proPath, basePath, outPath); err != nil {
+		t.Fatalf("run: %v", err)
+	}
+
+	// Wrapper is dragged along by the closure, and its $ref must follow the
+	// rename or it would resolve to the Enterprise JobStatus.
+	body := string(mustRead(t, derivedSpecPathFor(outPath)))
+	if !strings.Contains(body, "#/components/schemas/ProJobStatus") {
+		t.Error("derived spec still references the pre-rename JobStatus")
+	}
+	if strings.Contains(body, "#/components/schemas/JobStatus") {
+		t.Error("derived spec has a dangling reference to the renamed schema")
+	}
+}
+
+func TestRunWritesTheDerivedSpecEvenWhenNothingDiverges(t *testing.T) {
+	_, apiPath, proPath, basePath, outPath := writeFixtures(t, baseConfigFixture)
+
+	if err := run(apiPath, proPath, basePath, outPath); err != nil {
+		t.Fatalf("run: %v", err)
+	}
+
+	// task go:generate always points oapi-codegen at this path, so it has to
+	// exist whether or not a rename happened.
+	schemas := readDerivedSpec(t, outPath).Components.Schemas
+	for _, name := range []string{"JobStatus", "JobResult", "LoginRequest", "HealthResponse"} {
+		if _, present := schemas[name]; !present {
+			t.Errorf("derived spec is missing %q", name)
+		}
+	}
+}
