@@ -17,19 +17,28 @@ import type { paths } from "./_generated/api.js";
 import { RateLimitError, TimeoutError, XbergError, raiseForStatus } from "./errors.js";
 import type {
   AuthConfigResponse,
+  BeginOAuthResponse,
   ConfirmUploadRequest,
   ConfirmUploadResponse,
+  CreateApiKeyRequest,
+  CreateApiKeyResponse,
+  CreateIntegrationRequest,
+  CreateProjectRequest,
   CreateSavedPresetRequest,
   CreateSavedPresetResponse,
   DiffResponse,
   DocumentVersionEntry,
   ExtractResponse,
   ExtractionOptions,
-  GetJobResponse,
+  IntegrationResponse,
   Job,
   JobResult,
+  ListApiKeysResponse,
   ListAuditEntriesResponse,
+  ListDocumentsResponse,
+  ListIntegrationsResponse,
   ListJobsResponse,
+  ListProjectsResponse,
   ListSavedPresetsResponse,
   LoginRequest,
   LoginResponse,
@@ -37,6 +46,7 @@ import type {
   PresetSummary,
   PresignUploadRequest,
   PresignUploadResponse,
+  ProjectResponse,
   RagConfigResponse,
   SetRagConfigRequest,
   UsageResponse,
@@ -119,6 +129,22 @@ export interface AuditParams {
   action?: string;
   limit?: number;
   offset?: number;
+}
+
+/** Offset pagination accepted by the Pro control-plane list endpoints. */
+export interface PaginationParams {
+  limit?: number;
+  offset?: number;
+}
+
+/** Filters accepted by `listIntegrationDocuments`. */
+export interface ListIntegrationDocumentsParams {
+  /** Comma-separated MIME types to restrict the listing to. */
+  mimeTypes?: string;
+  /** Source-specific folder to list instead of the connection root. */
+  folderId?: string;
+  /** Upper bound on the number of documents returned. */
+  maxResults?: number;
 }
 
 /** Query-string values accepted by the internal request engine. */
@@ -243,12 +269,23 @@ export class XbergClient {
 
   /** Fetch the current state of a job. */
   public async getJob(jobId: string): Promise<Job> {
-    return this.requestJson<Job>("GET", `/v1/jobs/${encodeURIComponent(jobId)}`);
+    return await this.requestJson<Job>("GET", `/v1/jobs/${encodeURIComponent(jobId)}`);
+  }
+
+  /**
+   * Fetch a job's stored result document (`GET /v1/jobs/{id}/result`).
+   *
+   * Declared by both tiers with an identical `JobResult` envelope; the
+   * extracted documents live in `results`. Distinct from {@link getJob}, which
+   * returns the job's metadata record.
+   */
+  public async getJobResult(jobId: string): Promise<JobResult> {
+    return await this.requestJson<JobResult>("GET", `/v1/jobs/${encodeURIComponent(jobId)}/result`);
   }
 
   /** List jobs (paginated) via `GET /v1/jobs`. */
   public async listJobs(params: ListJobsParams = {}): Promise<ListJobsResponse> {
-    return this.requestJson<ListJobsResponse>("GET", "/v1/jobs", {
+    return await this.requestJson<ListJobsResponse>("GET", "/v1/jobs", {
       params: { limit: params.limit, offset: params.offset },
     });
   }
@@ -258,7 +295,7 @@ export class XbergClient {
    * {@link TimeoutError} if the wait exceeds `timeoutMs`. Throws
    * {@link XbergError} if the terminal status is `failed` or `cancelled`.
    */
-  public async waitForJob(jobId: string, options: WaitOptions = {}): Promise<JobResult> {
+  public async waitForJob(jobId: string, options: WaitOptions = {}): Promise<Job> {
     const timeoutMs = options.timeoutMs ?? DEFAULT_WAIT_TIMEOUT_MS;
     const initialInterval = options.pollIntervalMs ?? DEFAULT_POLL_INTERVAL_MS;
     const backoff = options.backoff ?? "exponential";
@@ -288,12 +325,12 @@ export class XbergClient {
   }
 
   /** Wait for many jobs in parallel. */
-  public async waitForJobs(jobIds: readonly string[], options: WaitOptions = {}): Promise<JobResult[]> {
-    return Promise.all(jobIds.map((id) => this.waitForJob(id, options)));
+  public async waitForJobs(jobIds: readonly string[], options: WaitOptions = {}): Promise<Job[]> {
+    return await Promise.all(jobIds.map((id) => this.waitForJob(id, options)));
   }
 
   /** Convenience: extract one file and await its result. */
-  public async extractAndWait(params: ExtractAndWaitParams): Promise<JobResult> {
+  public async extractAndWait(params: ExtractAndWaitParams): Promise<Job> {
     const extractParams: ExtractParams = {
       file: params.file,
       ...(params.options !== undefined ? { options: params.options } : {}),
@@ -310,57 +347,74 @@ export class XbergClient {
 
   /** Fetch audit-log entries via `GET /v1/audit`. */
   public async audit(params: AuditParams = {}): Promise<ListAuditEntriesResponse> {
-    return this.requestJson<ListAuditEntriesResponse>("GET", "/v1/audit", {
+    return await this.requestJson<ListAuditEntriesResponse>("GET", "/v1/audit", {
       params: { action: params.action, limit: params.limit, offset: params.offset },
     });
+  }
+
+  // -- Shared preset catalogue -------------------------------------------
+
+  /** List the read-only curated presets (`GET /v1/presets`). */
+  public async presets(): Promise<PresetSummary[]> {
+    return await this.requestJson<PresetSummary[]>("GET", "/v1/presets");
+  }
+
+  /** Fetch one curated preset in full (`GET /v1/presets/{id}`). */
+  public async getPreset(presetId: string): Promise<PresetDetail> {
+    return await this.requestJson<PresetDetail>("GET", `/v1/presets/${encodeURIComponent(presetId)}`);
+  }
+
+  /**
+   * Download a preset's bundled sample file
+   * (`GET /v1/presets/{id}/sample/{name}`). The response is raw bytes, not
+   * JSON.
+   */
+  public async getPresetSample(presetId: string, name: string): Promise<Uint8Array> {
+    const path = `/v1/presets/${encodeURIComponent(presetId)}/sample/${encodeURIComponent(name)}`;
+    return await this.requestBytes("GET", path);
   }
 
   // -- Shared RAG surface ------------------------------------------------
 
   /** List RAG collections (`GET /v1/rag/collections`). */
   public async listRagCollections(): Promise<unknown> {
-    return this.requestJson("GET", "/v1/rag/collections");
+    return await this.requestJson("GET", "/v1/rag/collections");
   }
 
   /** Create a RAG collection (`POST /v1/rag/collections`). */
   public async createRagCollection(body: Record<string, unknown>): Promise<unknown> {
-    return this.requestJson("POST", "/v1/rag/collections", { json: body });
+    return await this.requestJson("POST", "/v1/rag/collections", { json: body });
   }
 
   /** Fetch a RAG collection (`GET /v1/rag/collections/{name}`). */
   public async getRagCollection(name: string): Promise<unknown> {
-    return this.requestJson("GET", `/v1/rag/collections/${encodeURIComponent(name)}`);
+    return await this.requestJson("GET", `/v1/rag/collections/${encodeURIComponent(name)}`);
   }
 
   /** Delete a RAG collection (`DELETE /v1/rag/collections/{name}`). */
   public async deleteRagCollection(name: string): Promise<unknown> {
-    return this.requestJson("DELETE", `/v1/rag/collections/${encodeURIComponent(name)}`);
-  }
-
-  /** List documents in a RAG collection (`GET /v1/rag/collections/{name}/documents`). */
-  public async listRagDocuments(name: string): Promise<unknown> {
-    return this.requestJson("GET", `/v1/rag/collections/${encodeURIComponent(name)}/documents`);
+    return await this.requestJson("DELETE", `/v1/rag/collections/${encodeURIComponent(name)}`);
   }
 
   /** Add documents to a RAG collection (`POST /v1/rag/collections/{name}/documents`). */
   public async addRagDocuments(name: string, body: Record<string, unknown>): Promise<unknown> {
-    return this.requestJson("POST", `/v1/rag/collections/${encodeURIComponent(name)}/documents`, { json: body });
+    return await this.requestJson("POST", `/v1/rag/collections/${encodeURIComponent(name)}/documents`, { json: body });
   }
 
   /** Reindex a RAG document (`POST /v1/rag/collections/{name}/documents/{id}/reindex`). */
   public async reindexRagDocument(name: string, documentId: string, body?: Record<string, unknown>): Promise<unknown> {
     const path = `/v1/rag/collections/${encodeURIComponent(name)}/documents/${encodeURIComponent(documentId)}/reindex`;
-    return this.requestJson("POST", path, body !== undefined ? { json: body } : {});
+    return await this.requestJson("POST", path, body !== undefined ? { json: body } : {});
   }
 
   /** Retrieve chunks from a RAG collection (`POST /v1/rag/collections/{name}/retrieve`). */
   public async ragRetrieve(name: string, body: Record<string, unknown>): Promise<unknown> {
-    return this.requestJson("POST", `/v1/rag/collections/${encodeURIComponent(name)}/retrieve`, { json: body });
+    return await this.requestJson("POST", `/v1/rag/collections/${encodeURIComponent(name)}/retrieve`, { json: body });
   }
 
   /** Kick off an embedding migration (`POST /v1/rag/collections/{name}/migrate-embeddings`). */
   public async migrateRagEmbeddings(name: string, body: Record<string, unknown>): Promise<unknown> {
-    return this.requestJson("POST", `/v1/rag/collections/${encodeURIComponent(name)}/migrate-embeddings`, {
+    return await this.requestJson("POST", `/v1/rag/collections/${encodeURIComponent(name)}/migrate-embeddings`, {
       json: body,
     });
   }
@@ -368,12 +422,12 @@ export class XbergClient {
   /** Poll an embedding-migration job (`GET .../migrate-embeddings/{jobId}`). */
   public async getRagMigrationJob(name: string, jobId: string): Promise<unknown> {
     const path = `/v1/rag/collections/${encodeURIComponent(name)}/migrate-embeddings/${encodeURIComponent(jobId)}`;
-    return this.requestJson("GET", path);
+    return await this.requestJson("GET", path);
   }
 
   /** Fetch a RAG job's status (`GET /v1/rag/jobs/{jobId}`). */
   public async getRagJob(jobId: string): Promise<unknown> {
-    return this.requestJson("GET", `/v1/rag/jobs/${encodeURIComponent(jobId)}`);
+    return await this.requestJson("GET", `/v1/rag/jobs/${encodeURIComponent(jobId)}`);
   }
 
   // -- Pro-only surface --------------------------------------------------
@@ -408,12 +462,6 @@ export class XbergClient {
     return this.requestJson("DELETE", `/v1/saved-presets/${encodeURIComponent(presetId)}`);
   }
 
-  /** Pro only: fetch a job's stored result document (`GET /v1/jobs/{id}/result`). */
-  public async getJobResult(jobId: string): Promise<GetJobResponse> {
-    await this.requireTier("pro", "getJobResult");
-    return this.requestJson<GetJobResponse>("GET", `/v1/jobs/${encodeURIComponent(jobId)}/result`);
-  }
-
   /** Pro only: fetch a project's RAG config (`GET /v1/projects/{projectId}/rag-config`). */
   public async getRagConfig(projectId: string): Promise<RagConfigResponse> {
     await this.requireTier("pro", "getRagConfig");
@@ -426,6 +474,120 @@ export class XbergClient {
     return this.requestJson<RagConfigResponse>("PUT", `/v1/projects/${encodeURIComponent(projectId)}/rag-config`, {
       json: body,
     });
+  }
+
+  // -- Pro-only control plane (projects, API keys, integrations) ---------
+
+  /** Pro only: list the caller's projects (`GET /v1/projects`). */
+  public async listProjects(params: PaginationParams = {}): Promise<ListProjectsResponse> {
+    await this.requireTier("pro", "listProjects");
+    return this.requestJson<ListProjectsResponse>("GET", "/v1/projects", {
+      params: { limit: params.limit, offset: params.offset },
+    });
+  }
+
+  /** Pro only: create a project owned by the caller (`POST /v1/projects`). */
+  public async createProject(body: CreateProjectRequest): Promise<ProjectResponse> {
+    await this.requireTier("pro", "createProject");
+    return this.requestJson<ProjectResponse>("POST", "/v1/projects", { json: body });
+  }
+
+  /** Pro only: list a project's API keys (`GET /v1/projects/{projectId}/api-keys`). */
+  public async listApiKeys(projectId: string, params: PaginationParams = {}): Promise<ListApiKeysResponse> {
+    await this.requireTier("pro", "listApiKeys");
+    return this.requestJson<ListApiKeysResponse>("GET", `${this.projectPath(projectId)}/api-keys`, {
+      params: { limit: params.limit, offset: params.offset },
+    });
+  }
+
+  /** Pro only: mint an API key for a project (`POST /v1/projects/{projectId}/api-keys`). */
+  public async createApiKey(projectId: string, body: CreateApiKeyRequest): Promise<CreateApiKeyResponse> {
+    await this.requireTier("pro", "createApiKey");
+    return this.requestJson<CreateApiKeyResponse>("POST", `${this.projectPath(projectId)}/api-keys`, { json: body });
+  }
+
+  /** Pro only: revoke an API key (`DELETE /v1/projects/{projectId}/api-keys/{keyId}`). */
+  public async revokeApiKey(projectId: string, keyId: string): Promise<void> {
+    await this.requireTier("pro", "revokeApiKey");
+    await this.requestJson("DELETE", `${this.projectPath(projectId)}/api-keys/${encodeURIComponent(keyId)}`);
+  }
+
+  /** Pro only: list a project's integrations (`GET /v1/projects/{projectId}/integrations`). */
+  public async listIntegrations(projectId: string, params: PaginationParams = {}): Promise<ListIntegrationsResponse> {
+    await this.requireTier("pro", "listIntegrations");
+    return this.requestJson<ListIntegrationsResponse>("GET", `${this.projectPath(projectId)}/integrations`, {
+      params: { limit: params.limit, offset: params.offset },
+    });
+  }
+
+  /** Pro only: create an integration (`POST /v1/projects/{projectId}/integrations`). */
+  public async createIntegration(projectId: string, body: CreateIntegrationRequest): Promise<IntegrationResponse> {
+    await this.requireTier("pro", "createIntegration");
+    return this.requestJson<IntegrationResponse>("POST", `${this.projectPath(projectId)}/integrations`, {
+      json: body,
+    });
+  }
+
+  /** Pro only: fetch one integration (`GET .../integrations/{integrationId}`). */
+  public async getIntegration(projectId: string, integrationId: string): Promise<IntegrationResponse> {
+    await this.requireTier("pro", "getIntegration");
+    return this.requestJson<IntegrationResponse>("GET", this.integrationPath(projectId, integrationId));
+  }
+
+  /** Pro only: delete an integration (`DELETE .../integrations/{integrationId}`). */
+  public async deleteIntegration(projectId: string, integrationId: string): Promise<void> {
+    await this.requireTier("pro", "deleteIntegration");
+    await this.requestJson("DELETE", this.integrationPath(projectId, integrationId));
+  }
+
+  /**
+   * Pro only: begin the OAuth flow for an integration
+   * (`POST .../integrations/{integrationId}/connect`). Returns the provider
+   * authorize URL to redirect the user to.
+   */
+  public async connectIntegration(projectId: string, integrationId: string): Promise<BeginOAuthResponse> {
+    await this.requireTier("pro", "connectIntegration");
+    return this.requestJson<BeginOAuthResponse>("POST", `${this.integrationPath(projectId, integrationId)}/connect`);
+  }
+
+  /** Pro only: revoke an integration's OAuth connection (`POST .../disconnect`). */
+  public async disconnectIntegration(projectId: string, integrationId: string): Promise<void> {
+    await this.requireTier("pro", "disconnectIntegration");
+    await this.requestJson("POST", `${this.integrationPath(projectId, integrationId)}/disconnect`);
+  }
+
+  /** Pro only: list the documents an integration exposes (`GET .../documents`). */
+  public async listIntegrationDocuments(
+    projectId: string,
+    integrationId: string,
+    params: ListIntegrationDocumentsParams = {},
+  ): Promise<ListDocumentsResponse> {
+    await this.requireTier("pro", "listIntegrationDocuments");
+    return this.requestJson<ListDocumentsResponse>(
+      "GET",
+      `${this.integrationPath(projectId, integrationId)}/documents`,
+      {
+        params: {
+          mime_types: params.mimeTypes,
+          folder_id: params.folderId,
+          max_results: params.maxResults,
+        },
+      },
+    );
+  }
+
+  /**
+   * Pro only: download one document from an integration
+   * (`GET .../documents/{documentId}`). The response is raw bytes, not JSON.
+   */
+  public async fetchIntegrationDocument(
+    projectId: string,
+    integrationId: string,
+    documentId: string,
+  ): Promise<Uint8Array> {
+    await this.requireTier("pro", "fetchIntegrationDocument");
+    const path = `${this.integrationPath(projectId, integrationId)}/documents/${encodeURIComponent(documentId)}`;
+    return this.requestBytes("GET", path);
   }
 
   // -- Enterprise-only surface ------------------------------------------
@@ -450,18 +612,6 @@ export class XbergClient {
     return this.requestJson<DiffResponse>("GET", path);
   }
 
-  /** Enterprise only: list read-only managed presets (`GET /v1/presets`). */
-  public async presets(): Promise<PresetSummary[]> {
-    await this.requireTier("enterprise", "presets");
-    return this.requestJson<PresetSummary[]>("GET", "/v1/presets");
-  }
-
-  /** Enterprise only: fetch a managed preset (`GET /v1/presets/{id}`). */
-  public async getPreset(presetId: string): Promise<PresetDetail> {
-    await this.requireTier("enterprise", "getPreset");
-    return this.requestJson<PresetDetail>("GET", `/v1/presets/${encodeURIComponent(presetId)}`);
-  }
-
   /** Enterprise only: request a presigned upload URL (`POST /v1/uploads/presign`). */
   public async presignUpload(body: PresignUploadRequest): Promise<PresignUploadResponse> {
     await this.requireTier("enterprise", "presignUpload");
@@ -482,6 +632,16 @@ export class XbergClient {
   }
 
   // -- Internals ---------------------------------------------------------
+
+  /** Build `/v1/projects/{projectId}` with the id percent-encoded. */
+  private projectPath(projectId: string): string {
+    return `/v1/projects/${encodeURIComponent(projectId)}`;
+  }
+
+  /** Build `/v1/projects/{projectId}/integrations/{integrationId}`. */
+  private integrationPath(projectId: string, integrationId: string): string {
+    return `${this.projectPath(projectId)}/integrations/${encodeURIComponent(integrationId)}`;
+  }
 
   /**
    * Return the effective tier — an explicit `target` if set, else probed from
@@ -518,6 +678,12 @@ export class XbergClient {
     }
     const text = await response.text();
     return (text.length > 0 ? JSON.parse(text) : undefined) as T;
+  }
+
+  /** Issue a request, raise on non-2xx, and return the response body as raw bytes. */
+  private async requestBytes(method: string, path: string, init: RequestParts = {}): Promise<Uint8Array> {
+    const response = await this.requestWithRetry(method, path, init);
+    return new Uint8Array(await response.arrayBuffer());
   }
 
   /**

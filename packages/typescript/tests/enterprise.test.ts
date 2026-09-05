@@ -61,22 +61,6 @@ describe("enterprise-only surface", () => {
     expect(result).toEqual({ diff: "done" });
   });
 
-  it("presets lists read-only managed presets", async () => {
-    server.use(
-      http.get(url("/v1/presets"), () => HttpResponse.json([{ id: "p1", name: "Preset One" }], { status: 200 })),
-    );
-    const result = await makeClient().presets();
-    expect(result).toEqual([{ id: "p1", name: "Preset One" }]);
-  });
-
-  it("getPreset fetches a single managed preset", async () => {
-    server.use(
-      http.get(url("/v1/presets/p1"), () => HttpResponse.json({ id: "p1", name: "Preset One" }, { status: 200 })),
-    );
-    const result = await makeClient().getPreset("p1");
-    expect(result).toEqual({ id: "p1", name: "Preset One" });
-  });
-
   it("presignUpload requests a presigned upload URL", async () => {
     let receivedBody: unknown;
     server.use(

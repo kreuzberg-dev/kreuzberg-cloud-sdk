@@ -53,11 +53,17 @@ pro, _ := xberg.New(
 )
 ```
 
-Shared methods: `Extract`, `ExtractBatch`, `GetJob`, `ListJobs`, `WaitForJob`,
-`WaitForJobs`, `ExtractAndWait`, `Audit`, and the RAG surface (`ListRagCollections`,
-`RagRetrieve`, …). Pro-only: `AuthConfig`, `Login`, saved presets, `GetJobResult`,
-`GetRagConfig`/`SetRagConfig`. Enterprise-only: `Versions`, `Diff`, `Presets`,
-uploads (`PresignUpload`/`ConfirmUpload`), `Usage`.
+Shared methods: `Extract`, `ExtractBatch`, `GetJob`, `GetJobResult`, `ListJobs`,
+`WaitForJob`, `WaitForJobs`, `ExtractAndWait`, `Audit`, the curated preset registry
+(`Presets`, `GetPreset`, `GetPresetSample`), and the RAG surface
+(`ListRagCollections`, `RagRetrieve`, …). Pro-only: `AuthConfig`, `Login`, saved
+presets, `GetRagConfig`/`SetRagConfig`, and the control plane — projects
+(`ListProjects`, `CreateProject`), API keys (`ListAPIKeys`, `CreateAPIKey`,
+`RevokeAPIKey`) and integrations (`ListIntegrations`, `CreateIntegration`,
+`GetIntegration`, `DeleteIntegration`, `ConnectIntegration`,
+`DisconnectIntegration`, `ListIntegrationDocuments`, `FetchIntegrationDocument`).
+Enterprise-only: `Versions`, `Diff`, uploads (`PresignUpload`/`ConfirmUpload`),
+`Usage`.
 
 ## Quickstart — explicit API key
 

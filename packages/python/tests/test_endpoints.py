@@ -51,13 +51,10 @@ def test_delete_rag_collection_sync(base_url: str, api_key: str) -> None:
     assert route.called
 
 
-@respx.mock
-def test_list_rag_documents_sync(base_url: str, api_key: str) -> None:
-    respx.get(f"{base_url}/v1/rag/collections/docs/documents").mock(
-        return_value=httpx.Response(200, json={"documents": ["a", "b"]}),
-    )
-    with XbergClient(api_key=api_key, base_url=base_url) as client:
-        assert client.list_rag_documents("docs") == {"documents": ["a", "b"]}
+def test_rag_document_listing_method_does_not_exist() -> None:
+    # Neither spec declares GET /v1/rag/collections/{name}/documents — only POST and DELETE.
+    assert not hasattr(XbergClient, "list_rag_documents")
+    assert not hasattr(AsyncXbergClient, "list_rag_documents")
 
 
 @respx.mock
@@ -166,15 +163,6 @@ def test_delete_saved_preset_sync_on_pro(api_key: str) -> None:
 
 
 @respx.mock
-def test_get_job_result_sync_on_pro(api_key: str) -> None:
-    respx.get(f"{PRO_URL}/v1/jobs/job-1/result").mock(
-        return_value=httpx.Response(200, json={"content": "extracted"}),
-    )
-    with XbergClient(api_key=api_key, base_url=PRO_URL, target="pro") as client:
-        assert client.get_job_result("job-1") == {"content": "extracted"}
-
-
-@respx.mock
 def test_get_rag_config_sync_on_pro(api_key: str) -> None:
     respx.get(f"{PRO_URL}/v1/projects/proj-1/rag-config").mock(
         return_value=httpx.Response(200, json={"top_k": 10}),
@@ -224,24 +212,6 @@ def test_get_diff_job_sync_on_enterprise(base_url: str, api_key: str) -> None:
     )
     with XbergClient(api_key=api_key, base_url=base_url, target="enterprise") as client:
         assert client.get_diff_job("doc-1", "diff-job-1") == {"status": "completed"}
-
-
-@respx.mock
-def test_presets_sync_on_enterprise(base_url: str, api_key: str) -> None:
-    respx.get(f"{base_url}/v1/presets").mock(
-        return_value=httpx.Response(200, json={"presets": ["invoice"]}),
-    )
-    with XbergClient(api_key=api_key, base_url=base_url, target="enterprise") as client:
-        assert client.presets() == {"presets": ["invoice"]}
-
-
-@respx.mock
-def test_get_preset_sync_on_enterprise(base_url: str, api_key: str) -> None:
-    respx.get(f"{base_url}/v1/presets/preset-1").mock(
-        return_value=httpx.Response(200, json={"id": "preset-1"}),
-    )
-    with XbergClient(api_key=api_key, base_url=base_url, target="enterprise") as client:
-        assert client.get_preset("preset-1") == {"id": "preset-1"}
 
 
 @respx.mock
@@ -299,16 +269,6 @@ async def test_delete_rag_collection_async(base_url: str, api_key: str) -> None:
     )
     async with AsyncXbergClient(api_key=api_key, base_url=base_url) as client:
         assert await client.delete_rag_collection("docs") == {"deleted": True}
-
-
-@pytest.mark.asyncio
-@respx.mock
-async def test_list_rag_documents_async(base_url: str, api_key: str) -> None:
-    respx.get(f"{base_url}/v1/rag/collections/docs/documents").mock(
-        return_value=httpx.Response(200, json={"documents": []}),
-    )
-    async with AsyncXbergClient(api_key=api_key, base_url=base_url) as client:
-        assert await client.list_rag_documents("docs") == {"documents": []}
 
 
 @pytest.mark.asyncio
@@ -436,16 +396,6 @@ async def test_delete_saved_preset_async_on_pro(api_key: str) -> None:
 
 @pytest.mark.asyncio
 @respx.mock
-async def test_get_job_result_async_on_pro(api_key: str) -> None:
-    respx.get(f"{PRO_URL}/v1/jobs/job-1/result").mock(
-        return_value=httpx.Response(200, json={"content": "async extracted"}),
-    )
-    async with AsyncXbergClient(api_key=api_key, base_url=PRO_URL, target="pro") as client:
-        assert await client.get_job_result("job-1") == {"content": "async extracted"}
-
-
-@pytest.mark.asyncio
-@respx.mock
 async def test_get_rag_config_async_on_pro(api_key: str) -> None:
     respx.get(f"{PRO_URL}/v1/projects/proj-1/rag-config").mock(
         return_value=httpx.Response(200, json={"top_k": 10}),
@@ -499,26 +449,6 @@ async def test_get_diff_job_async_on_enterprise(base_url: str, api_key: str) -> 
     )
     async with AsyncXbergClient(api_key=api_key, base_url=base_url, target="enterprise") as client:
         assert await client.get_diff_job("doc-1", "diff-job-1") == {"status": "completed"}
-
-
-@pytest.mark.asyncio
-@respx.mock
-async def test_presets_async_on_enterprise(base_url: str, api_key: str) -> None:
-    respx.get(f"{base_url}/v1/presets").mock(
-        return_value=httpx.Response(200, json={"presets": ["invoice"]}),
-    )
-    async with AsyncXbergClient(api_key=api_key, base_url=base_url, target="enterprise") as client:
-        assert await client.presets() == {"presets": ["invoice"]}
-
-
-@pytest.mark.asyncio
-@respx.mock
-async def test_get_preset_async_on_enterprise(base_url: str, api_key: str) -> None:
-    respx.get(f"{base_url}/v1/presets/preset-1").mock(
-        return_value=httpx.Response(200, json={"id": "preset-1"}),
-    )
-    async with AsyncXbergClient(api_key=api_key, base_url=base_url, target="enterprise") as client:
-        assert await client.get_preset("preset-1") == {"id": "preset-1"}
 
 
 @pytest.mark.asyncio

@@ -55,6 +55,49 @@ def make_extraction_result(*, content: str = "hello world") -> dict[str, Any]:
     }
 
 
+def make_job_result_payload(
+    *,
+    job_id: str = "job-1",
+    status: str = "completed",
+    results: list[dict[str, Any]] | None = None,
+    child_job_ids: list[str] | None = None,
+    errors: list[dict[str, Any]] | None = None,
+    completed_at: str | None = "2026-05-09T10:05:00Z",
+) -> dict[str, Any]:
+    """Build a ``JobResult``-shaped body, as served by ``GET /v1/jobs/{id}/result`` on both tiers."""
+    return {
+        "job_id": job_id,
+        "status": status,
+        "results": [make_extraction_result()] if results is None else results,
+        "child_job_ids": child_job_ids if child_job_ids is not None else [],
+        "errors": errors if errors is not None else [],
+        "completed_at": completed_at,
+    }
+
+
+def make_preset_summary(*, preset_id: str = "invoice-v1") -> dict[str, Any]:
+    """Build a ``PresetSummary``-shaped element of the ``GET /v1/presets`` array."""
+    return {
+        "id": preset_id,
+        "version": "1.0.0",
+        "schema_name": "Invoice",
+        "description": "Structured invoice fields",
+        "category": "finance",
+        "preferred_call_mode": "text_only",
+        "emit_citations": True,
+        "fingerprint": "sha256:0badc0de",
+    }
+
+
+def make_preset_detail(*, preset_id: str = "invoice-v1") -> dict[str, Any]:
+    """Build a ``PresetDetail``-shaped body, as served by ``GET /v1/presets/{id}``."""
+    return {
+        **make_preset_summary(preset_id=preset_id),
+        "schema": {"type": "object", "properties": {"total": {"type": "number"}}},
+        "system_prompt": "Extract the invoice fields.",
+    }
+
+
 @pytest.fixture
 def base_url() -> str:
     """Return the synthetic base URL used by the respx-mocked tests."""

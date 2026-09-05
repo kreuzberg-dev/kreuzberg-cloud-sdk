@@ -114,14 +114,17 @@ Shared methods (both tiers):
 | `wait_for_job(job_id, timeout=300, ...)` | Poll until terminal (raises on `failed`/`cancelled`). |
 | `wait_for_jobs(job_ids, ...)` | Wait for multiple jobs. |
 | `extract_and_wait(file=..., ...)` | Submit + wait in one call. |
+| `get_job_result(job_id)` | Fetch a job's stored `JobResult` envelope. |
 | `list_jobs(...)`, `audit(...)` | List jobs / read the audit log. |
 | `list_rag_collections()`, `rag_retrieve(name, body)`, `get_rag_job(job_id)`, … | RAG collections/documents/retrieval. |
+| `presets()`, `get_preset(id)`, `get_preset_sample(id, name)` | Curated managed presets. |
 
 Tier-specific methods are capability-gated — calling one against the wrong tier
 raises a clear error instead of a raw 404:
 
-- **Pro only:** `login`, `auth_config`, `list_saved_presets`/`create_saved_preset`/`delete_saved_preset`, `get_job_result`, `get_rag_config`/`set_rag_config`
-- **Enterprise only:** `versions`, `diff`/`get_diff_job`, `presets`/`get_preset`, `presign_upload`/`confirm_upload`, `usage`
+- **Pro only:** `login`, `auth_config`, `list_saved_presets`/`create_saved_preset`/`delete_saved_preset`, `get_rag_config`/`set_rag_config`
+- **Pro only (control plane):** `list_projects`/`create_project`, `list_api_keys`/`create_api_key`/`revoke_api_key`, `list_integrations`/`create_integration`/`get_integration`/`delete_integration`, `connect_integration`/`disconnect_integration`, `list_integration_documents`/`fetch_integration_document`
+- **Enterprise only:** `versions`, `diff`/`get_diff_job`, `presign_upload`/`confirm_upload`, `usage`
 
 Errors are raised as one of:
 `XbergError` (base), `AuthError` (401 **and** 403), `ValidationError`,

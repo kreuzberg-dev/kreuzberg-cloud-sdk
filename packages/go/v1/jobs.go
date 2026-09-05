@@ -32,6 +32,25 @@ func (c *Client) GetJob(ctx context.Context, jobID string) (*JobResponse, error)
 	return &job, nil
 }
 
+// GetJobResult fetches a job's stored extraction result via
+// GET /v1/jobs/{id}/result. The returned [JobResult] carries the extracted
+// documents in Results (opaque JSON, one entry per document), any child job
+// IDs produced by a split, and any non-fatal per-document errors. The server
+// answers 409 — surfaced as an [APIError] — while the job has not reached a
+// terminal successful state.
+//
+// Part of the shared surface (Enterprise + Pro).
+func (c *Client) GetJobResult(ctx context.Context, jobID string) (*JobResult, error) {
+	if jobID == "" {
+		return nil, fmt.Errorf("xberg: GetJobResult requires a non-empty jobID")
+	}
+	var result JobResult
+	if err := c.getJSON(ctx, "/v1/jobs/"+url.PathEscape(jobID)+"/result", &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
 // ListJobs lists jobs via GET /v1/jobs (paginated). A non-positive limit or
 // offset is omitted from the query string.
 //

@@ -4,7 +4,28 @@ from __future__ import annotations
 
 import pytest
 
-from xberg_io_sdk import AsyncXbergClient, XbergClient, XbergError
+from xberg_io_sdk import (
+    AsyncXbergClient,
+    ExtractedDocument,
+    ExtractionResult,
+    JobResponse,
+    JobResult,
+    JobResultError,
+    XbergClient,
+    XbergError,
+)
+from xberg_io_sdk._generated_api.models.job_result import JobResult as GeneratedJobResult
+
+
+def test_job_result_is_the_spec_schema_not_an_extraction_result_alias() -> None:
+    assert JobResult is GeneratedJobResult
+    assert JobResult is not ExtractionResult
+    assert JobResult is not ExtractedDocument
+    assert JobResult is not JobResponse
+    assert {"job_id", "status", "results", "child_job_ids", "completed_at", "errors"} <= set(
+        JobResult.__annotations__,
+    )
+    assert {"error_type", "message", "code", "index", "source"} <= set(JobResultError.__annotations__)
 
 
 def test_sync_client_constructs_with_api_key() -> None:

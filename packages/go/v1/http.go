@@ -14,6 +14,7 @@ import (
 
 const (
 	contentTypeJSON     = "application/json"
+	acceptAny           = "*/*"
 	maxRetryBackoff     = 30 * time.Second
 	initialRetryBackoff = 250 * time.Millisecond
 	retryBackoffFactor  = 2
@@ -23,17 +24,21 @@ const (
 // helpers locally consistent — no method literal should appear inline in
 // a request body elsewhere in this package.
 const (
-	methodGet  = "GET"
-	methodPost = "POST"
+	methodGet    = "GET"
+	methodPost   = "POST"
+	methodPut    = "PUT"
+	methodDelete = "DELETE"
 )
 
 // requestSpec describes a single HTTP request issued by the typed helpers
 // below. Body is nil for GET; bodyContentType is required when Body is set.
+// An empty accept requests JSON.
 type requestSpec struct {
 	method          string
 	path            string
 	body            io.Reader
 	bodyContentType string
+	accept          string
 	rewindBody      func() (io.Reader, error)
 }
 
@@ -61,6 +66,22 @@ func (c *Client) doJSON(ctx context.Context, spec requestSpec, out any) error {
 // getJSON issues a GET to path and decodes the 2xx JSON response into out.
 func (c *Client) getJSON(ctx context.Context, path string, out any) error {
 	return c.doJSON(ctx, requestSpec{method: methodGet, path: path}, out)
+}
+
+// getBytes issues a GET to path and returns the raw 2xx response body. Used by
+// the endpoints that serve opaque bytes rather than JSON (preset samples,
+// integration document downloads).
+func (c *Client) getBytes(ctx context.Context, path string) ([]byte, error) {
+	body, err := c.do(ctx, requestSpec{method: methodGet, path: path, accept: acceptAny})
+	if err != nil {
+		return nil, err
+	}
+	defer closeQuietly(body)
+	data, err := io.ReadAll(body)
+	if err != nil {
+		return nil, fmt.Errorf("xberg: reading response body: %w", err)
+	}
+	return data, nil
 }
 
 // callJSON issues method to path with an optional JSON-encoded body and decodes
@@ -140,7 +161,11 @@ func (c *Client) doOnceWithCancel(
 	if spec.bodyContentType != "" {
 		req.Header.Set("Content-Type", spec.bodyContentType)
 	}
-	req.Header.Set("Accept", contentTypeJSON)
+	accept := spec.accept
+	if accept == "" {
+		accept = contentTypeJSON
+	}
+	req.Header.Set("Accept", accept)
 	if err := c.authorize(ctx, req); err != nil {
 		cancel()
 		return nil, err

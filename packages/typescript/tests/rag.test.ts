@@ -43,12 +43,9 @@ describe("shared RAG surface", () => {
     expect(result).toBeUndefined();
   });
 
-  it("listRagDocuments lists documents in a collection", async () => {
-    server.use(
-      http.get(url("/v1/rag/collections/docs/documents"), () => HttpResponse.json({ documents: [] }, { status: 200 })),
-    );
-    const result = await makeClient().listRagDocuments("docs");
-    expect(result).toEqual({ documents: [] });
+  it("exposes no listRagDocuments method because no spec declares GET on that path", () => {
+    const client = makeClient() as unknown as Record<string, unknown>;
+    expect(client["listRagDocuments"]).toBeUndefined();
   });
 
   it("addRagDocuments posts new documents to a collection", async () => {

@@ -28,13 +28,7 @@ func (c *Client) GetRagCollection(ctx context.Context, name string) (json.RawMes
 
 // DeleteRagCollection deletes a RAG collection (DELETE /v1/rag/collections/{name}).
 func (c *Client) DeleteRagCollection(ctx context.Context, name string) (json.RawMessage, error) {
-	return c.ragSend(ctx, "DELETE", "/v1/rag/collections/"+url.PathEscape(name), nil)
-}
-
-// ListRagDocuments lists documents in a RAG collection
-// (GET /v1/rag/collections/{name}/documents).
-func (c *Client) ListRagDocuments(ctx context.Context, name string) (json.RawMessage, error) {
-	return c.ragGet(ctx, "/v1/rag/collections/"+url.PathEscape(name)+"/documents")
+	return c.ragSend(ctx, methodDelete, "/v1/rag/collections/"+url.PathEscape(name), nil)
 }
 
 // AddRagDocuments adds documents to a RAG collection

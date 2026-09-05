@@ -22,13 +22,22 @@ export type ExtractResponse = components["schemas"]["ExtractResponse"];
 export type DocumentInput = components["schemas"]["DocumentInput"];
 export type ListJobsResponse = components["schemas"]["ListJobsResponse"];
 export type ListAuditEntriesResponse = components["schemas"]["ListAuditEntriesResponse"];
+export type PresetSummary = components["schemas"]["PresetSummary"];
+export type PresetDetail = components["schemas"]["PresetDetail"];
+
+/**
+ * The stored result document of a terminal job, returned by
+ * `GET /v1/jobs/{id}/result` on both tiers. Distinct from {@link Job}, which is
+ * the job's metadata record from `GET /v1/jobs/{id}`.
+ */
+export type JobResult = components["schemas"]["JobResult"];
+/** A non-fatal per-document error attached to a {@link JobResult}. */
+export type JobResultError = components["schemas"]["JobResultError"];
 
 // -- Enterprise-only surface (api schema) --
 export type UsageResponse = components["schemas"]["UsageResponse"];
 export type DiffResponse = components["schemas"]["DiffResponse"];
 export type DocumentVersionEntry = components["schemas"]["DocumentVersionEntry"];
-export type PresetSummary = components["schemas"]["PresetSummary"];
-export type PresetDetail = components["schemas"]["PresetDetail"];
 export type PresignUploadRequest = components["schemas"]["PresignUploadRequest"];
 export type PresignUploadResponse = components["schemas"]["PresignUploadResponse"];
 export type ConfirmUploadRequest = components["schemas"]["ConfirmUploadRequest"];
@@ -46,11 +55,21 @@ export type CreateSavedPresetResponse = proComponents["schemas"]["CreateSavedPre
 export type SetRagConfigRequest = proComponents["schemas"]["SetRagConfigRequest"];
 export type RagConfigResponse = proComponents["schemas"]["RagConfigResponse"];
 
-/**
- * A completed (or failed) job, returned by `waitForJob` once the job reaches a
- * terminal status.
- */
-export type JobResult = Job;
+// -- Pro-only control plane (projects, API keys, integrations) --
+export type ListProjectsResponse = proComponents["schemas"]["ListProjectsResponse"];
+export type CreateProjectRequest = proComponents["schemas"]["CreateProjectRequest"];
+export type ProjectResponse = proComponents["schemas"]["ProjectResponse"];
+export type ApiKeyResponse = proComponents["schemas"]["ApiKeyResponse"];
+export type ApiKeyScope = proComponents["schemas"]["ApiKeyScope"];
+export type ListApiKeysResponse = proComponents["schemas"]["ListApiKeysResponse"];
+export type CreateApiKeyRequest = proComponents["schemas"]["CreateApiKeyRequest"];
+export type CreateApiKeyResponse = proComponents["schemas"]["CreateApiKeyResponse"];
+export type ListIntegrationsResponse = proComponents["schemas"]["ListIntegrationsResponse"];
+export type CreateIntegrationRequest = proComponents["schemas"]["CreateIntegrationRequest"];
+export type IntegrationResponse = proComponents["schemas"]["IntegrationResponse"];
+export type BeginOAuthResponse = proComponents["schemas"]["BeginOAuthResponse"];
+export type ListDocumentsResponse = proComponents["schemas"]["ListDocumentsResponse"];
+export type DocumentResponse = proComponents["schemas"]["DocumentResponse"];
 
 /**
  * Terminal job statuses — once observed, polling stops and the job result is

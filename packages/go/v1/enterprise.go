@@ -9,8 +9,9 @@ import (
 // This file holds the Enterprise-only surface. Every method is capability-gated
 // against the Enterprise tier (an explicit [WithTarget], or probed from GET
 // /healthz), returning a [TierError] rather than a request that would 404 on
-// Pro. Response bodies are returned as [json.RawMessage] — matching the
-// Python/TS SDKs, which expose these endpoints untyped.
+// Pro. Response bodies are returned as [json.RawMessage]: these endpoints have
+// no generated model on the Pro side to converge on, so callers decode against
+// whichever server version they target.
 
 // Versions lists a document's versions (GET /v1/documents/{id}/versions).
 // Enterprise only.
@@ -39,22 +40,6 @@ func (c *Client) GetDiffJob(ctx context.Context, documentID, diffJobID string) (
 	}
 	path := "/v1/documents/" + url.PathEscape(documentID) + "/diff/" + url.PathEscape(diffJobID)
 	return c.enterpriseGet(ctx, path)
-}
-
-// Presets lists read-only managed presets (GET /v1/presets). Enterprise only.
-func (c *Client) Presets(ctx context.Context) (json.RawMessage, error) {
-	if err := c.requireTier(ctx, TargetEnterprise, "Presets"); err != nil {
-		return nil, err
-	}
-	return c.enterpriseGet(ctx, "/v1/presets")
-}
-
-// GetPreset fetches a managed preset (GET /v1/presets/{id}). Enterprise only.
-func (c *Client) GetPreset(ctx context.Context, presetID string) (json.RawMessage, error) {
-	if err := c.requireTier(ctx, TargetEnterprise, "GetPreset"); err != nil {
-		return nil, err
-	}
-	return c.enterpriseGet(ctx, "/v1/presets/"+url.PathEscape(presetID))
 }
 
 // PresignUpload requests a presigned upload URL (POST /v1/uploads/presign).

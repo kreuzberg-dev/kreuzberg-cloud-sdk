@@ -5,6 +5,8 @@ from __future__ import annotations
 from xberg_io_sdk._generated_api.models.extracted_document import ExtractedDocument
 from xberg_io_sdk._generated_api.models.extraction_options import ExtractionOptions
 from xberg_io_sdk._generated_api.models.job_response import JobResponse
+from xberg_io_sdk._generated_api.models.job_result import JobResult
+from xberg_io_sdk._generated_api.models.job_result_error import JobResultError
 from xberg_io_sdk._generated_api.models.job_status import JobStatus
 from xberg_io_sdk.client import AsyncXbergClient, XbergClient
 from xberg_io_sdk.errors import (
@@ -19,7 +21,6 @@ from xberg_io_sdk.errors import (
 
 ExtractionResult = ExtractedDocument
 Job = JobResponse
-JobResult = ExtractionResult
 
 __all__ = [
     "AsyncXbergClient",
@@ -30,6 +31,7 @@ __all__ = [
     "Job",
     "JobResponse",
     "JobResult",
+    "JobResultError",
     "JobStatus",
     "NotFoundError",
     "RateLimitError",

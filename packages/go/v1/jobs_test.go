@@ -3,6 +3,7 @@ package xberg_test
 import (
 	"context"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -307,5 +308,157 @@ func TestExtractAndWait_PropagatesExtractError(t *testing.T) {
 	var validation *xberg.ValidationError
 	if !asError(err, &validation) {
 		t.Fatalf("expected ValidationError, got %T: %v", err, err)
+	}
+}
+
+// -- GET /v1/jobs/{id}/result -------------------------------------------------
+
+// jobResultBody is the canonical JobResult envelope both tiers serve on
+// GET /v1/jobs/{id}/result. It is deliberately *not* the GET /v1/jobs/{id}
+// metadata shape: `results`, `child_job_ids` and `errors` only exist here.
+const jobResultBody = `{
+	"job_id":"` + jobUUID + `",
+	"status":"partial_success",
+	"results":[
+		{"content":"page one","structured_output":{"invoice_total":42}},
+		{"content":"page two"}
+	],
+	"child_job_ids":["child-1","child-2"],
+	"completed_at":"2025-12-21T10:05:00Z",
+	"errors":[
+		{"error_type":"unsupported_mime_type","message":"cannot parse","code":7,"index":2,"source":"ocr"}
+	]
+}`
+
+func TestGetJobResult_ParsesJobResultEnvelope(t *testing.T) {
+	t.Parallel()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v1/jobs/"+jobUUID+"/result" {
+			t.Errorf("path = %q, want /v1/jobs/%s/result", r.URL.Path, jobUUID)
+		}
+		if r.Method != http.MethodGet {
+			t.Errorf("method = %q, want GET", r.Method)
+		}
+		_, _ = io.WriteString(w, jobResultBody)
+	}))
+	defer server.Close()
+	client := mustClient(t, xberg.WithBaseURL(server.URL), xberg.WithTarget(xberg.TargetEnterprise))
+
+	// The declared return type is the spec's JobResult, not the job-metadata
+	// GetJobResponse: this assignment is the compile-time half of the assertion.
+	var result *xberg.JobResult
+	result, err := client.GetJobResult(context.Background(), jobUUID)
+	if err != nil {
+		t.Fatalf("GetJobResult: %v", err)
+	}
+	if result.JobId != jobUUID {
+		t.Errorf("JobId = %q, want %s", result.JobId, jobUUID)
+	}
+	if result.Status != xberg.JobStatusPartialSuccess {
+		t.Errorf("Status = %q, want partial_success", result.Status)
+	}
+	if result.Results == nil {
+		t.Fatalf("Results = nil, want two extracted documents")
+	}
+	if got := len(*result.Results); got != 2 {
+		t.Fatalf("len(Results) = %d, want 2", got)
+	}
+	first, ok := (*result.Results)[0].(map[string]any)
+	if !ok {
+		t.Fatalf("Results[0] = %T, want a decoded JSON object", (*result.Results)[0])
+	}
+	if first["content"] != "page one" {
+		t.Errorf("Results[0][content] = %v, want 'page one'", first["content"])
+	}
+	// The opaque payload must survive untouched, including the keys the
+	// structured pipeline merges in.
+	if _, present := first["structured_output"]; !present {
+		t.Errorf("Results[0] lost the structured_output key: %v", first)
+	}
+	if result.ChildJobIds == nil || len(*result.ChildJobIds) != 2 {
+		t.Fatalf("ChildJobIds = %v, want two entries", result.ChildJobIds)
+	}
+	if (*result.ChildJobIds)[0] != "child-1" {
+		t.Errorf("ChildJobIds[0] = %q, want child-1", (*result.ChildJobIds)[0])
+	}
+	if result.CompletedAt == nil || *result.CompletedAt != "2025-12-21T10:05:00Z" {
+		t.Errorf("CompletedAt = %v, want 2025-12-21T10:05:00Z", result.CompletedAt)
+	}
+	if result.Errors == nil || len(*result.Errors) != 1 {
+		t.Fatalf("Errors = %v, want one entry", result.Errors)
+	}
+	jobErr := (*result.Errors)[0]
+	if jobErr.ErrorType != "unsupported_mime_type" || jobErr.Message != "cannot parse" {
+		t.Errorf("Errors[0] = %+v, want unsupported_mime_type/'cannot parse'", jobErr)
+	}
+	if jobErr.Code == nil || *jobErr.Code != 7 {
+		t.Errorf("Errors[0].Code = %v, want 7", jobErr.Code)
+	}
+	if jobErr.Index == nil || *jobErr.Index != 2 {
+		t.Errorf("Errors[0].Index = %v, want 2", jobErr.Index)
+	}
+	if jobErr.Source == nil || *jobErr.Source != "ocr" {
+		t.Errorf("Errors[0].Source = %v, want ocr", jobErr.Source)
+	}
+}
+
+func TestGetJobResult_IsNotTierGated(t *testing.T) {
+	t.Parallel()
+	// Declared in both specs, so neither target may short-circuit with a
+	// TierError, and neither may probe /healthz to decide.
+	for _, target := range []xberg.Target{xberg.TargetEnterprise, xberg.TargetPro} {
+		t.Run(string(target), func(t *testing.T) {
+			t.Parallel()
+			var called atomic.Bool
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.URL.Path == "/healthz" {
+					t.Errorf("an ungated method must not probe /healthz")
+				}
+				called.Store(true)
+				_, _ = io.WriteString(w, jobResultBody)
+			}))
+			defer server.Close()
+			client := mustClient(t, xberg.WithBaseURL(server.URL), xberg.WithTarget(target))
+			result, err := client.GetJobResult(context.Background(), jobUUID)
+			if err != nil {
+				t.Fatalf("GetJobResult on %s: %v", target, err)
+			}
+			if !called.Load() {
+				t.Errorf("server was never called on target %s", target)
+			}
+			if result.JobId != jobUUID {
+				t.Errorf("JobId = %q, want %s", result.JobId, jobUUID)
+			}
+		})
+	}
+}
+
+func TestGetJobResult_RejectsEmptyID(t *testing.T) {
+	t.Parallel()
+	client := mustClient(t, xberg.WithBaseURL("https://example.test"))
+	_, err := client.GetJobResult(context.Background(), "")
+	if err == nil {
+		t.Errorf("GetJobResult(\"\") returned nil error")
+	}
+}
+
+func TestGetJobResult_SurfacesNotReadyConflict(t *testing.T) {
+	t.Parallel()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusConflict)
+		_, _ = io.WriteString(w, `{"error":"job is not in a terminal successful state"}`)
+	}))
+	defer server.Close()
+	client := mustClient(t, xberg.WithBaseURL(server.URL), xberg.WithTarget(xberg.TargetPro))
+	_, err := client.GetJobResult(context.Background(), jobUUID)
+	var apiErr *xberg.APIError
+	if !asError(err, &apiErr) {
+		t.Fatalf("expected APIError, got %T: %v", err, err)
+	}
+	if apiErr.Status != http.StatusConflict {
+		t.Errorf("Status = %d, want 409", apiErr.Status)
+	}
+	if !strings.Contains(apiErr.Message, "terminal successful state") {
+		t.Errorf("Message = %q, want the server-supplied reason", apiErr.Message)
 	}
 }

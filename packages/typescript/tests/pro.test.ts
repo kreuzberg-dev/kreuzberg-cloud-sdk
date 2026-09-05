@@ -53,16 +53,6 @@ describe("pro-only surface", () => {
     expect(receivedPath).toBe("/v1/saved-presets/preset-1");
   });
 
-  it("getJobResult fetches a job's stored result document", async () => {
-    server.use(
-      http.get(`${PRO_URL}/v1/jobs/job-1/result`, () =>
-        HttpResponse.json({ content: "hello", mime_type: "text/plain" }, { status: 200 }),
-      ),
-    );
-    const result = await makeClient().getJobResult("job-1");
-    expect(result).toEqual({ content: "hello", mime_type: "text/plain" });
-  });
-
   it("getRagConfig fetches a project's RAG config", async () => {
     server.use(
       http.get(`${PRO_URL}/v1/projects/proj-1/rag-config`, () => HttpResponse.json({ enabled: true }, { status: 200 })),
