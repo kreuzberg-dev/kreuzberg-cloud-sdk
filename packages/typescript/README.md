@@ -32,8 +32,8 @@
 
 Official TypeScript / Node.js client for the [Xberg Enterprise](https://enterprise.xberg.io)
 and Xberg Pro document-processing APIs. One `XbergClient` speaks to either
-product: the shared surface (extraction, jobs, audit, RAG) is written once, and
-tier-specific methods are capability-gated.
+product: the shared surface (extraction, jobs, audit, curated presets, RAG) is
+written once, and tier-specific methods are capability-gated.
 
 - ESM-only, modern (Node 20+, Bun, Deno, Cloudflare Workers)
 - Dual-target: two generated schema sets (Enterprise + Pro), never merged
@@ -105,18 +105,28 @@ Shared surface (both tiers):
 | `extract({ file, options? })` | `Promise<Job>` |
 | `extractBatch({ files, options? })` | `Promise<Job[]>` |
 | `getJob(jobId)` | `Promise<Job>` |
-| `waitForJob(jobId, opts?)` | `Promise<JobResult>` |
-| `waitForJobs(jobIds, opts?)` | `Promise<JobResult[]>` |
-| `extractAndWait({ file, options?, ...waitOpts })` | `Promise<JobResult>` |
+| `getJobResult(jobId)` | `Promise<JobResult>` |
+| `waitForJob(jobId, opts?)` | `Promise<Job>` |
+| `waitForJobs(jobIds, opts?)` | `Promise<Job[]>` |
+| `extractAndWait({ file, options?, ...waitOpts })` | `Promise<Job>` |
 | `listJobs({ limit?, offset? })` | `Promise<ListJobsResponse>` |
 | `audit({ action?, limit?, offset? })` | `Promise<ListAuditEntriesResponse>` |
+| `presets()`, `getPreset(id)`, `getPresetSample(id, name)` | Curated preset registry |
 | `listRagCollections()`, `createRagCollection(body)`, `ragRetrieve(name, body)`, … | RAG surface |
 
-Xberg Pro only: `login`, `authConfig`, `listSavedPresets` / `createSavedPreset` /
-`deleteSavedPreset`, `getJobResult`, `getRagConfig` / `setRagConfig`.
+`Job` is the job envelope (`GET /v1/jobs/{id}`); `JobResult` is the stored
+extraction result (`GET /v1/jobs/{id}/result`). They are different schemas — the
+polling helpers return the former, `getJobResult` the latter.
 
-Xberg Enterprise only: `versions`, `diff` / `getDiffJob`, `presets` /
-`getPreset`, `presignUpload` / `confirmUpload`, `usage`.
+Xberg Pro only: `login`, `authConfig`, `listSavedPresets` / `createSavedPreset` /
+`deleteSavedPreset`, `getRagConfig` / `setRagConfig`, and the control plane —
+`listProjects` / `createProject`, `listApiKeys` / `createApiKey` / `revokeApiKey`,
+`listIntegrations` / `createIntegration` / `getIntegration` / `deleteIntegration`,
+`connectIntegration` / `disconnectIntegration`, `listIntegrationDocuments` /
+`fetchIntegrationDocument`.
+
+Xberg Enterprise only: `versions`, `diff` / `getDiffJob`, `presignUpload` /
+`confirmUpload`, `usage`.
 
 Errors throw subclasses of `XbergError` (`AuthError`, `RateLimitError`,
 `ValidationError`, `NotFoundError`, `ServerError`, `TimeoutError`). Each

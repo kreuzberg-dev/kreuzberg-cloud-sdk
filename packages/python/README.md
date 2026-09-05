@@ -35,9 +35,9 @@ and [Xberg Pro](https://enterprise.xberg.io) document-processing APIs — one
 client, two targets.
 
 - httpx-based, sync (`XbergClient`) and async (`AsyncXbergClient`) surfaces
-- One client speaks to both products: shared extraction/jobs/RAG surface, plus
-  capability-gated tier-specific methods (Pro auth/presets, Enterprise
-  uploads/usage/document diff)
+- One client speaks to both products: shared extraction/jobs/curated-presets/RAG
+  surface, plus capability-gated tier-specific methods (Pro auth, saved presets
+  and control plane; Enterprise uploads/usage/document diff)
 - Generated from two OpenAPI 3.1 specs (Enterprise + Pro), then wrapped in
   ergonomic helpers
 - Configurable retry engine (honors `Retry-After`, exponential backoff)

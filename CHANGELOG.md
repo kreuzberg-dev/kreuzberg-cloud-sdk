@@ -29,8 +29,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   App scoped to `sdks` + `xberg-enterprise`. PRs it opens trigger downstream per-language CI, which
   regenerates clients and runs the full suite as the consistency gate.
 
+### Fixed
+
+- **`get_job_result` returned the wrong type and was gated to the wrong tier.** It was typed
+  against `GetJobResponse`, the `GET /v1/jobs/{id}` *metadata* schema, which shares no field with
+  `JobResult` beyond `status` and `completed_at` — reading `results` did not compile, and reading
+  `id` compiled and was always empty. Both specs now declare the operation, so the Pro-only gate is
+  gone too. Verified against a live Pro instance, which returns
+  `{completed_at, job_id, results, status}`.
+- **`/v1/presets`, `/v1/presets/{id}` and the preset sample were gated to Enterprise** although both
+  specs declare them, so they raised on Pro. Now ungated, and the previously missing sample
+  endpoint is exposed.
+- **Pro was given the Enterprise shape for schemas the two specs define differently.** The Go
+  generator excluded every shared schema *name*; `ReadinessChecks` reports `nats` on Enterprise and
+  `storage` on Pro, so a Pro caller got a field the service never sends and none for the one it
+  does. Only structurally identical schemas are excluded now; a divergent one — or one reaching a
+  divergent one through a `$ref` — is emitted under a `Pro`-prefixed name.
+- **Spec sync pulled from `main`**, a deploy-only branch hundreds of commits behind, which is why
+  the bot reported zero drift while the vendored specs went stale. It now defaults to
+  `development`.
+
+### Added
+
+- **The Pro control plane** — projects, api-keys and integrations (13 operations) — in all three
+  languages. Without these a Pro user could not create a project or mint an API key, so the client
+  could not reach an instance it had not been handed a key for out of band.
+- `task pro:up|down|reset|key|verify`, which run the SDKs against a real Pro container instead of a
+  mock. The existing fixtures encoded a shape neither spec declares, so they agreed with the client
+  and with nothing else.
+
 ### Removed
 
+- **`list_rag_documents` / `listRagDocuments` / `ListRagDocuments`.** They issued `GET` on
+  `/v1/rag/collections/{name}/documents`, where both specs declare only `post` and `delete`. The
+  real document listing is scoped to a project and integration and is part of the control plane
+  added above.
+- **The conflicting `JobResult` aliases.** The name meant three different things — the spec schema,
+  `Job` in TypeScript, and `ExtractionResult` in Python. It now means the spec schema everywhere.
 - **Sandbox-key helper** (`create_sandbox_key` / `fromSandbox` / `FromSandbox`) in all languages.
   It POSTed to `/v1/sandbox/key`, which exists in neither service — sandbox keys are minted (and
   revoked) server-side inside `/v1/sandbox/public/extract`, so the helper always 404'd.

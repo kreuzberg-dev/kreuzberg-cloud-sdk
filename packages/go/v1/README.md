@@ -32,11 +32,11 @@ Requires Go 1.26+.
 
 ## Dual-target client
 
-The shared surface — extraction, jobs, audit, and the RAG API — is written once
-and works against either product. Tier-specific methods are capability-gated:
-they probe the connected instance (`GET /healthz`'s `tier`, or an explicit
-target set via `WithTarget`) and return a typed `*TierError` instead of a raw
-404 when invoked against the wrong tier.
+The shared surface — extraction, jobs, audit, the curated preset registry, and
+the RAG API — is written once and works against either product. Tier-specific
+methods are capability-gated: they probe the connected instance (`GET
+/healthz`'s `tier`, or an explicit target set via `WithTarget`) and return a
+typed `*TierError` instead of a raw 404 when invoked against the wrong tier.
 
 - **Enterprise** defaults the base URL to `https://api.xberg.io`.
 - **Pro** ships no default base URL and requires `WithBaseURL`.

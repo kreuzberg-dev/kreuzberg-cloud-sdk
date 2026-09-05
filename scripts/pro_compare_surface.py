@@ -18,10 +18,7 @@ HTTP_METHODS = ("get", "post", "put", "patch", "delete")
 def operations(document: dict) -> set[tuple[str, str]]:
     """Return every (METHOD, path) pair the document declares."""
     return {
-        (method.upper(), path)
-        for path, item in document["paths"].items()
-        for method in item
-        if method in HTTP_METHODS
+        (method.upper(), path) for path, item in document["paths"].items() for method in item if method in HTTP_METHODS
     }
 
 

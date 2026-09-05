@@ -1,21 +1,33 @@
-# Base config for the Xberg Pro schema set. Generated from spec/pro/openapi.yaml
-# into the shared `xberg` package alongside generated_api.go.
+# Base config for the Xberg Pro schema set, emitted into the shared `xberg`
+# package alongside generated_api.go.
 #
 # This file is NOT passed to oapi-codegen directly. `task go:generate` runs
-# tools/oapi-pro-config, which reads both vendored specs and writes
-# oapi-codegen-pro.gen.yaml — this file plus two derived lists:
+# tools/oapi-pro-config, which reads both vendored specs and writes two files:
 #
-#   exclude-schemas        every schema name both specs declare (already emitted
-#                          into generated_api.go, so re-emitting it here would
-#                          redeclare the type in the same package)
-#   include-operation-ids  the operations the Pro spec declares and the
-#                          Enterprise spec does not, so no shared operation's
-#                          param/body types are emitted twice
+#   oapi-codegen-pro.gen.yaml  this file plus two derived lists:
 #
-# Both lists are computed from the specs on every run, so a spec sync cannot
-# leave them stale. Do not pin them here — oapi-pro-config rejects a base config
-# that sets either one. The two schema sets are never merged; mirrors
-# xberg-enterprise ADR-0072.
+#     exclude-schemas          the shared schema names whose two definitions
+#                              generate IDENTICAL Go (already emitted into
+#                              generated_api.go, so re-emitting them here would
+#                              redeclare the type in the same package)
+#     include-operation-ids    the operations the Pro spec declares and the
+#                              Enterprise spec does not, so no shared
+#                              operation's param/body types are emitted twice
+#
+#   spec-pro.gen.yaml          a copy of the Pro spec in which every shared
+#                              schema the two specs declare with DIFFERENT
+#                              structures — plus every schema that reaches one
+#                              through a `$ref` — is renamed behind a `Pro`
+#                              prefix. Excluding those would silently hand Pro
+#                              the Enterprise shape instead. oapi-codegen reads
+#                              this derived copy, never the vendored spec, which
+#                              stays byte-identical to upstream so
+#                              `task spec:check` keeps passing.
+#
+# Both lists and the renames are recomputed from the specs on every run, so a
+# spec sync cannot leave them stale. Do not pin them here — oapi-pro-config
+# rejects a base config that sets either list. The two schema sets are never
+# merged; mirrors xberg-enterprise ADR-0072.
 package: xberg
 output: generated_pro.go
 generate:

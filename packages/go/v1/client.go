@@ -90,9 +90,9 @@ type clientConfig struct {
 
 // Client is the dual-target client for Xberg Enterprise and Xberg Pro. One
 // Client speaks to either product: the shared surface (extraction, jobs, audit,
-// RAG) is written once, and tier-specific methods are capability-gated against
-// the connected instance's tier (an explicit [WithTarget], else probed from
-// GET /healthz).
+// curated presets, RAG) is written once, and tier-specific methods are
+// capability-gated against the connected instance's tier (an explicit
+// [WithTarget], else probed from GET /healthz).
 type Client struct {
 	cfg clientConfig
 

@@ -2,10 +2,11 @@
  * High-level dual-target client for the Xberg Enterprise and Xberg Pro HTTP APIs.
  *
  * One {@link XbergClient} speaks to either product. The shared surface —
- * extraction, jobs, audit, and the RAG API — is written once. Tier-specific
- * methods are capability-gated: they probe the connected instance (`GET
- * /healthz`'s `tier`, or an explicit `target`) and throw a clear error instead
- * of a raw 404 when invoked against the wrong tier.
+ * extraction, jobs (including job results), audit, curated presets, and the RAG
+ * API — is written once and carries no tier gate. Tier-specific methods are
+ * capability-gated: they probe the connected instance (`GET /healthz`'s `tier`,
+ * or an explicit `target`) and throw a clear error instead of a raw 404 when
+ * invoked against the wrong tier.
  *
  * Both products authenticate identically: `Authorization: Bearer {apiKey}`.
  * Enterprise defaults `baseUrl` to `https://api.xberg.io`; Pro has no default

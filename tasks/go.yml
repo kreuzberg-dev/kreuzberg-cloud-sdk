@@ -5,10 +5,16 @@ version: "3"
 # merged; see xberg-enterprise ADR-0072):
 #   - spec/api/openapi.yaml -> packages/go/v1/generated_api.go  (Xberg Enterprise + shared)
 #   - spec/pro/openapi.yaml -> packages/go/v1/generated_pro.go  (Xberg Pro-only)
-# The Pro generation must skip every schema and operation the Enterprise spec
-# already declares, or the same Go identifier is declared twice in the package.
-# That exclusion set is DERIVED from the two specs by tools/oapi-pro-config on
-# every run — never hand-maintained — so a spec sync cannot leave it stale.
+# No Go identifier may be declared twice in one package, so tools/oapi-pro-config
+# splits what both specs declare. An operation, or a schema whose two definitions
+# generate IDENTICAL Go, is skipped by the Pro generation. A schema the specs
+# declare with DIFFERENT structures cannot be skipped — that would hand Pro the
+# Enterprise shape — so it is renamed behind a `Pro` prefix in a derived copy of
+# the Pro spec (packages/go/v1/spec-pro.gen.yaml), and oapi-codegen reads that
+# copy. The vendored spec is left untouched so `task spec:check` still compares
+# it byte-for-byte with upstream. Both the exclusion set and the renames are
+# DERIVED from the two specs on every run — never hand-maintained — so a spec
+# sync cannot leave them stale.
 vars:
   PKG_DIR: packages/go/v1
   TOOLS_DIR: tools/oapi-pro-config
