@@ -15,8 +15,9 @@ has no default (its spec ships no servers block) and requires an explicit one.
 
 Enterprise splits into two binaries — the data plane ``base_url`` addresses and
 a control plane (projects, API keys, integrations) on its own origin — while Pro
-serves both from one. ``control_plane_base_url`` addresses the second, and
-defaults to ``base_url``.
+serves both from one. ``control_plane_base_url`` records the origin of the
+second and defaults to ``base_url``; no method routes there yet, so today it is
+configuration held for the control-plane operations that have not landed.
 """
 
 from __future__ import annotations
@@ -596,11 +597,17 @@ class _BaseClient:
 
     @property
     def control_plane_base_url(self) -> str:
-        """Origin the control-plane surface is addressed at.
+        """Origin the control-plane surface will be addressed at.
 
         The same as the data-plane base URL unless ``control_plane_base_url``
         was passed: Enterprise runs the control plane as a second binary on its
         own origin, while Pro serves both planes from one.
+
+        No method routes there yet. The control-plane operations are vendored
+        but unimplemented (xberg-io/sdks#22), and every control-plane method
+        this client does have is Pro-only and tier-gated, so today the argument
+        only records an origin this property reads back. It ships ahead of those
+        methods so the constructor does not change shape when they land.
         """
         return self._control_plane_base_url
 

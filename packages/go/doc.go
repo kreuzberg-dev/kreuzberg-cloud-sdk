@@ -15,8 +15,10 @@
 //
 // Enterprise splits into two binaries — the data plane the base URL addresses
 // and a control plane (projects, API keys, integrations) on its own origin —
-// while Pro serves both from one. [WithControlPlaneBaseURL] addresses the
-// second, and defaults to the data-plane base URL.
+// while Pro serves both from one. [WithControlPlaneBaseURL] records the origin
+// of the second and defaults to the data-plane base URL; no method routes there
+// yet, so today it is configuration held for the control-plane operations that
+// have not landed.
 //
 // Most users should construct a [Client] via [New] and pass a context.Context
 // to each request method.

@@ -14,8 +14,9 @@
  *
  * Enterprise splits into two binaries — the data plane `baseUrl` addresses and a
  * control plane (projects, API keys, integrations) on its own origin — while Pro
- * serves both from one. `controlPlaneBaseUrl` addresses the second, and defaults
- * to `baseUrl`.
+ * serves both from one. `controlPlaneBaseUrl` records the origin of the second
+ * and defaults to `baseUrl`; no method routes there yet, so today it is
+ * configuration held for the control-plane operations that have not landed.
  */
 
 import createOpenApiClient, { type Client } from "openapi-fetch";
@@ -137,6 +138,13 @@ export interface XbergClientOptions {
    * Origin of the Enterprise control plane, which runs as a second binary
    * alongside the data plane. Defaults to `baseUrl` — Pro serves both planes
    * from one binary, so every Pro call keeps working untouched.
+   *
+   * No method routes to it yet. The control-plane operations are vendored but
+   * unimplemented (xberg-io/sdks#22), and every control-plane method this
+   * client does have is Pro-only and tier-gated, so today this option only
+   * records an origin that {@link XbergClient.controlPlaneBaseUrl} reads back.
+   * It ships ahead of those methods so the constructor does not change shape
+   * when they land.
    */
   controlPlaneBaseUrl?: string;
   /**
@@ -252,7 +260,11 @@ export type XbergRawClient = Client<paths>;
  */
 export class XbergClient {
   private readonly baseUrl: string;
-  /** Origin the control-plane surface is addressed at. Same as `baseUrl` unless overridden. */
+  /**
+   * Origin the control-plane surface will be addressed at. Same as `baseUrl`
+   * unless overridden. No request is routed there yet — see
+   * {@link XbergClientOptions.controlPlaneBaseUrl}.
+   */
   public readonly controlPlaneBaseUrl: string;
   private readonly headers: Record<string, string>;
   private readonly fetchImpl: typeof fetch;

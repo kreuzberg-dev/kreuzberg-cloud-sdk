@@ -44,10 +44,16 @@ func WithBaseURL(u string) Option {
 	}
 }
 
-// WithControlPlaneBaseURL overrides the origin of the Enterprise control plane,
+// WithControlPlaneBaseURL sets the origin of the Enterprise control plane,
 // which runs as a second binary alongside the data plane. It defaults to the
 // data-plane base URL — Pro serves both planes from one binary, so every Pro
 // call keeps working untouched.
+//
+// No method routes to it yet. The control-plane operations are vendored but
+// unimplemented (xberg-io/sdks#22), and every control-plane method this client
+// does have is Pro-only and tier-gated, so today this option only records an
+// origin that [Client.ControlPlaneBaseURL] reads back. It ships ahead of those
+// methods so the constructor does not change shape when they land.
 func WithControlPlaneBaseURL(u string) Option {
 	return func(c *clientConfig) {
 		c.controlPlaneBaseURL = u
@@ -184,8 +190,10 @@ func (c *Client) HTTPClient() *http.Client { return c.cfg.httpClient }
 // BaseURL returns the configured base URL.
 func (c *Client) BaseURL() string { return c.cfg.baseURL }
 
-// ControlPlaneBaseURL returns the origin the control-plane surface is addressed
-// at — the same as [Client.BaseURL] unless [WithControlPlaneBaseURL] was given.
+// ControlPlaneBaseURL returns the origin the control-plane surface will be
+// addressed at once it exists — no request is routed there yet, see
+// [WithControlPlaneBaseURL]. It is the same as [Client.BaseURL] unless
+// [WithControlPlaneBaseURL] was given.
 func (c *Client) ControlPlaneBaseURL() string { return c.cfg.controlPlaneBaseURL }
 
 // Target returns the explicitly configured target, or the empty [Target] when
