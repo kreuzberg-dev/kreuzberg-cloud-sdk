@@ -47,6 +47,19 @@ type WaitOptions struct {
 type ExtractOptions struct {
 	Extraction *ExtractionOptions
 	Webhook    *WebhookConfig
+
+	// Configs carries one optional per-file extraction override per document,
+	// positionally parallel to the files passed to [Client.Extract] or
+	// [Client.ExtractBatch]. When non-empty it must have exactly len(files)
+	// entries; a nil entry means "no override for that document". Each override
+	// is sent as a "config-<filename>" JSON part, and the server resolves it
+	// against Extraction.ExtractionConfig, any preset and the project default —
+	// nothing is merged client-side.
+	//
+	// Because the part is keyed on the filename, two documents submitted under
+	// the same filename cannot carry different overrides; that combination is
+	// rejected before any bytes are sent rather than silently dropping one.
+	Configs []*FileExtractionConfig
 }
 
 // ExtractAndWaitOptions configures [Client.ExtractAndWait].

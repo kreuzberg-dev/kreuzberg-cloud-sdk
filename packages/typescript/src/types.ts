@@ -13,6 +13,8 @@ import type { components as proComponents } from "./_generated/pro.js";
 // -- Shared surface (present in both schema sets; typed off the Enterprise API) --
 export type ExtractionOptions = components["schemas"]["ExtractionOptions"];
 export type ExtractionConfig = components["schemas"]["ExtractionConfig"];
+/** A per-file extraction override, carried by `DocumentInput.config` and the `config-<filename>` multipart part. */
+export type FileExtractionConfig = components["schemas"]["FileExtractionConfig"];
 export type ExtractedDocument = components["schemas"]["ExtractedDocument"];
 export type ExtractionResult = ExtractedDocument;
 export type Job = components["schemas"]["JobResponse"];

@@ -38,42 +38,142 @@ Two equivalent shapes carry a per-file override, depending on how you submit the
 - **Multipart**: a text part named `config-<filename>` whose value is the JSON-encoded config,
   mirroring the existing `document_id-<filename>` lineage convention.
 
-## Using it today
+## Using it
 
-None of the three clients' `extract`/`extractBatch`/`Extract` convenience methods expose a
-per-file `config` parameter yet — they only build the shared `options`/`webhook` multipart parts.
-To set a per-file override, send the request yourself against the same base URL and credentials the
-client already resolved.
+All three clients submit extractions as multipart, so they carry a per-file override as the
+`config-<filename>` part. Pass one config per document: `config` on the single-document call,
+and a list parallel to the files on the batch call.
+
+```python title="Python"
+from pathlib import Path
+
+from xberg_io_sdk import XbergClient
+
+with XbergClient(api_key="kz_...", base_url="https://api.xberg.io") as client:
+    # One document, one override.
+    job = client.extract(
+        file=Path("invoice.pdf"),
+        options={"extraction_config": {"disable_ocr": True}},
+        config={"force_ocr": True},
+    )
+
+    # A batch: one entry per file, in the same order. None means "no override
+    # for this one", so it falls through to options.extraction_config.
+    jobs = client.extract_batch(
+        [Path("scanned.pdf"), Path("digital.pdf")],
+        options={"extraction_config": {"disable_ocr": True}},
+        configs=[{"force_ocr": True}, None],
+    )
+```
+
+`config` and each entry of `configs` accept a plain dict or a typed
+`FileExtractionConfig`. `AsyncXbergClient` takes the same arguments, and
+`extract_and_wait` accepts `config` as well.
+
+```ts title="TypeScript"
+const job = await client.extract({
+  file: invoicePdf,
+  options: { extraction_config: { disable_ocr: true } },
+  config: { force_ocr: true },
+});
+
+const jobs = await client.extractBatch({
+  files: [scannedPdf, digitalPdf],
+  options: { extraction_config: { disable_ocr: true } },
+  // One entry per file, in the same order; null means no override.
+  configs: [{ force_ocr: true }, null],
+});
+```
+
+```go title="Go"
+// Every FileExtractionConfig field is a pointer, so an unset field stays unset
+// rather than sending a zero value the server would read as an override.
+forceOCR := true
+
+job, err := client.Extract(ctx,
+    xberg.FileSource{Name: "invoice.pdf", Reader: invoice},
+    &xberg.ExtractOptions{
+        Extraction: &xberg.ExtractionOptions{
+            ExtractionConfig: &map[string]any{"disable_ocr": true},
+        },
+        Configs: []*xberg.FileExtractionConfig{{ForceOcr: &forceOCR}},
+    },
+)
+
+// A batch: Configs is positionally parallel to the files, and a nil entry
+// means no override for that document.
+jobs, err := client.ExtractBatch(ctx,
+    []xberg.FileSource{
+        {Name: "scanned.pdf", Reader: scanned},
+        {Name: "digital.pdf", Reader: digital},
+    },
+    &xberg.ExtractOptions{
+        Configs: []*xberg.FileExtractionConfig{{ForceOcr: &forceOCR}, nil},
+    },
+)
+```
+
+The client sends what you gave it and nothing more. It does not merge your override into the
+batch-level config, does not validate the fields against the batch-only list above, and does not
+reorder anything: the precedence chain at the top of this page is resolved by the server.
+
+## One filename, one override
+
+Because the part is keyed on the filename, a multipart request has exactly one
+`config-<filename>` slot per name. Two documents submitted under the same filename therefore
+cannot carry different overrides — which is the shape a directed extraction takes, where the same
+document goes in several times under different instructions.
+
+Rather than send whichever override happened to be written last and drop the other with no signal,
+all three clients reject that batch before any bytes go out, with an error naming the file — the
+Python wording:
+
+```text
+per-file config conflict for 'invoice.pdf': the same filename appears more than once in this
+batch with different configs, but a multipart request carries at most one config part per
+filename. Give the copies distinct filenames.
+```
+
+Give the copies distinct filenames (`invoice-ocr.pdf`, `invoice-raw.pdf`) and each gets its own
+part. Repeating a filename is still fine when the overrides are identical, or when none of the
+copies carries one — those cases are unambiguous, and a single part covers them.
+
+Two smaller cases to know about:
+
+- A `configs` list whose length differs from the file list is rejected the same way, rather than
+  silently pairing the entries it can.
+- A document passed as raw bytes has no filename of its own, so Python and TypeScript both name it
+  `upload.bin`; two of them in one batch collide under that name. Pass a path, a `File`, or a named
+  stream when you need per-file overrides. Go has no such case: `FileSource.Name` is required.
+
+## Reaching the JSON form
+
+The `documents[]` array keys a config positionally, not by name, so the JSON form has no such
+limitation. No client convenience method builds it — the three clients submit multipart — so a
+batch that genuinely needs two different overrides for one filename either renames the copies or
+posts the JSON body directly, against the base URL and credentials the client already resolved.
 
 ```python title="Python"
 import base64
+
 import httpx
 
-base_url = "https://api.xberg.io"  # the same base_url the XbergClient was constructed with
-api_key = "kz_..."
-
-with open("invoice.pdf", "rb") as f:
-    invoice_bytes = f.read()
-with open("statement.pdf", "rb") as f:
-    statement_bytes = f.read()
-
 response = httpx.post(
-    f"{base_url}/v1/extract",
-    headers={"Authorization": f"Bearer {api_key}"},
+    "https://api.xberg.io/v1/extract",
+    headers={"Authorization": "Bearer kz_..."},
     json={
         "documents": [
             {
                 "filename": "invoice.pdf",
                 "mime_type": "application/pdf",
                 "data": base64.b64encode(invoice_bytes).decode(),
-                # Per-file override: force OCR for this one scanned document.
                 "config": {"force_ocr": True},
             },
             {
-                "filename": "statement.pdf",
+                "filename": "invoice.pdf",
                 "mime_type": "application/pdf",
-                "data": base64.b64encode(statement_bytes).decode(),
-                # No config: falls through to the batch-level options.extraction_config.
+                "data": base64.b64encode(invoice_bytes).decode(),
+                "config": {"disable_ocr": True},
             },
         ],
         "options": {"extraction_config": {"disable_ocr": True}},
@@ -83,23 +183,15 @@ response.raise_for_status()
 job_ids = response.json()["job_ids"]
 ```
 
+TypeScript reaches the same shape through `client.raw`, the underlying openapi-fetch client typed
+over this spec:
+
 ```ts title="TypeScript"
-// client.raw is the underlying openapi-fetch client, typed over the same spec —
-// use it for shapes the high-level extractBatch doesn't cover yet.
 const { data, error } = await client.raw.POST("/v1/extract", {
   body: {
     documents: [
-      {
-        filename: "invoice.pdf",
-        mime_type: "application/pdf",
-        data: invoiceBase64,
-        config: { force_ocr: true },
-      },
-      {
-        filename: "statement.pdf",
-        mime_type: "application/pdf",
-        data: statementBase64,
-      },
+      { filename: "invoice.pdf", mime_type: "application/pdf", data: invoiceBase64, config: { force_ocr: true } },
+      { filename: "invoice.pdf", mime_type: "application/pdf", data: invoiceBase64, config: { disable_ocr: true } },
     ],
     options: { extraction_config: { disable_ocr: true } },
   },
@@ -108,46 +200,7 @@ if (error) throw error;
 const jobIds = data.job_ids;
 ```
 
-```go title="Go"
-// The Go client has no generated JSON extract-request type (it only builds the
-// multipart form for ExtractBatch), so a per-file override means POSTing the
-// JSON body directly against the client's own configuration.
-body := map[string]any{
-    "documents": []map[string]any{
-        {
-            "filename":  "invoice.pdf",
-            "mime_type": "application/pdf",
-            "data":      base64.StdEncoding.EncodeToString(invoiceBytes),
-            "config":    map[string]any{"force_ocr": true},
-        },
-        {
-            "filename":  "statement.pdf",
-            "mime_type": "application/pdf",
-            "data":      base64.StdEncoding.EncodeToString(statementBytes),
-        },
-    },
-    "options": map[string]any{
-        "extraction_config": map[string]any{"disable_ocr": true},
-    },
-}
-encoded, err := json.Marshal(body)
-if err != nil {
-    log.Fatal(err)
-}
-req, err := http.NewRequestWithContext(ctx, http.MethodPost, client.BaseURL()+"/v1/extract", bytes.NewReader(encoded))
-if err != nil {
-    log.Fatal(err)
-}
-req.Header.Set("Content-Type", "application/json")
-req.Header.Set("Authorization", "Bearer kz_...")
-resp, err := client.HTTPClient().Do(req)
-```
-
-Go's `Client.BaseURL()` and `Client.HTTPClient()` are public, but the API key is not read back out
-of either client — keep it in the environment variable (or secret store) you already read it from
-when constructing the client, rather than a second source of truth.
-
-JSON is the more approachable route today: it needs no manual multipart encoding. If you must stay
-on multipart (for example, to keep raw file bytes instead of base64), build the `config-<filename>`
-text part alongside the `file` parts yourself; none of the three clients' multipart builders wire
-one in.
+Go has no generated JSON extract-request type, so the equivalent is a hand-built body posted with
+`client.HTTPClient()` against `client.BaseURL()`. Both accessors are public, but the API key is
+not read back out of either client — keep it in the environment variable or secret store you read
+it from when constructing the client, rather than a second source of truth.

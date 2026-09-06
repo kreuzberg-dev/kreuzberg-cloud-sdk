@@ -369,3 +369,271 @@ func TestExtract_PropagatesValidationError(t *testing.T) {
 		t.Errorf("error message = %q, want it to contain 'no document'", validation.Message)
 	}
 }
+
+// ptrTo returns a pointer to v, so the all-optional [xberg.FileExtractionConfig]
+// fields can be set inline in a literal.
+func ptrTo[T any](v T) *T { return &v }
+
+// perFileConfigServer stands in for POST /v1/extract, recording the raw request
+// body (with the random multipart boundary replaced by a fixed token) and
+// answering with jobIDs. GET /v1/jobs/{id} is served too, because ExtractBatch
+// fetches every returned job before it returns.
+func perFileConfigServer(t *testing.T, raw *string, jobIDs ...string) *httptest.Server {
+	t.Helper()
+	quoted := make([]string, len(jobIDs))
+	for i, id := range jobIDs {
+		quoted[i] = fmt.Sprintf("%q", id)
+	}
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			id := strings.TrimPrefix(r.URL.Path, "/v1/jobs/")
+			_, _ = w.Write([]byte(jobBody(id, "f.pdf", "pending")))
+			return
+		}
+		_, params, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
+		if err != nil {
+			t.Errorf("parse content-type: %v", err)
+		}
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			t.Errorf("read body: %v", err)
+		}
+		*raw = strings.ReplaceAll(string(body), params["boundary"], "BOUNDARY")
+		w.WriteHeader(http.StatusAccepted)
+		fmt.Fprintf(w, `{"job_ids":[%s],"status":"pending"}`, strings.Join(quoted, ","))
+	}))
+}
+
+func TestExtract_SendsPerFileConfigAsConfigFilenamePart(t *testing.T) {
+	t.Parallel()
+	var raw string
+	server := perFileConfigServer(t, &raw, extractJobA)
+	defer server.Close()
+
+	client := mustClient(t, xberg.WithBaseURL(server.URL))
+	_, err := client.Extract(
+		context.Background(),
+		xberg.FileSource{Name: "invoice.pdf", Reader: strings.NewReader("body-0")},
+		&xberg.ExtractOptions{
+			Extraction: &xberg.ExtractionOptions{
+				ExtractionConfig: &map[string]any{"disable_ocr": true},
+			},
+			Configs: []*xberg.FileExtractionConfig{{ForceOcr: ptrTo(true)}},
+		},
+	)
+	if err != nil {
+		t.Fatalf("Extract: %v", err)
+	}
+	want := "Content-Disposition: form-data; name=\"config-invoice.pdf\"\r\n\r\n{\"force_ocr\":true}"
+	if !strings.Contains(raw, want) {
+		t.Errorf("body did not carry the per-file config part:\n%s", raw)
+	}
+	// The batch-level part is sent untouched alongside it: resolving the
+	// precedence between the two is the server's job, not the client's.
+	if !strings.Contains(raw, `{"extraction_config":{"disable_ocr":true}}`) {
+		t.Errorf("body did not carry the batch-level options part:\n%s", raw)
+	}
+}
+
+func TestExtractBatch_SendsOneConfigPartPerFileKeyedOnItsFilename(t *testing.T) {
+	t.Parallel()
+	var raw string
+	server := perFileConfigServer(t, &raw, extractJobA, extractJobB)
+	defer server.Close()
+
+	client := mustClient(t, xberg.WithBaseURL(server.URL))
+	_, err := client.ExtractBatch(
+		context.Background(),
+		[]xberg.FileSource{
+			{Name: "scanned.pdf", Reader: strings.NewReader("body-0")},
+			{Name: "digital.pdf", Reader: strings.NewReader("body-1")},
+		},
+		&xberg.ExtractOptions{
+			Configs: []*xberg.FileExtractionConfig{
+				{ForceOcr: ptrTo(true)},
+				{DisableOcr: ptrTo(true)},
+			},
+		},
+	)
+	if err != nil {
+		t.Fatalf("ExtractBatch: %v", err)
+	}
+	for _, want := range []string{
+		"name=\"config-scanned.pdf\"\r\n\r\n{\"force_ocr\":true}",
+		"name=\"config-digital.pdf\"\r\n\r\n{\"disable_ocr\":true}",
+	} {
+		if !strings.Contains(raw, want) {
+			t.Errorf("body missing %q:\n%s", want, raw)
+		}
+	}
+}
+
+func TestExtractBatch_OmitsTheConfigPartForAFileWithoutAnOverride(t *testing.T) {
+	t.Parallel()
+	var raw string
+	server := perFileConfigServer(t, &raw, extractJobA, extractJobB)
+	defer server.Close()
+
+	client := mustClient(t, xberg.WithBaseURL(server.URL))
+	_, err := client.ExtractBatch(
+		context.Background(),
+		[]xberg.FileSource{
+			{Name: "scanned.pdf", Reader: strings.NewReader("body-0")},
+			{Name: "digital.pdf", Reader: strings.NewReader("body-1")},
+		},
+		&xberg.ExtractOptions{
+			Configs: []*xberg.FileExtractionConfig{{ForceOcr: ptrTo(true)}, nil},
+		},
+	)
+	if err != nil {
+		t.Fatalf("ExtractBatch: %v", err)
+	}
+	if !strings.Contains(raw, `name="config-scanned.pdf"`) {
+		t.Errorf("body missing config-scanned.pdf:\n%s", raw)
+	}
+	if strings.Contains(raw, `name="config-digital.pdf"`) {
+		t.Errorf("body carried a config part for a file with no override:\n%s", raw)
+	}
+}
+
+// TestExtractBatch_WithoutConfigsSendsTheBodyItAlwaysSent pins the exact bytes of
+// a request with no per-file overrides, so adding them provably moved nothing for
+// existing callers. The whole body is asserted rather than just the absence of a
+// "config-" part: a reordered, duplicated or re-encoded part would be as much of
+// a regression as a spurious one.
+func TestExtractBatch_WithoutConfigsSendsTheBodyItAlwaysSent(t *testing.T) {
+	t.Parallel()
+	var raw string
+	server := perFileConfigServer(t, &raw, extractJobA, extractJobB)
+	defer server.Close()
+
+	client := mustClient(t, xberg.WithBaseURL(server.URL))
+	_, err := client.ExtractBatch(
+		context.Background(),
+		[]xberg.FileSource{
+			{Name: "scanned.pdf", Reader: strings.NewReader("body-0")},
+			{Name: "digital.pdf", Reader: strings.NewReader("body-1")},
+		},
+		&xberg.ExtractOptions{
+			Extraction: &xberg.ExtractionOptions{
+				ExtractionConfig: &map[string]any{"disable_ocr": true},
+			},
+		},
+	)
+	if err != nil {
+		t.Fatalf("ExtractBatch: %v", err)
+	}
+	want := "--BOUNDARY\r\n" +
+		"Content-Disposition: form-data; name=\"file\"; filename=\"scanned.pdf\"\r\n" +
+		"Content-Type: application/pdf\r\n\r\n" +
+		"body-0\r\n" +
+		"--BOUNDARY\r\n" +
+		"Content-Disposition: form-data; name=\"file\"; filename=\"digital.pdf\"\r\n" +
+		"Content-Type: application/pdf\r\n\r\n" +
+		"body-1\r\n" +
+		"--BOUNDARY\r\n" +
+		"Content-Disposition: form-data; name=\"options\"\r\n\r\n" +
+		"{\"extraction_config\":{\"disable_ocr\":true}}\r\n" +
+		"--BOUNDARY--\r\n"
+	if raw != want {
+		t.Errorf("body changed for a request with no per-file configs\ngot:\n%s\nwant:\n%s", raw, want)
+	}
+}
+
+// TestExtractBatch_RejectsTheSameFilenameCarryingDifferentConfigs covers the one
+// case this transport cannot express: the multipart form has a single
+// "config-<filename>" slot per name, so two different overrides under one name
+// have no representation. Erroring is the point — writing whichever came last
+// would drop the other with nothing the caller could observe.
+func TestExtractBatch_RejectsTheSameFilenameCarryingDifferentConfigs(t *testing.T) {
+	t.Parallel()
+	var reached bool
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		reached = true
+		w.WriteHeader(http.StatusAccepted)
+	}))
+	defer server.Close()
+
+	client := mustClient(t, xberg.WithBaseURL(server.URL))
+	_, err := client.ExtractBatch(
+		context.Background(),
+		[]xberg.FileSource{
+			{Name: "invoice.pdf", Reader: strings.NewReader("one")},
+			{Name: "invoice.pdf", Reader: strings.NewReader("two")},
+		},
+		&xberg.ExtractOptions{
+			Configs: []*xberg.FileExtractionConfig{
+				{ForceOcr: ptrTo(true)},
+				{DisableOcr: ptrTo(true)},
+			},
+		},
+	)
+	if err == nil {
+		t.Fatal("ExtractBatch accepted two different configs under one filename")
+	}
+	if !strings.Contains(err.Error(), `per-file config conflict for "invoice.pdf"`) {
+		t.Errorf("error = %v, want it to name the conflicting filename", err)
+	}
+	if reached {
+		t.Error("request was sent despite the conflict")
+	}
+}
+
+func TestExtractBatch_AllowsTheSameFilenameWhenTheConfigsMatch(t *testing.T) {
+	t.Parallel()
+	var raw string
+	server := perFileConfigServer(t, &raw, extractJobA, extractJobB)
+	defer server.Close()
+
+	client := mustClient(t, xberg.WithBaseURL(server.URL))
+	_, err := client.ExtractBatch(
+		context.Background(),
+		[]xberg.FileSource{
+			{Name: "invoice.pdf", Reader: strings.NewReader("one")},
+			{Name: "invoice.pdf", Reader: strings.NewReader("two")},
+		},
+		&xberg.ExtractOptions{
+			Configs: []*xberg.FileExtractionConfig{
+				{ForceOcr: ptrTo(true)},
+				{ForceOcr: ptrTo(true)},
+			},
+		},
+	)
+	if err != nil {
+		t.Fatalf("ExtractBatch: %v", err)
+	}
+	if got := strings.Count(raw, `name="config-invoice.pdf"`); got != 1 {
+		t.Errorf("config-invoice.pdf part count = %d, want 1:\n%s", got, raw)
+	}
+}
+
+func TestExtractBatch_RejectsAConfigsSliceThatDoesNotMatchTheFiles(t *testing.T) {
+	t.Parallel()
+	var reached bool
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		reached = true
+		w.WriteHeader(http.StatusAccepted)
+	}))
+	defer server.Close()
+
+	client := mustClient(t, xberg.WithBaseURL(server.URL))
+	_, err := client.ExtractBatch(
+		context.Background(),
+		[]xberg.FileSource{
+			{Name: "scanned.pdf", Reader: strings.NewReader("body-0")},
+			{Name: "digital.pdf", Reader: strings.NewReader("body-1")},
+		},
+		&xberg.ExtractOptions{
+			Configs: []*xberg.FileExtractionConfig{{ForceOcr: ptrTo(true)}},
+		},
+	)
+	if err == nil {
+		t.Fatal("ExtractBatch accepted a Configs slice shorter than files")
+	}
+	if !strings.Contains(err.Error(), "has 1 entries but 2 files were supplied") {
+		t.Errorf("error = %v, want it to report the length mismatch", err)
+	}
+	if reached {
+		t.Error("request was sent despite the length mismatch")
+	}
+}

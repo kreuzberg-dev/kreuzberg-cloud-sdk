@@ -4,13 +4,24 @@ from __future__ import annotations
 
 import io
 import json
+import re
+from typing import TYPE_CHECKING
 
 import httpx
 import pytest
 import respx
 
 from tests.conftest import TEST_API_KEY, make_extract_response, make_job_payload
-from xberg_io_sdk import AsyncXbergClient, ExtractionOptions, XbergClient, XbergError
+from xberg_io_sdk import (
+    AsyncXbergClient,
+    ExtractionOptions,
+    FileExtractionConfig,
+    XbergClient,
+    XbergError,
+)
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 class _NonSeekableStream:
@@ -390,3 +401,310 @@ async def test_async_retrying_a_seekable_upload_resends_the_body_because_httpx_r
     assert payload in first_attempt_body
     assert payload in second_attempt_body
     assert len(second_attempt_body) == len(first_attempt_body)
+
+
+def _normalized_multipart(request: httpx.Request) -> str:
+    """Render a multipart request body with its random boundary replaced by a fixed token.
+
+    httpx mints a fresh boundary per request, so the raw bytes of two otherwise
+    identical requests never match. Substituting it is what makes a literal
+    byte-for-byte expectation possible.
+    """
+    boundary = request.headers["content-type"].split("boundary=")[1]
+    return request.content.decode().replace(boundary, "BOUNDARY")
+
+
+def _write_files(tmp_path: Path, *names: str) -> list[Path]:
+    """Write one small file per name and return the paths, in order."""
+    paths = []
+    for index, name in enumerate(names):
+        path = tmp_path / name
+        path.write_bytes(f"body-{index}".encode())
+        paths.append(path)
+    return paths
+
+
+@respx.mock
+def test_extract_sends_per_file_config_as_config_filename_part(base_url: str, api_key: str, tmp_path: Path) -> None:
+    job_id = "aaaa1111-1111-1111-1111-111111111111"
+    route = respx.post(f"{base_url}/v1/extract").mock(
+        return_value=httpx.Response(202, json=make_extract_response(job_ids=[job_id])),
+    )
+    respx.get(f"{base_url}/v1/jobs/{job_id}").mock(
+        return_value=httpx.Response(200, json=make_job_payload(job_id=job_id, status="pending")),
+    )
+    (invoice,) = _write_files(tmp_path, "invoice.pdf")
+
+    with XbergClient(api_key=api_key, base_url=base_url) as client:
+        client.extract(file=invoice, options={"extraction_config": {"disable_ocr": True}}, config={"force_ocr": True})
+
+    body = _normalized_multipart(route.calls.last.request)
+    assert 'name="config-invoice.pdf"' in body
+    assert '{"force_ocr": true}' in body
+    # The batch-level part is untouched: the server, not the client, resolves
+    # the precedence between the two.
+    assert '{"extraction_config": {"disable_ocr": true}}' in body
+
+
+@respx.mock
+def test_extract_batch_sends_one_config_part_per_file_keyed_on_its_filename(
+    base_url: str, api_key: str, tmp_path: Path
+) -> None:
+    job_ids = ["bbbb1111-1111-1111-1111-111111111111", "bbbb2222-2222-2222-2222-222222222222"]
+    route = respx.post(f"{base_url}/v1/extract").mock(
+        return_value=httpx.Response(202, json=make_extract_response(job_ids=job_ids)),
+    )
+    for job_id in job_ids:
+        respx.get(f"{base_url}/v1/jobs/{job_id}").mock(
+            return_value=httpx.Response(200, json=make_job_payload(job_id=job_id, status="pending")),
+        )
+    scanned, digital = _write_files(tmp_path, "scanned.pdf", "digital.pdf")
+
+    with XbergClient(api_key=api_key, base_url=base_url) as client:
+        client.extract_batch([scanned, digital], configs=[{"force_ocr": True}, {"disable_ocr": True}])
+
+    body = _normalized_multipart(route.calls.last.request)
+    assert 'name="config-scanned.pdf"\r\n\r\n{"force_ocr": true}' in body
+    assert 'name="config-digital.pdf"\r\n\r\n{"disable_ocr": true}' in body
+
+
+@respx.mock
+def test_extract_batch_omits_the_config_part_for_a_file_without_an_override(
+    base_url: str, api_key: str, tmp_path: Path
+) -> None:
+    job_ids = ["cccc1111-1111-1111-1111-111111111111", "cccc2222-2222-2222-2222-222222222222"]
+    route = respx.post(f"{base_url}/v1/extract").mock(
+        return_value=httpx.Response(202, json=make_extract_response(job_ids=job_ids)),
+    )
+    for job_id in job_ids:
+        respx.get(f"{base_url}/v1/jobs/{job_id}").mock(
+            return_value=httpx.Response(200, json=make_job_payload(job_id=job_id, status="pending")),
+        )
+    scanned, digital = _write_files(tmp_path, "scanned.pdf", "digital.pdf")
+
+    with XbergClient(api_key=api_key, base_url=base_url) as client:
+        client.extract_batch([scanned, digital], configs=[{"force_ocr": True}, None])
+
+    body = _normalized_multipart(route.calls.last.request)
+    assert 'name="config-scanned.pdf"' in body
+    assert 'name="config-digital.pdf"' not in body
+
+
+@respx.mock
+def test_extract_batch_without_configs_sends_the_body_it_always_sent(
+    base_url: str, api_key: str, tmp_path: Path
+) -> None:
+    """Pin the exact bytes of a no-override request, so adding per-file configs provably moved nothing.
+
+    The whole body is asserted, not just the absence of a ``config-`` part: a
+    reordered, duplicated or re-encoded part would be just as much of a
+    regression for existing callers as a spurious one.
+    """
+    job_ids = ["dddd1111-1111-1111-1111-111111111111", "dddd2222-2222-2222-2222-222222222222"]
+    route = respx.post(f"{base_url}/v1/extract").mock(
+        return_value=httpx.Response(202, json=make_extract_response(job_ids=job_ids)),
+    )
+    for job_id in job_ids:
+        respx.get(f"{base_url}/v1/jobs/{job_id}").mock(
+            return_value=httpx.Response(200, json=make_job_payload(job_id=job_id, status="pending")),
+        )
+    scanned, digital = _write_files(tmp_path, "scanned.pdf", "digital.pdf")
+
+    with XbergClient(api_key=api_key, base_url=base_url) as client:
+        client.extract_batch([scanned, digital], options={"extraction_config": {"disable_ocr": True}})
+
+    assert _normalized_multipart(route.calls.last.request) == (
+        "--BOUNDARY\r\n"
+        'Content-Disposition: form-data; name="options"\r\n'
+        "\r\n"
+        '{"extraction_config": {"disable_ocr": true}}\r\n'
+        "--BOUNDARY\r\n"
+        'Content-Disposition: form-data; name="file"; filename="scanned.pdf"\r\n'
+        "Content-Type: application/pdf\r\n"
+        "\r\n"
+        "body-0\r\n"
+        "--BOUNDARY\r\n"
+        'Content-Disposition: form-data; name="file"; filename="digital.pdf"\r\n'
+        "Content-Type: application/pdf\r\n"
+        "\r\n"
+        "body-1\r\n"
+        "--BOUNDARY--\r\n"
+    )
+
+
+@respx.mock
+def test_extract_accepts_a_file_extraction_config_model(base_url: str, api_key: str, tmp_path: Path) -> None:
+    job_id = "eeee1111-1111-1111-1111-111111111111"
+    route = respx.post(f"{base_url}/v1/extract").mock(
+        return_value=httpx.Response(202, json=make_extract_response(job_ids=[job_id])),
+    )
+    respx.get(f"{base_url}/v1/jobs/{job_id}").mock(
+        return_value=httpx.Response(200, json=make_job_payload(job_id=job_id, status="pending")),
+    )
+    (invoice,) = _write_files(tmp_path, "invoice.pdf")
+
+    with XbergClient(api_key=api_key, base_url=base_url) as client:
+        client.extract(file=invoice, config=FileExtractionConfig(force_ocr=True))
+
+    body = _normalized_multipart(route.calls.last.request)
+    assert 'name="config-invoice.pdf"' in body
+    assert '"force_ocr": true' in body
+
+
+@respx.mock
+def test_extract_batch_rejects_the_same_filename_carrying_different_configs(
+    base_url: str, api_key: str, tmp_path: Path
+) -> None:
+    """The multipart form has one ``config-<filename>`` slot per name; two answers for it must not be guessed at."""
+    route = respx.post(f"{base_url}/v1/extract")
+    nested = tmp_path / "second"
+    nested.mkdir()
+    first = tmp_path / "invoice.pdf"
+    first.write_bytes(b"one")
+    second = nested / "invoice.pdf"
+    second.write_bytes(b"two")
+
+    with (
+        XbergClient(api_key=api_key, base_url=base_url) as client,
+        pytest.raises(XbergError, match=re.escape("per-file config conflict for 'invoice.pdf'")),
+    ):
+        client.extract_batch([first, second], configs=[{"force_ocr": True}, {"disable_ocr": True}])
+
+    assert not route.called
+
+
+@respx.mock
+def test_extract_batch_allows_the_same_filename_when_the_configs_match(
+    base_url: str, api_key: str, tmp_path: Path
+) -> None:
+    """Identical overrides under one name are unambiguous, so they send a single part rather than erroring."""
+    job_ids = ["ffff1111-1111-1111-1111-111111111111", "ffff2222-2222-2222-2222-222222222222"]
+    route = respx.post(f"{base_url}/v1/extract").mock(
+        return_value=httpx.Response(202, json=make_extract_response(job_ids=job_ids)),
+    )
+    for job_id in job_ids:
+        respx.get(f"{base_url}/v1/jobs/{job_id}").mock(
+            return_value=httpx.Response(200, json=make_job_payload(job_id=job_id, status="pending")),
+        )
+    nested = tmp_path / "second"
+    nested.mkdir()
+    first = tmp_path / "invoice.pdf"
+    first.write_bytes(b"one")
+    second = nested / "invoice.pdf"
+    second.write_bytes(b"two")
+
+    with XbergClient(api_key=api_key, base_url=base_url) as client:
+        client.extract_batch([first, second], configs=[{"force_ocr": True}, {"force_ocr": True}])
+
+    body = _normalized_multipart(route.calls.last.request)
+    assert body.count('name="config-invoice.pdf"') == 1
+
+
+@respx.mock
+def test_extract_batch_rejects_a_configs_list_that_does_not_match_the_files(
+    base_url: str, api_key: str, tmp_path: Path
+) -> None:
+    route = respx.post(f"{base_url}/v1/extract")
+    scanned, digital = _write_files(tmp_path, "scanned.pdf", "digital.pdf")
+
+    with (
+        XbergClient(api_key=api_key, base_url=base_url) as client,
+        pytest.raises(XbergError, match="configs has 1 entries but 2 files were supplied"),
+    ):
+        client.extract_batch([scanned, digital], configs=[{"force_ocr": True}])
+
+    assert not route.called
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_async_extract_sends_per_file_config_as_config_filename_part(
+    base_url: str, api_key: str, tmp_path: Path
+) -> None:
+    job_id = "abab1111-1111-1111-1111-111111111111"
+    route = respx.post(f"{base_url}/v1/extract").mock(
+        return_value=httpx.Response(202, json=make_extract_response(job_ids=[job_id])),
+    )
+    respx.get(f"{base_url}/v1/jobs/{job_id}").mock(
+        return_value=httpx.Response(200, json=make_job_payload(job_id=job_id, status="pending")),
+    )
+    (invoice,) = _write_files(tmp_path, "invoice.pdf")
+
+    async with AsyncXbergClient(api_key=api_key, base_url=base_url) as client:
+        await client.extract(file=invoice, config={"force_ocr": True})
+
+    body = _normalized_multipart(route.calls.last.request)
+    assert 'name="config-invoice.pdf"\r\n\r\n{"force_ocr": true}' in body
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_async_extract_batch_rejects_the_same_filename_carrying_different_configs(
+    base_url: str, api_key: str, tmp_path: Path
+) -> None:
+    route = respx.post(f"{base_url}/v1/extract")
+    nested = tmp_path / "second"
+    nested.mkdir()
+    first = tmp_path / "invoice.pdf"
+    first.write_bytes(b"one")
+    second = nested / "invoice.pdf"
+    second.write_bytes(b"two")
+
+    async with AsyncXbergClient(api_key=api_key, base_url=base_url) as client:
+        with pytest.raises(XbergError, match=re.escape("per-file config conflict for 'invoice.pdf'")):
+            await client.extract_batch([first, second], configs=[{"force_ocr": True}, {"disable_ocr": True}])
+
+    assert not route.called
+
+
+@respx.mock
+def test_extract_batch_with_configs_pins_the_whole_multipart_body(base_url: str, api_key: str, tmp_path: Path) -> None:
+    """Pin every byte of a request that does carry overrides, ordering included.
+
+    The sibling no-override test pins the body without config parts; this pins it
+    with them. Ordering is pinned deliberately: httpx renders every ``data=``
+    field before the ``files=`` list, so Python puts ``config-<filename>`` ahead
+    of the file parts while the Go and TypeScript clients, which write their
+    multipart bodies by hand, put it after. Parts in a multipart body are
+    order-independent, so that divergence is harmless -- but it is unasserted
+    behaviour of a dependency, and without this test a refactor could reorder or
+    re-encode these parts with nothing failing.
+    """
+    job_ids = ["a1b2c3d4-1111-1111-1111-111111111111", "a1b2c3d4-2222-2222-2222-222222222222"]
+    route = respx.post(f"{base_url}/v1/extract").mock(
+        return_value=httpx.Response(202, json=make_extract_response(job_ids=job_ids)),
+    )
+    for job_id in job_ids:
+        respx.get(f"{base_url}/v1/jobs/{job_id}").mock(
+            return_value=httpx.Response(200, json=make_job_payload(job_id=job_id, status="pending")),
+        )
+    scanned, digital = _write_files(tmp_path, "scanned.pdf", "digital.pdf")
+
+    with XbergClient(api_key=api_key, base_url=base_url) as client:
+        client.extract_batch(
+            [scanned, digital],
+            options={"extraction_config": {"disable_ocr": True}},
+            configs=[{"force_ocr": True}, None],
+        )
+
+    assert _normalized_multipart(route.calls.last.request) == (
+        "--BOUNDARY\r\n"
+        'Content-Disposition: form-data; name="options"\r\n'
+        "\r\n"
+        '{"extraction_config": {"disable_ocr": true}}\r\n'
+        "--BOUNDARY\r\n"
+        'Content-Disposition: form-data; name="config-scanned.pdf"\r\n'
+        "\r\n"
+        '{"force_ocr": true}\r\n'
+        "--BOUNDARY\r\n"
+        'Content-Disposition: form-data; name="file"; filename="scanned.pdf"\r\n'
+        "Content-Type: application/pdf\r\n"
+        "\r\n"
+        "body-0\r\n"
+        "--BOUNDARY\r\n"
+        'Content-Disposition: form-data; name="file"; filename="digital.pdf"\r\n'
+        "Content-Type: application/pdf\r\n"
+        "\r\n"
+        "body-1\r\n"
+        "--BOUNDARY--\r\n"
+    )

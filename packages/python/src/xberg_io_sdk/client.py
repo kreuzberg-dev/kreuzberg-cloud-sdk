@@ -48,6 +48,7 @@ from xberg_io_sdk._generated_api.models.enrich_job_status_type_1 import EnrichJo
 from xberg_io_sdk._generated_api.models.enrich_job_status_type_2 import EnrichJobStatusType2
 from xberg_io_sdk._generated_api.models.enrich_job_submitted import EnrichJobSubmitted
 from xberg_io_sdk._generated_api.models.extraction_options import ExtractionOptions
+from xberg_io_sdk._generated_api.models.file_extraction_config import FileExtractionConfig
 from xberg_io_sdk._generated_api.models.job_response import JobResponse
 from xberg_io_sdk._generated_api.models.job_result import JobResult
 from xberg_io_sdk._generated_api.models.list_auto_tune_jobs_response import ListAutoTuneJobsResponse
@@ -72,7 +73,7 @@ from xberg_io_sdk.errors import XbergError, parse_retry_after, raise_for_status
 
 if TYPE_CHECKING:
     import sys
-    from collections.abc import AsyncIterator, Iterable, Iterator
+    from collections.abc import AsyncIterator, Iterable, Iterator, Sequence
     from types import TracebackType
 
     from xberg_io_sdk._generated_api.models.create_auto_tune_job_request import CreateAutoTuneJobRequest
@@ -131,6 +132,9 @@ FileInput = Path | bytes | BinaryIO
 
 OptionsInput = ExtractionOptions | dict[str, Any] | None
 """Accepted shapes for the ``options`` argument: typed model, plain dict, or ``None``."""
+
+FileConfigInput = FileExtractionConfig | dict[str, Any] | None
+"""Accepted shapes for one per-file ``config`` override: typed model, plain dict, or ``None`` for no override."""
 
 BackoffStrategy = Literal["constant", "exponential"]
 Target = Literal["enterprise", "pro"]
@@ -257,6 +261,57 @@ def _multipart_data(options: OptionsInput, webhook: Mapping[str, Any] | None) ->
     coerced = _coerce_options(options)
     if coerced is not None:
         data["options"] = json.dumps(coerced)
+    return data
+
+
+def _coerce_file_config(config: FileConfigInput) -> dict[str, Any] | None:
+    """Normalize a :class:`FileExtractionConfig`/dict/``None`` into a plain dict (or ``None``)."""
+    if config is None:
+        return None
+    if isinstance(config, FileExtractionConfig):
+        return config.to_dict()
+    return dict(config)
+
+
+def _per_file_config_data(
+    file_parts: Sequence[tuple[str, tuple[str, bytes | BinaryIO, str]]],
+    configs: Sequence[FileConfigInput] | None,
+) -> dict[str, str]:
+    """Build the ``config-<filename>`` parts carrying per-file extraction overrides.
+
+    The multipart form keys a per-file override on the *filename*, mirroring the
+    existing ``document_id-<filename>`` convention. That means two copies of the
+    same filename in one batch cannot carry different overrides -- the wire has
+    exactly one slot for that name. Rather than send whichever config happened to
+    be written last and silently drop the other, that case raises here. Callers
+    who need the same document extracted twice under different instructions give
+    the copies distinct filenames.
+
+    Precedence between this override and ``options.extraction_config`` is the
+    server's; nothing is merged, validated or reordered client-side.
+    """
+    if configs is None:
+        return {}
+    coerced = [_coerce_file_config(config) for config in configs]
+    if len(coerced) != len(file_parts):
+        raise XbergError(
+            f"configs has {len(coerced)} entries but {len(file_parts)} files were supplied; "
+            "pass exactly one entry per file (None for no override)",
+            status_code=None,
+        )
+    data: dict[str, str] = {}
+    seen: dict[str, dict[str, Any] | None] = {}
+    for (_, (filename, _, _)), config in zip(file_parts, coerced, strict=True):
+        if filename in seen and seen[filename] != config:
+            raise XbergError(
+                f"per-file config conflict for {filename!r}: the same filename appears more than "
+                "once in this batch with different configs, but a multipart request carries at "
+                "most one config part per filename. Give the copies distinct filenames.",
+                status_code=None,
+            )
+        seen[filename] = config
+        if config is not None:
+            data[f"config-{filename}"] = json.dumps(config)
     return data
 
 
@@ -685,26 +740,40 @@ class XbergClient(_BaseClient):
         file: FileInput,
         options: OptionsInput = None,
         webhook: Mapping[str, Any] | None = None,
+        config: FileConfigInput = None,
     ) -> JobResponse:
-        """Submit a single document for extraction via ``POST /v1/extract`` (multipart)."""
-        return self.extract_batch([file], options=options, webhook=webhook)[0]
+        """Submit a single document for extraction via ``POST /v1/extract`` (multipart).
+
+        ``config`` is a per-file :class:`FileExtractionConfig` override sent as the
+        ``config-<filename>`` part. The server resolves it against
+        ``options.extraction_config``, any preset and the project default.
+        """
+        return self.extract_batch(
+            [file],
+            options=options,
+            webhook=webhook,
+            configs=None if config is None else [config],
+        )[0]
 
     def extract_batch(
         self,
         files: Iterable[FileInput],
         options: OptionsInput = None,
         webhook: Mapping[str, Any] | None = None,
+        configs: Sequence[FileConfigInput] | None = None,
     ) -> list[JobResponse]:
-        """Submit multiple documents in a SINGLE multipart request carrying every file."""
+        """Submit multiple documents in a SINGLE multipart request carrying every file.
+
+        ``configs``, when given, holds one per-file override per entry of ``files``
+        in the same order (``None`` for no override) and must be the same length.
+        """
         materialized = list(files)
         if not materialized:
             raise XbergError("extract_batch called with no files", status_code=None)
-        payload = self._request_json(
-            "POST",
-            "/v1/extract",
-            files=_multipart_files(materialized),
-            data=_multipart_data(options, webhook),
-        )
+        file_parts = _multipart_files(materialized)
+        data = _multipart_data(options, webhook)
+        data.update(_per_file_config_data(file_parts, configs))
+        payload = self._request_json("POST", "/v1/extract", files=file_parts, data=data)
         job_ids = _job_ids_from_extract_response(payload)
         return [self.get_job(job_id) for job_id in job_ids]
 
@@ -779,12 +848,13 @@ class XbergClient(_BaseClient):
         file: FileInput,
         options: OptionsInput = None,
         webhook: Mapping[str, Any] | None = None,
+        config: FileConfigInput = None,
         timeout: float = _DEFAULT_WAIT_TIMEOUT,
         poll_interval: float = _DEFAULT_POLL_INTERVAL,
         backoff: BackoffStrategy = "exponential",
     ) -> JobResponse:
         """Submit a document and block until extraction completes (raises on failure/timeout)."""
-        job = self.extract(file=file, options=options, webhook=webhook)
+        job = self.extract(file=file, options=options, webhook=webhook, config=config)
         return self.wait_for_job(str(job.id), timeout=timeout, poll_interval=poll_interval, backoff=backoff)
 
     def audit(self, *, action: str | None = None, limit: int | None = None, offset: int | None = None) -> Any:
@@ -1348,9 +1418,15 @@ class AsyncXbergClient(_BaseClient):
         file: FileInput,
         options: OptionsInput = None,
         webhook: Mapping[str, Any] | None = None,
+        config: FileConfigInput = None,
     ) -> JobResponse:
         """Async equivalent of :meth:`XbergClient.extract`."""
-        jobs = await self.extract_batch([file], options=options, webhook=webhook)
+        jobs = await self.extract_batch(
+            [file],
+            options=options,
+            webhook=webhook,
+            configs=None if config is None else [config],
+        )
         return jobs[0]
 
     async def extract_batch(
@@ -1358,17 +1434,16 @@ class AsyncXbergClient(_BaseClient):
         files: Iterable[FileInput],
         options: OptionsInput = None,
         webhook: Mapping[str, Any] | None = None,
+        configs: Sequence[FileConfigInput] | None = None,
     ) -> list[JobResponse]:
         """Submit multiple documents in a SINGLE multipart request; fetch jobs concurrently."""
         materialized = list(files)
         if not materialized:
             raise XbergError("extract_batch called with no files", status_code=None)
-        payload = await self._request_json(
-            "POST",
-            "/v1/extract",
-            files=_multipart_files(materialized),
-            data=_multipart_data(options, webhook),
-        )
+        file_parts = _multipart_files(materialized)
+        data = _multipart_data(options, webhook)
+        data.update(_per_file_config_data(file_parts, configs))
+        payload = await self._request_json("POST", "/v1/extract", files=file_parts, data=data)
         job_ids = _job_ids_from_extract_response(payload)
         return list(await asyncio.gather(*(self.get_job(job_id) for job_id in job_ids)))
 
@@ -1435,12 +1510,13 @@ class AsyncXbergClient(_BaseClient):
         file: FileInput,
         options: OptionsInput = None,
         webhook: Mapping[str, Any] | None = None,
+        config: FileConfigInput = None,
         timeout: float = _DEFAULT_WAIT_TIMEOUT,
         poll_interval: float = _DEFAULT_POLL_INTERVAL,
         backoff: BackoffStrategy = "exponential",
     ) -> JobResponse:
         """Submit a document and await extraction in a single call (raises on failure/timeout)."""
-        job = await self.extract(file=file, options=options, webhook=webhook)
+        job = await self.extract(file=file, options=options, webhook=webhook, config=config)
         return await self.wait_for_job(str(job.id), timeout=timeout, poll_interval=poll_interval, backoff=backoff)
 
     async def audit(self, *, action: str | None = None, limit: int | None = None, offset: int | None = None) -> Any:

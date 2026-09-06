@@ -50,6 +50,12 @@ func (c *Client) ExtractBatch(
 	if err := validateFileSources(files); err != nil {
 		return nil, err
 	}
+	// Validated before buildMultipartBody so a misaligned or conflicting
+	// Configs slice fails without first draining every FileSource.Reader,
+	// which is single-use and cannot be replayed for a corrected call.
+	if err := validatePerFileConfigs(files, configsOf(opts)); err != nil {
+		return nil, err
+	}
 	body, contentType, err := buildMultipartBody(files, opts)
 	if err != nil {
 		return nil, err
@@ -91,10 +97,12 @@ func (c *Client) ExtractBatch(
 // buildMultipartBody serializes files and an optional [ExtractOptions] into a
 // multipart/form-data body matching the API's documented wire format:
 //
-//	parts: file (one per document) + optional "options" (JSON string) + optional "webhook" (JSON string)
+//	parts: file (one per document) + optional "options" (JSON string) +
+//	       optional "webhook" (JSON string) + optional "config-<filename>"
+//	       (JSON string, one per document carrying a per-file override)
 //
-// Both the "options" and "webhook" parts are omitted entirely when the
-// corresponding field is nil, rather than sending an empty placeholder.
+// The "options", "webhook" and "config-<filename>" parts are omitted entirely
+// when the corresponding field is nil, rather than sending an empty placeholder.
 func buildMultipartBody(
 	files []FileSource,
 	opts *ExtractOptions,
@@ -125,10 +133,102 @@ func buildMultipartBody(
 			return nil, "", fmt.Errorf("xberg: writing webhook field: %w", err)
 		}
 	}
+	if err := writeConfigParts(writer, files, configsOf(opts)); err != nil {
+		return nil, "", err
+	}
 	if err := writer.Close(); err != nil {
 		return nil, "", fmt.Errorf("xberg: closing multipart writer: %w", err)
 	}
 	return buf.Bytes(), writer.FormDataContentType(), nil
+}
+
+// configsOf reads the per-file overrides off opts, tolerating a nil opts.
+func configsOf(opts *ExtractOptions) []*FileExtractionConfig {
+	if opts == nil {
+		return nil
+	}
+	return opts.Configs
+}
+
+// encodePerFileConfig renders one override as its JSON part value, or "" when
+// the entry is nil. A non-nil config always encodes to at least "{}", so the
+// empty string is an unambiguous "no override" marker.
+func encodePerFileConfig(config *FileExtractionConfig, filename string) (string, error) {
+	if config == nil {
+		return "", nil
+	}
+	raw, err := json.Marshal(config)
+	if err != nil {
+		return "", fmt.Errorf("xberg: encoding config for file %q: %w", filename, err)
+	}
+	return string(raw), nil
+}
+
+// validatePerFileConfigs rejects a Configs slice that cannot be expressed on the
+// multipart wire: one that is not aligned with files, and one that asks for two
+// different overrides under a single filename.
+//
+// The second case is the real constraint of this transport. A "config-<filename>"
+// part is keyed on the name, so a batch carrying the same document twice under
+// different instructions has one slot for two answers. Erroring names the file
+// and points at the fix; the alternative is sending whichever config was written
+// last and losing the other with no signal at all.
+func validatePerFileConfigs(files []FileSource, configs []*FileExtractionConfig) error {
+	if len(configs) == 0 {
+		return nil
+	}
+	if len(configs) != len(files) {
+		return fmt.Errorf(
+			"xberg: ExtractOptions.Configs has %d entries but %d files were supplied; "+
+				"pass exactly one entry per file (nil for no override)",
+			len(configs), len(files),
+		)
+	}
+	seen := make(map[string]string, len(files))
+	for i, file := range files {
+		encoded, err := encodePerFileConfig(configs[i], file.Name)
+		if err != nil {
+			return err
+		}
+		prior, repeated := seen[file.Name]
+		if repeated && prior != encoded {
+			return fmt.Errorf(
+				"xberg: per-file config conflict for %q: the same filename appears more than once "+
+					"in this batch with different configs, but a multipart request carries at most "+
+					"one config part per filename; give the copies distinct filenames",
+				file.Name,
+			)
+		}
+		seen[file.Name] = encoded
+	}
+	return nil
+}
+
+// writeConfigParts appends one "config-<filename>" JSON text part per document
+// carrying a per-file override, after the file, options and webhook parts so a
+// request without overrides is byte-identical to one built before they existed.
+//
+// Assumes validatePerFileConfigs has already run: duplicate filenames therefore
+// carry identical configs here, and the part is written once for each name.
+func writeConfigParts(writer *multipart.Writer, files []FileSource, configs []*FileExtractionConfig) error {
+	if len(configs) == 0 {
+		return nil
+	}
+	written := make(map[string]struct{}, len(files))
+	for i, file := range files {
+		encoded, err := encodePerFileConfig(configs[i], file.Name)
+		if err != nil {
+			return err
+		}
+		if _, done := written[file.Name]; encoded == "" || done {
+			continue
+		}
+		if err := writer.WriteField("config-"+file.Name, encoded); err != nil {
+			return fmt.Errorf("xberg: writing config-%s field: %w", file.Name, err)
+		}
+		written[file.Name] = struct{}{}
+	}
+	return nil
 }
 
 // writeFileParts appends one "file" part per document to writer, tagging each

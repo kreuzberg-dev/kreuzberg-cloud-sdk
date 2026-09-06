@@ -73,6 +73,7 @@ export {
   type ExtractionOptions,
   type ExtractionResult,
   type ExtractedDocument,
+  type FileExtractionConfig,
   type GetJobResponse,
   type IntegrationResponse,
   type Job,

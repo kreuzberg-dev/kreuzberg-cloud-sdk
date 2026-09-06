@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from xberg_io_sdk._generated_api.models.extracted_document import ExtractedDocument
 from xberg_io_sdk._generated_api.models.extraction_options import ExtractionOptions
+from xberg_io_sdk._generated_api.models.file_extraction_config import FileExtractionConfig
 from xberg_io_sdk._generated_api.models.job_response import JobResponse
 from xberg_io_sdk._generated_api.models.job_result import JobResult
 from xberg_io_sdk._generated_api.models.job_result_error import JobResultError
@@ -28,6 +29,7 @@ __all__ = [
     "ExtractedDocument",
     "ExtractionOptions",
     "ExtractionResult",
+    "FileExtractionConfig",
     "Job",
     "JobResponse",
     "JobResult",

@@ -61,6 +61,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Per-file extraction configs on the extract convenience methods.** `extract`/`extract_and_wait`
+  take a `config` (Go: `ExtractOptions.Configs`) and `extract_batch` takes a list parallel to the
+  files, sent as the `config-<filename>` multipart part; precedence against
+  `options.extraction_config` stays the server's. Because that part is keyed on the filename, a
+  batch repeating one filename with differing configs is rejected client-side instead of dropping
+  one silently.
 - **The Enterprise control-plane spec** (`spec/backend/openapi.yaml`, 48 operations) is vendored as
   a third schema set and generates types in all three languages; `tools/oapi-pro-config` became
   `tools/oapi-schemaset-config`, which now derives the exclusion, inclusion and rename lists for any

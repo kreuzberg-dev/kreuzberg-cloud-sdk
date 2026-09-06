@@ -297,3 +297,137 @@ describe("extract", () => {
     expect(contentTypes).toEqual(["application/custom"]);
   });
 });
+
+describe("extract per-file configs", () => {
+  /**
+   * Capture the raw multipart body of the next `POST /v1/extract`, with the
+   * random boundary replaced by a fixed token so a literal byte-for-byte
+   * expectation is possible at all.
+   */
+  function captureExtractBody(jobIds: readonly string[]): () => string {
+    let raw = "";
+    server.use(
+      http.post(url("/v1/extract"), async ({ request }) => {
+        const boundary = (request.headers.get("content-type") ?? "").split("boundary=")[1] ?? "";
+        raw = (await request.text()).replaceAll(boundary, "BOUNDARY");
+        return HttpResponse.json({ job_ids: jobIds, status: "pending" }, { status: 202 });
+      }),
+    );
+    return () => raw;
+  }
+
+  function pdf(name: string, body: string): File {
+    return new File([body], name, { type: "application/pdf" });
+  }
+
+  it("sends a per-file config as the config-<filename> part", async () => {
+    const body = captureExtractBody(["job-A"]);
+
+    await makeClient().extract({
+      file: pdf("invoice.pdf", "body-0"),
+      options: { extraction_config: { disable_ocr: true } },
+      config: { force_ocr: true },
+    });
+
+    expect(body()).toContain('name="config-invoice.pdf"\r\n\r\n{"force_ocr":true}');
+    // The batch-level part goes out untouched next to it: resolving the
+    // precedence between the two is the server's job, not the client's.
+    expect(body()).toContain('{"extraction_config":{"disable_ocr":true}}');
+  });
+
+  it("sends one config part per file, keyed on that file's name", async () => {
+    const body = captureExtractBody(["job-A", "job-B"]);
+
+    await makeClient().extractBatch({
+      files: [pdf("scanned.pdf", "body-0"), pdf("digital.pdf", "body-1")],
+      configs: [{ force_ocr: true }, { disable_ocr: true }],
+    });
+
+    expect(body()).toContain('name="config-scanned.pdf"\r\n\r\n{"force_ocr":true}');
+    expect(body()).toContain('name="config-digital.pdf"\r\n\r\n{"disable_ocr":true}');
+  });
+
+  it("omits the config part for a file whose entry is null", async () => {
+    const body = captureExtractBody(["job-A", "job-B"]);
+
+    await makeClient().extractBatch({
+      files: [pdf("scanned.pdf", "body-0"), pdf("digital.pdf", "body-1")],
+      configs: [{ force_ocr: true }, null],
+    });
+
+    expect(body()).toContain('name="config-scanned.pdf"');
+    expect(body()).not.toContain('name="config-digital.pdf"');
+  });
+
+  /**
+   * Pins the exact bytes of a request carrying no per-file overrides, so adding
+   * them provably moved nothing for existing callers. The whole body is asserted
+   * rather than just the absence of a `config-` part: a reordered, duplicated or
+   * re-encoded part would be as much of a regression as a spurious one.
+   */
+  it("sends the body it always sent when no configs are given", async () => {
+    const body = captureExtractBody(["job-A", "job-B"]);
+
+    await makeClient().extractBatch({
+      files: [pdf("scanned.pdf", "body-0"), pdf("digital.pdf", "body-1")],
+      options: { extraction_config: { disable_ocr: true } },
+    });
+
+    expect(body()).toBe(
+      '--BOUNDARY\r\nContent-Disposition: form-data; name="file"; filename="scanned.pdf"\r\n' +
+        "Content-Type: application/pdf\r\n\r\nbody-0\r\n" +
+        '--BOUNDARY\r\nContent-Disposition: form-data; name="file"; filename="digital.pdf"\r\n' +
+        "Content-Type: application/pdf\r\n\r\nbody-1\r\n" +
+        '--BOUNDARY\r\nContent-Disposition: form-data; name="options"\r\n\r\n' +
+        '{"extraction_config":{"disable_ocr":true}}\r\n' +
+        "--BOUNDARY--\r\n",
+    );
+  });
+
+  /**
+   * The one case this transport cannot express: a `config-<filename>` part is
+   * keyed on the name, so two different overrides under one name have a single
+   * slot between them. Throwing is the point — letting the later `append` win
+   * would drop the other with nothing the caller could observe.
+   */
+  it("rejects the same filename carrying different configs", async () => {
+    server.use(
+      http.post(url("/v1/extract"), () => {
+        throw new Error("request was sent despite the conflict");
+      }),
+    );
+
+    await expect(
+      makeClient().extractBatch({
+        files: [pdf("invoice.pdf", "one"), pdf("invoice.pdf", "two")],
+        configs: [{ force_ocr: true }, { disable_ocr: true }],
+      }),
+    ).rejects.toThrow(/per-file config conflict for "invoice\.pdf"/);
+  });
+
+  it("allows the same filename when the configs match, sending one part", async () => {
+    const body = captureExtractBody(["job-A", "job-B"]);
+
+    await makeClient().extractBatch({
+      files: [pdf("invoice.pdf", "one"), pdf("invoice.pdf", "two")],
+      configs: [{ force_ocr: true }, { force_ocr: true }],
+    });
+
+    expect(body().split('name="config-invoice.pdf"').length - 1).toBe(1);
+  });
+
+  it("rejects a configs array that is not the same length as files", async () => {
+    server.use(
+      http.post(url("/v1/extract"), () => {
+        throw new Error("request was sent despite the length mismatch");
+      }),
+    );
+
+    await expect(
+      makeClient().extractBatch({
+        files: [pdf("scanned.pdf", "body-0"), pdf("digital.pdf", "body-1")],
+        configs: [{ force_ocr: true }],
+      }),
+    ).rejects.toThrow(/configs has 1 entries but 2 files were supplied/);
+  });
+});

@@ -62,6 +62,7 @@ import type {
   EnrichTextRequest,
   ExtractResponse,
   ExtractionOptions,
+  FileExtractionConfig,
   IntegrationResponse,
   Job,
   JobResult,
@@ -158,12 +159,27 @@ export interface ExtractParams {
   file: FileLike;
   options?: ExtractionOptions;
   webhook?: WebhookConfig;
+  /**
+   * Per-file extraction override for this document, sent as the
+   * `config-<filename>` part. The server resolves it against
+   * `options.extraction_config`, any preset and the project default.
+   */
+  config?: FileExtractionConfig;
 }
 
 export interface ExtractBatchParams {
   files: readonly FileLike[];
   options?: ExtractionOptions;
   webhook?: WebhookConfig;
+  /**
+   * One optional per-file override per entry of `files`, in the same order —
+   * `null` for no override. Must be the same length as `files` when given.
+   *
+   * The override travels as a `config-<filename>` part, so two documents sharing
+   * a filename cannot carry different overrides; that combination throws rather
+   * than dropping one silently.
+   */
+  configs?: readonly (FileExtractionConfig | null)[];
 }
 
 export interface WaitOptions {
@@ -291,6 +307,7 @@ export class XbergClient {
       files: [params.file],
       ...(params.options !== undefined ? { options: params.options } : {}),
       ...(params.webhook !== undefined ? { webhook: params.webhook } : {}),
+      ...(params.config !== undefined ? { configs: [params.config] } : {}),
     });
     const first = jobs[0];
     if (first === undefined) {
@@ -309,9 +326,11 @@ export class XbergClient {
     }
 
     const form = new FormData();
+    const filenames: string[] = [];
     for (const file of params.files) {
       const { blob, filename } = toBlob(file);
       form.append("file", blob, filename);
+      filenames.push(filename);
     }
     if (params.options !== undefined) {
       form.append("options", JSON.stringify(params.options));
@@ -319,6 +338,7 @@ export class XbergClient {
     if (params.webhook !== undefined) {
       form.append("webhook", JSON.stringify(params.webhook));
     }
+    appendPerFileConfigs(form, filenames, params.configs);
 
     const body = await this.requestJson<ExtractResponse>("POST", "/v1/extract", { body: form });
     const jobIds = body.job_ids ?? [];
@@ -412,6 +432,7 @@ export class XbergClient {
       file: params.file,
       ...(params.options !== undefined ? { options: params.options } : {}),
       ...(params.webhook !== undefined ? { webhook: params.webhook } : {}),
+      ...(params.config !== undefined ? { config: params.config } : {}),
     };
     const job = await this.extract(extractParams);
     const waitOptions: WaitOptions = {
@@ -1157,6 +1178,72 @@ function toDiffResult(status: number, body: DiffResponse | DiffAsyncAccepted): D
     return { status: 202, body: body as DiffAsyncAccepted };
   }
   return { status: 200, body: body as DiffResponse };
+}
+
+/**
+ * Serialize a value with object keys sorted, so two configs that differ only in
+ * key order compare equal when {@link appendPerFileConfigs} looks for a conflict.
+ * Only ever used for that comparison — the value actually appended to the form is
+ * a plain `JSON.stringify`, matching the `options` and `webhook` parts.
+ */
+function canonicalJson(value: unknown): string {
+  if (Array.isArray(value)) {
+    return `[${value.map((entry) => canonicalJson(entry)).join(",")}]`;
+  }
+  if (typeof value === "object" && value !== null) {
+    const entries = Object.entries(value as Record<string, unknown>)
+      .filter(([, entry]) => entry !== undefined)
+      .sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0));
+    return `{${entries.map(([key, entry]) => `${JSON.stringify(key)}:${canonicalJson(entry)}`).join(",")}}`;
+  }
+  return JSON.stringify(value) ?? "null";
+}
+
+/**
+ * Append one `config-<filename>` part per document carrying a per-file override.
+ *
+ * Appended after the `file`, `options` and `webhook` parts, and skipped entirely
+ * when `configs` is undefined, so a request without overrides is byte-identical
+ * to one built before this existed.
+ *
+ * The part is keyed on the filename, mirroring the `document_id-<filename>`
+ * convention. Two documents submitted under the same filename therefore have one
+ * slot for two overrides: rather than let the later `append` win and lose the
+ * other with no signal, that case throws and names the file.
+ */
+function appendPerFileConfigs(
+  form: FormData,
+  filenames: readonly string[],
+  configs: readonly (FileExtractionConfig | null)[] | undefined,
+): void {
+  if (configs === undefined) {
+    return;
+  }
+  if (configs.length !== filenames.length) {
+    throw new XbergError(
+      `configs has ${configs.length} entries but ${filenames.length} files were supplied; ` +
+        "pass exactly one entry per file (null for no override)",
+      { status: 400, body: null },
+    );
+  }
+  const seen = new Map<string, string>();
+  filenames.forEach((filename, index) => {
+    const config = configs[index] ?? null;
+    const canonical = canonicalJson(config);
+    const prior = seen.get(filename);
+    if (prior !== undefined && prior !== canonical) {
+      throw new XbergError(
+        `per-file config conflict for "${filename}": the same filename appears more than once in ` +
+          "this batch with different configs, but a multipart request carries at most one config " +
+          "part per filename. Give the copies distinct filenames.",
+        { status: 400, body: null },
+      );
+    }
+    if (prior === undefined && config !== null) {
+      form.append(`config-${filename}`, JSON.stringify(config));
+    }
+    seen.set(filename, canonical);
+  });
 }
 
 /** Parse one SSE frame payload into the `kind`-discriminated {@link CrawlEvent} it names. */
