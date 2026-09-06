@@ -34,8 +34,8 @@ dependencies = [
   "typing-extensions>=4.12; python_version<'3.11'",
 ]
 urls.Changelog = "https://github.com/xberg-io/sdks/blob/main/CHANGELOG.md"
-urls.Documentation = "https://enterprise.xberg.io"
-urls.Homepage = "https://enterprise.xberg.io"
+urls.Documentation = "https://docs.sdks.xberg.io"
+urls.Homepage = "https://xberg.io"
 urls.Issues = "https://github.com/xberg-io/sdks/issues"
 urls.Repository = "https://github.com/xberg-io/sdks"
 

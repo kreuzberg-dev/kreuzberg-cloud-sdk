@@ -9,7 +9,7 @@
 <div align="center" style="display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin: 20px 0;">
 
 <a href="https://pkg.go.dev/github.com/xberg-io/sdks/packages/go"><img src="https://img.shields.io/badge/Go-pkg.go.dev-007ec6?logo=go&logoColor=white" alt="Go Reference"></a>
-<a href="https://github.com/xberg-io/sdks/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License"></a>
+<a href="https://github.com/xberg-io/sdks/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-007ec6" alt="License"></a>
 <a href="https://docs.sdks.xberg.io"><img src="https://img.shields.io/badge/docs-docs.sdks.xberg.io-007ec6" alt="Documentation"></a>
 <a href="https://github.com/xberg-io/sdks/actions/workflows/validate.yml"><img src="https://github.com/xberg-io/sdks/actions/workflows/validate.yml/badge.svg" alt="CI"></a>
 
@@ -21,7 +21,7 @@
 
 </div>
 
-Official Go client for the [Xberg Enterprise](https://enterprise.xberg.io) and
+Official Go client for the [Xberg Enterprise](https://xberg.io) and
 Xberg Pro document-processing APIs. One `Client` speaks to either product.
 
 ```sh
@@ -213,8 +213,8 @@ originate from an HTTP response — embeds `XbergError`, so a single
 ## Documentation
 
 - SDK docs: <https://docs.sdks.xberg.io>
-- API reference: <https://enterprise.xberg.io>
-- OpenAPI spec: <https://api.xberg.io/api-doc/openapi.json>
+- Product overview: <https://xberg.io>
+- OpenAPI spec: [`spec/api/openapi.yaml`](https://github.com/xberg-io/sdks/blob/main/spec/api/openapi.yaml)
 
 ## License
 
