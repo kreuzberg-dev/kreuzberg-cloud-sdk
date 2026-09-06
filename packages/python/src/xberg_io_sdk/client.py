@@ -23,6 +23,7 @@ import time
 from collections.abc import Mapping
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, BinaryIO, Literal, Protocol
+from urllib.parse import quote
 
 import httpx
 
@@ -80,8 +81,20 @@ if TYPE_CHECKING:
 DEFAULT_ENTERPRISE_BASE_URL = "https://api.xberg.io"
 DEFAULT_TIMEOUT_SECONDS = 30.0
 
+
 # The two specs spell the saved-preset collection differently; every saved-preset
 # call renders its path from the resolved tier via ``_saved_presets_path``.
+def _q(value: object) -> str:
+    """Percent-encode a path parameter.
+
+    Every segment goes through this. A collection name or filename containing
+    `/`, `?` or `#` would otherwise retarget the request -- into another route,
+    or truncated at the query or fragment marker. `safe=""` because nothing is
+    safe in a single path segment, `/` least of all.
+    """
+    return quote(str(value), safe="")
+
+
 _SAVED_PRESETS_PATH_ENTERPRISE = "/v1/saved_presets"
 _SAVED_PRESETS_PATH_PRO = "/v1/saved-presets"
 
@@ -185,7 +198,7 @@ def _multipart_data(options: OptionsInput, webhook: Mapping[str, Any] | None) ->
 def _saved_presets_path(tier: str, preset_id: str | None = None) -> str:
     """Render the saved-preset route for ``tier`` — Pro hyphenates the collection, Enterprise underscores it."""
     base = _SAVED_PRESETS_PATH_PRO if tier == "pro" else _SAVED_PRESETS_PATH_ENTERPRISE
-    return base if preset_id is None else f"{base}/{preset_id}"
+    return base if preset_id is None else f"{base}/{_q(preset_id)}"
 
 
 def _job_ids_from_extract_response(payload: Any) -> list[str]:
@@ -487,7 +500,7 @@ class XbergClient(_BaseClient):
 
     def get_job(self, job_id: str) -> JobResponse:
         """Fetch a job's current status and (when terminal) its extraction result."""
-        return _parse_job(self._request_json("GET", f"/v1/jobs/{job_id}"))
+        return _parse_job(self._request_json("GET", f"/v1/jobs/{_q(job_id)}"))
 
     def get_job_result(self, job_id: str) -> JobResult:
         """Fetch a job's stored result envelope (``GET /v1/jobs/{id}/result``).
@@ -496,7 +509,7 @@ class XbergClient(_BaseClient):
         successful status (``completed`` or ``partial_success``), and 404 once the stored
         result has passed its retention window.
         """
-        return _parse_job_result(self._request_json("GET", f"/v1/jobs/{job_id}/result"))
+        return _parse_job_result(self._request_json("GET", f"/v1/jobs/{_q(job_id)}/result"))
 
     def list_jobs(self, *, limit: int | None = None, offset: int | None = None) -> Any:
         """List jobs via ``GET /v1/jobs`` (paginated). Returns the decoded response body."""
@@ -575,35 +588,37 @@ class XbergClient(_BaseClient):
 
     def get_rag_collection(self, name: str) -> Any:
         """Fetch a RAG collection (``GET /v1/rag/collections/{name}``)."""
-        return self._request_json("GET", f"/v1/rag/collections/{name}")
+        return self._request_json("GET", f"/v1/rag/collections/{_q(name)}")
 
     def delete_rag_collection(self, name: str) -> Any:
         """Delete a RAG collection (``DELETE /v1/rag/collections/{name}``)."""
-        return self._request_json("DELETE", f"/v1/rag/collections/{name}")
+        return self._request_json("DELETE", f"/v1/rag/collections/{_q(name)}")
 
     def add_rag_documents(self, name: str, body: Mapping[str, Any]) -> Any:
         """Add documents to a RAG collection (``POST /v1/rag/collections/{name}/documents``)."""
-        return self._request_json("POST", f"/v1/rag/collections/{name}/documents", json_body=body)
+        return self._request_json("POST", f"/v1/rag/collections/{_q(name)}/documents", json_body=body)
 
     def reindex_rag_document(self, name: str, document_id: str, body: Mapping[str, Any] | None = None) -> Any:
         """Reindex a RAG document (``POST /v1/rag/collections/{name}/documents/{id}/reindex``)."""
-        return self._request_json("POST", f"/v1/rag/collections/{name}/documents/{document_id}/reindex", json_body=body)
+        return self._request_json(
+            "POST", f"/v1/rag/collections/{_q(name)}/documents/{_q(document_id)}/reindex", json_body=body
+        )
 
     def rag_retrieve(self, name: str, body: Mapping[str, Any]) -> Any:
         """Retrieve chunks from a RAG collection (``POST /v1/rag/collections/{name}/retrieve``)."""
-        return self._request_json("POST", f"/v1/rag/collections/{name}/retrieve", json_body=body)
+        return self._request_json("POST", f"/v1/rag/collections/{_q(name)}/retrieve", json_body=body)
 
     def migrate_rag_embeddings(self, name: str, body: Mapping[str, Any]) -> Any:
         """Kick off an embedding migration (``POST /v1/rag/collections/{name}/migrate-embeddings``)."""
-        return self._request_json("POST", f"/v1/rag/collections/{name}/migrate-embeddings", json_body=body)
+        return self._request_json("POST", f"/v1/rag/collections/{_q(name)}/migrate-embeddings", json_body=body)
 
     def get_rag_migration_job(self, name: str, job_id: str) -> Any:
         """Poll an embedding-migration job (``GET .../migrate-embeddings/{job_id}``)."""
-        return self._request_json("GET", f"/v1/rag/collections/{name}/migrate-embeddings/{job_id}")
+        return self._request_json("GET", f"/v1/rag/collections/{_q(name)}/migrate-embeddings/{_q(job_id)}")
 
     def get_rag_job(self, job_id: str) -> Any:
         """Fetch a RAG job's status (``GET /v1/rag/jobs/{job_id}``)."""
-        return self._request_json("GET", f"/v1/rag/jobs/{job_id}")
+        return self._request_json("GET", f"/v1/rag/jobs/{_q(job_id)}")
 
     def presets(self) -> list[PresetSummary]:
         """List the curated, read-only managed presets (``GET /v1/presets``)."""
@@ -611,11 +626,13 @@ class XbergClient(_BaseClient):
 
     def get_preset(self, preset_id: str) -> PresetDetail:
         """Fetch one managed preset in full (``GET /v1/presets/{id}``)."""
-        return PresetDetail.from_dict(_expect_object(self._request_json("GET", f"/v1/presets/{preset_id}"), "preset"))
+        return PresetDetail.from_dict(
+            _expect_object(self._request_json("GET", f"/v1/presets/{_q(preset_id)}"), "preset")
+        )
 
     def get_preset_sample(self, preset_id: str, name: str) -> bytes:
         """Fetch a preset's bundled sample document (``GET /v1/presets/{id}/sample/{name}``, raw bytes)."""
-        return self._request_bytes("GET", f"/v1/presets/{preset_id}/sample/{name}")
+        return self._request_bytes("GET", f"/v1/presets/{_q(preset_id)}/sample/{_q(name)}")
 
     def list_saved_presets(
         self,
@@ -682,12 +699,12 @@ class XbergClient(_BaseClient):
 
     def get_auto_tune_status(self, auto_tune_job_id: str) -> AutoTuneJobStatus:
         """Fetch an auto-tune job's progress (``GET /v1/auto-tune/{id}``)."""
-        payload = self._request_json("GET", f"{_AUTO_TUNE_PATH}/{auto_tune_job_id}")
+        payload = self._request_json("GET", f"{_AUTO_TUNE_PATH}/{_q(auto_tune_job_id)}")
         return AutoTuneJobStatus.from_dict(_expect_object(payload, "auto-tune status"))
 
     def delete_auto_tune_job(self, auto_tune_job_id: str) -> None:
         """Delete an auto-tune job and its artifacts (``DELETE /v1/auto-tune/{id}``, 204)."""
-        self._request_json("DELETE", f"{_AUTO_TUNE_PATH}/{auto_tune_job_id}")
+        self._request_json("DELETE", f"{_AUTO_TUNE_PATH}/{_q(auto_tune_job_id)}")
 
     def promote_auto_tune_profile(
         self,
@@ -696,13 +713,13 @@ class XbergClient(_BaseClient):
     ) -> TuningProfileDetail:
         """Promote an auto-tune result to a named tuning profile (``POST /v1/auto-tune/{id}/promote``)."""
         payload = self._request_json(
-            "POST", f"{_AUTO_TUNE_PATH}/{auto_tune_job_id}/promote", json_body=_coerce_body(body)
+            "POST", f"{_AUTO_TUNE_PATH}/{_q(auto_tune_job_id)}/promote", json_body=_coerce_body(body)
         )
         return TuningProfileDetail.from_dict(_expect_object(payload, "tuning profile"))
 
     def get_auto_tune_result(self, auto_tune_job_id: str) -> AutoTuneResult:
         """Fetch a finished auto-tune job's leaderboard and winning profile (``GET /v1/auto-tune/{id}/result``)."""
-        payload = self._request_json("GET", f"{_AUTO_TUNE_PATH}/{auto_tune_job_id}/result")
+        payload = self._request_json("GET", f"{_AUTO_TUNE_PATH}/{_q(auto_tune_job_id)}/result")
         return AutoTuneResult.from_dict(_expect_object(payload, "auto-tune result"))
 
     def list_tuning_profiles(
@@ -714,12 +731,12 @@ class XbergClient(_BaseClient):
 
     def get_tuning_profile(self, profile_id: str) -> TuningProfileDetail:
         """Fetch one tuning profile in full (``GET /v1/tuning-profiles/{id}``)."""
-        payload = self._request_json("GET", f"{_TUNING_PROFILES_PATH}/{profile_id}")
+        payload = self._request_json("GET", f"{_TUNING_PROFILES_PATH}/{_q(profile_id)}")
         return TuningProfileDetail.from_dict(_expect_object(payload, "tuning profile"))
 
     def delete_tuning_profile(self, profile_id: str) -> None:
         """Delete a tuning profile (``DELETE /v1/tuning-profiles/{id}``, 204)."""
-        self._request_json("DELETE", f"{_TUNING_PROFILES_PATH}/{profile_id}")
+        self._request_json("DELETE", f"{_TUNING_PROFILES_PATH}/{_q(profile_id)}")
 
     # -- Pro-only surface --------------------------------------------------
 
@@ -736,12 +753,12 @@ class XbergClient(_BaseClient):
     def get_rag_config(self, project_id: str) -> Any:
         """Pro only: fetch a project's RAG config (``GET /v1/projects/{project_id}/rag-config``)."""
         self._require_tier("pro", "get_rag_config")
-        return self._request_json("GET", f"/v1/projects/{project_id}/rag-config")
+        return self._request_json("GET", f"/v1/projects/{_q(project_id)}/rag-config")
 
     def set_rag_config(self, project_id: str, body: Mapping[str, Any]) -> Any:
         """Pro only: update a project's RAG config (``PUT /v1/projects/{project_id}/rag-config``)."""
         self._require_tier("pro", "set_rag_config")
-        return self._request_json("PUT", f"/v1/projects/{project_id}/rag-config", json_body=body)
+        return self._request_json("PUT", f"/v1/projects/{_q(project_id)}/rag-config", json_body=body)
 
     # -- Pro-only control plane (projects, API keys, integrations) ---------
 
@@ -766,7 +783,9 @@ class XbergClient(_BaseClient):
     ) -> ListApiKeysResponse:
         """Pro only: list a project's API keys (``GET /v1/projects/{project_id}/api-keys``)."""
         self._require_tier("pro", "list_api_keys")
-        payload = self._request_json("GET", f"/v1/projects/{project_id}/api-keys", params=_pagination(limit, offset))
+        payload = self._request_json(
+            "GET", f"/v1/projects/{_q(project_id)}/api-keys", params=_pagination(limit, offset)
+        )
         return ListApiKeysResponse.from_dict(_expect_object(payload, "API key list"))
 
     def create_api_key(
@@ -779,13 +798,13 @@ class XbergClient(_BaseClient):
         The plaintext ``key`` is returned exactly once, in this response.
         """
         self._require_tier("pro", "create_api_key")
-        payload = self._request_json("POST", f"/v1/projects/{project_id}/api-keys", json_body=_coerce_body(body))
+        payload = self._request_json("POST", f"/v1/projects/{_q(project_id)}/api-keys", json_body=_coerce_body(body))
         return CreateApiKeyResponse.from_dict(_expect_object(payload, "API key"))
 
     def revoke_api_key(self, project_id: str, key_id: str) -> None:
         """Pro only: revoke an API key (``DELETE /v1/projects/{project_id}/api-keys/{key_id}``)."""
         self._require_tier("pro", "revoke_api_key")
-        self._request_json("DELETE", f"/v1/projects/{project_id}/api-keys/{key_id}")
+        self._request_json("DELETE", f"/v1/projects/{_q(project_id)}/api-keys/{_q(key_id)}")
 
     def list_integrations(
         self,
@@ -797,7 +816,7 @@ class XbergClient(_BaseClient):
         """Pro only: list a project's integrations (``GET /v1/projects/{project_id}/integrations``)."""
         self._require_tier("pro", "list_integrations")
         payload = self._request_json(
-            "GET", f"/v1/projects/{project_id}/integrations", params=_pagination(limit, offset)
+            "GET", f"/v1/projects/{_q(project_id)}/integrations", params=_pagination(limit, offset)
         )
         return ListIntegrationsResponse.from_dict(_expect_object(payload, "integration list"))
 
@@ -808,19 +827,21 @@ class XbergClient(_BaseClient):
     ) -> IntegrationResponse:
         """Pro only: create an integration (``POST /v1/projects/{project_id}/integrations``)."""
         self._require_tier("pro", "create_integration")
-        payload = self._request_json("POST", f"/v1/projects/{project_id}/integrations", json_body=_coerce_body(body))
+        payload = self._request_json(
+            "POST", f"/v1/projects/{_q(project_id)}/integrations", json_body=_coerce_body(body)
+        )
         return IntegrationResponse.from_dict(_expect_object(payload, "integration"))
 
     def get_integration(self, project_id: str, integration_id: str) -> IntegrationResponse:
         """Pro only: fetch one integration (``GET .../integrations/{integration_id}``)."""
         self._require_tier("pro", "get_integration")
-        payload = self._request_json("GET", f"/v1/projects/{project_id}/integrations/{integration_id}")
+        payload = self._request_json("GET", f"/v1/projects/{_q(project_id)}/integrations/{_q(integration_id)}")
         return IntegrationResponse.from_dict(_expect_object(payload, "integration"))
 
     def delete_integration(self, project_id: str, integration_id: str) -> None:
         """Pro only: delete an integration (``DELETE .../integrations/{integration_id}``)."""
         self._require_tier("pro", "delete_integration")
-        self._request_json("DELETE", f"/v1/projects/{project_id}/integrations/{integration_id}")
+        self._request_json("DELETE", f"/v1/projects/{_q(project_id)}/integrations/{_q(integration_id)}")
 
     def connect_integration(self, project_id: str, integration_id: str) -> BeginOAuthResponse:
         """Pro only: begin the OAuth connect flow (``POST .../integrations/{integration_id}/connect``).
@@ -828,13 +849,13 @@ class XbergClient(_BaseClient):
         Returns the provider ``authorize_url`` the end user must visit.
         """
         self._require_tier("pro", "connect_integration")
-        payload = self._request_json("POST", f"/v1/projects/{project_id}/integrations/{integration_id}/connect")
+        payload = self._request_json("POST", f"/v1/projects/{_q(project_id)}/integrations/{_q(integration_id)}/connect")
         return BeginOAuthResponse.from_dict(_expect_object(payload, "OAuth connect"))
 
     def disconnect_integration(self, project_id: str, integration_id: str) -> None:
         """Pro only: drop an integration's stored credentials (``POST .../disconnect``)."""
         self._require_tier("pro", "disconnect_integration")
-        self._request_json("POST", f"/v1/projects/{project_id}/integrations/{integration_id}/disconnect")
+        self._request_json("POST", f"/v1/projects/{_q(project_id)}/integrations/{_q(integration_id)}/disconnect")
 
     def list_integration_documents(
         self,
@@ -849,7 +870,7 @@ class XbergClient(_BaseClient):
         self._require_tier("pro", "list_integration_documents")
         params = _query_params(mime_types=mime_types, folder_id=folder_id, max_results=max_results)
         payload = self._request_json(
-            "GET", f"/v1/projects/{project_id}/integrations/{integration_id}/documents", params=params
+            "GET", f"/v1/projects/{_q(project_id)}/integrations/{_q(integration_id)}/documents", params=params
         )
         return ListDocumentsResponse.from_dict(_expect_object(payload, "integration document list"))
 
@@ -857,7 +878,7 @@ class XbergClient(_BaseClient):
         """Pro only: download one document through an integration (``GET .../documents/{document_id}``)."""
         self._require_tier("pro", "fetch_integration_document")
         return self._request_bytes(
-            "GET", f"/v1/projects/{project_id}/integrations/{integration_id}/documents/{document_id}"
+            "GET", f"/v1/projects/{_q(project_id)}/integrations/{_q(integration_id)}/documents/{_q(document_id)}"
         )
 
     # -- Enterprise-only surface ------------------------------------------
@@ -865,17 +886,17 @@ class XbergClient(_BaseClient):
     def versions(self, document_id: str) -> Any:
         """Enterprise only: list a document's versions (``GET /v1/documents/{id}/versions``)."""
         self._require_tier("enterprise", "versions")
-        return self._request_json("GET", f"/v1/documents/{document_id}/versions")
+        return self._request_json("GET", f"/v1/documents/{_q(document_id)}/versions")
 
     def diff(self, document_id: str, *, params: Mapping[str, Any] | None = None) -> Any:
         """Enterprise only: diff document versions (``GET /v1/documents/{id}/diff``)."""
         self._require_tier("enterprise", "diff")
-        return self._request_json("GET", f"/v1/documents/{document_id}/diff", params=params)
+        return self._request_json("GET", f"/v1/documents/{_q(document_id)}/diff", params=params)
 
     def get_diff_job(self, document_id: str, diff_job_id: str) -> Any:
         """Enterprise only: poll a diff job (``GET /v1/documents/{id}/diff/{diff_job_id}``)."""
         self._require_tier("enterprise", "get_diff_job")
-        return self._request_json("GET", f"/v1/documents/{document_id}/diff/{diff_job_id}")
+        return self._request_json("GET", f"/v1/documents/{_q(document_id)}/diff/{_q(diff_job_id)}")
 
     def presign_upload(self, body: Mapping[str, Any]) -> Any:
         """Enterprise only: request a presigned upload URL (``POST /v1/uploads/presign``)."""
@@ -898,12 +919,12 @@ class XbergClient(_BaseClient):
         The spec declares an inline response schema, so the decoded body is returned as-is.
         """
         self._require_tier("enterprise", "get_document")
-        return self._request_json("GET", f"/v1/documents/{document_id}")
+        return self._request_json("GET", f"/v1/documents/{_q(document_id)}")
 
     def get_job_page(self, job_id: str, page_number: int) -> bytes:
         """Enterprise only: fetch a rendered page image (``GET /v1/jobs/{id}/pages/{n}``, ``image/png`` bytes)."""
         self._require_tier("enterprise", "get_job_page")
-        return self._request_bytes("GET", f"/v1/jobs/{job_id}/pages/{page_number}")
+        return self._request_bytes("GET", f"/v1/jobs/{_q(job_id)}/pages/{_q(page_number)}")
 
     def list_extraction_events(
         self,
@@ -927,7 +948,7 @@ class XbergClient(_BaseClient):
     def get_enrich_status(self, job_id: str) -> EnrichJobStatus:
         """Enterprise only: poll an enrichment job (``GET /v1/enrich/{job_id}``)."""
         self._require_tier("enterprise", "get_enrich_status")
-        return _parse_enrich_status(self._request_json("GET", f"{_ENRICH_PATH}/{job_id}"))
+        return _parse_enrich_status(self._request_json("GET", f"{_ENRICH_PATH}/{_q(job_id)}"))
 
 
 class AsyncXbergClient(_BaseClient):
@@ -1082,11 +1103,11 @@ class AsyncXbergClient(_BaseClient):
 
     async def get_job(self, job_id: str) -> JobResponse:
         """Async equivalent of :meth:`XbergClient.get_job`."""
-        return _parse_job(await self._request_json("GET", f"/v1/jobs/{job_id}"))
+        return _parse_job(await self._request_json("GET", f"/v1/jobs/{_q(job_id)}"))
 
     async def get_job_result(self, job_id: str) -> JobResult:
         """Async equivalent of :meth:`XbergClient.get_job_result`."""
-        return _parse_job_result(await self._request_json("GET", f"/v1/jobs/{job_id}/result"))
+        return _parse_job_result(await self._request_json("GET", f"/v1/jobs/{_q(job_id)}/result"))
 
     async def list_jobs(self, *, limit: int | None = None, offset: int | None = None) -> Any:
         """Async equivalent of :meth:`XbergClient.list_jobs`."""
@@ -1162,37 +1183,37 @@ class AsyncXbergClient(_BaseClient):
 
     async def get_rag_collection(self, name: str) -> Any:
         """Async equivalent of :meth:`XbergClient.get_rag_collection`."""
-        return await self._request_json("GET", f"/v1/rag/collections/{name}")
+        return await self._request_json("GET", f"/v1/rag/collections/{_q(name)}")
 
     async def delete_rag_collection(self, name: str) -> Any:
         """Async equivalent of :meth:`XbergClient.delete_rag_collection`."""
-        return await self._request_json("DELETE", f"/v1/rag/collections/{name}")
+        return await self._request_json("DELETE", f"/v1/rag/collections/{_q(name)}")
 
     async def add_rag_documents(self, name: str, body: Mapping[str, Any]) -> Any:
         """Async equivalent of :meth:`XbergClient.add_rag_documents`."""
-        return await self._request_json("POST", f"/v1/rag/collections/{name}/documents", json_body=body)
+        return await self._request_json("POST", f"/v1/rag/collections/{_q(name)}/documents", json_body=body)
 
     async def reindex_rag_document(self, name: str, document_id: str, body: Mapping[str, Any] | None = None) -> Any:
         """Async equivalent of :meth:`XbergClient.reindex_rag_document`."""
         return await self._request_json(
-            "POST", f"/v1/rag/collections/{name}/documents/{document_id}/reindex", json_body=body
+            "POST", f"/v1/rag/collections/{_q(name)}/documents/{_q(document_id)}/reindex", json_body=body
         )
 
     async def rag_retrieve(self, name: str, body: Mapping[str, Any]) -> Any:
         """Async equivalent of :meth:`XbergClient.rag_retrieve`."""
-        return await self._request_json("POST", f"/v1/rag/collections/{name}/retrieve", json_body=body)
+        return await self._request_json("POST", f"/v1/rag/collections/{_q(name)}/retrieve", json_body=body)
 
     async def migrate_rag_embeddings(self, name: str, body: Mapping[str, Any]) -> Any:
         """Async equivalent of :meth:`XbergClient.migrate_rag_embeddings`."""
-        return await self._request_json("POST", f"/v1/rag/collections/{name}/migrate-embeddings", json_body=body)
+        return await self._request_json("POST", f"/v1/rag/collections/{_q(name)}/migrate-embeddings", json_body=body)
 
     async def get_rag_migration_job(self, name: str, job_id: str) -> Any:
         """Async equivalent of :meth:`XbergClient.get_rag_migration_job`."""
-        return await self._request_json("GET", f"/v1/rag/collections/{name}/migrate-embeddings/{job_id}")
+        return await self._request_json("GET", f"/v1/rag/collections/{_q(name)}/migrate-embeddings/{_q(job_id)}")
 
     async def get_rag_job(self, job_id: str) -> Any:
         """Async equivalent of :meth:`XbergClient.get_rag_job`."""
-        return await self._request_json("GET", f"/v1/rag/jobs/{job_id}")
+        return await self._request_json("GET", f"/v1/rag/jobs/{_q(job_id)}")
 
     async def presets(self) -> list[PresetSummary]:
         """Async equivalent of :meth:`XbergClient.presets`."""
@@ -1200,12 +1221,12 @@ class AsyncXbergClient(_BaseClient):
 
     async def get_preset(self, preset_id: str) -> PresetDetail:
         """Async equivalent of :meth:`XbergClient.get_preset`."""
-        payload = await self._request_json("GET", f"/v1/presets/{preset_id}")
+        payload = await self._request_json("GET", f"/v1/presets/{_q(preset_id)}")
         return PresetDetail.from_dict(_expect_object(payload, "preset"))
 
     async def get_preset_sample(self, preset_id: str, name: str) -> bytes:
         """Async equivalent of :meth:`XbergClient.get_preset_sample`."""
-        return await self._request_bytes("GET", f"/v1/presets/{preset_id}/sample/{name}")
+        return await self._request_bytes("GET", f"/v1/presets/{_q(preset_id)}/sample/{_q(name)}")
 
     async def list_saved_presets(
         self,
@@ -1280,12 +1301,12 @@ class AsyncXbergClient(_BaseClient):
 
     async def get_auto_tune_status(self, auto_tune_job_id: str) -> AutoTuneJobStatus:
         """Async equivalent of :meth:`XbergClient.get_auto_tune_status`."""
-        payload = await self._request_json("GET", f"{_AUTO_TUNE_PATH}/{auto_tune_job_id}")
+        payload = await self._request_json("GET", f"{_AUTO_TUNE_PATH}/{_q(auto_tune_job_id)}")
         return AutoTuneJobStatus.from_dict(_expect_object(payload, "auto-tune status"))
 
     async def delete_auto_tune_job(self, auto_tune_job_id: str) -> None:
         """Async equivalent of :meth:`XbergClient.delete_auto_tune_job`."""
-        await self._request_json("DELETE", f"{_AUTO_TUNE_PATH}/{auto_tune_job_id}")
+        await self._request_json("DELETE", f"{_AUTO_TUNE_PATH}/{_q(auto_tune_job_id)}")
 
     async def promote_auto_tune_profile(
         self,
@@ -1294,13 +1315,13 @@ class AsyncXbergClient(_BaseClient):
     ) -> TuningProfileDetail:
         """Async equivalent of :meth:`XbergClient.promote_auto_tune_profile`."""
         payload = await self._request_json(
-            "POST", f"{_AUTO_TUNE_PATH}/{auto_tune_job_id}/promote", json_body=_coerce_body(body)
+            "POST", f"{_AUTO_TUNE_PATH}/{_q(auto_tune_job_id)}/promote", json_body=_coerce_body(body)
         )
         return TuningProfileDetail.from_dict(_expect_object(payload, "tuning profile"))
 
     async def get_auto_tune_result(self, auto_tune_job_id: str) -> AutoTuneResult:
         """Async equivalent of :meth:`XbergClient.get_auto_tune_result`."""
-        payload = await self._request_json("GET", f"{_AUTO_TUNE_PATH}/{auto_tune_job_id}/result")
+        payload = await self._request_json("GET", f"{_AUTO_TUNE_PATH}/{_q(auto_tune_job_id)}/result")
         return AutoTuneResult.from_dict(_expect_object(payload, "auto-tune result"))
 
     async def list_tuning_profiles(
@@ -1315,12 +1336,12 @@ class AsyncXbergClient(_BaseClient):
 
     async def get_tuning_profile(self, profile_id: str) -> TuningProfileDetail:
         """Async equivalent of :meth:`XbergClient.get_tuning_profile`."""
-        payload = await self._request_json("GET", f"{_TUNING_PROFILES_PATH}/{profile_id}")
+        payload = await self._request_json("GET", f"{_TUNING_PROFILES_PATH}/{_q(profile_id)}")
         return TuningProfileDetail.from_dict(_expect_object(payload, "tuning profile"))
 
     async def delete_tuning_profile(self, profile_id: str) -> None:
         """Async equivalent of :meth:`XbergClient.delete_tuning_profile`."""
-        await self._request_json("DELETE", f"{_TUNING_PROFILES_PATH}/{profile_id}")
+        await self._request_json("DELETE", f"{_TUNING_PROFILES_PATH}/{_q(profile_id)}")
 
     # -- Pro-only surface --------------------------------------------------
 
@@ -1337,12 +1358,12 @@ class AsyncXbergClient(_BaseClient):
     async def get_rag_config(self, project_id: str) -> Any:
         """Pro only: async equivalent of :meth:`XbergClient.get_rag_config`."""
         await self._require_tier("pro", "get_rag_config")
-        return await self._request_json("GET", f"/v1/projects/{project_id}/rag-config")
+        return await self._request_json("GET", f"/v1/projects/{_q(project_id)}/rag-config")
 
     async def set_rag_config(self, project_id: str, body: Mapping[str, Any]) -> Any:
         """Pro only: async equivalent of :meth:`XbergClient.set_rag_config`."""
         await self._require_tier("pro", "set_rag_config")
-        return await self._request_json("PUT", f"/v1/projects/{project_id}/rag-config", json_body=body)
+        return await self._request_json("PUT", f"/v1/projects/{_q(project_id)}/rag-config", json_body=body)
 
     # -- Pro-only control plane (projects, API keys, integrations) ---------
 
@@ -1368,7 +1389,7 @@ class AsyncXbergClient(_BaseClient):
         """Async equivalent of :meth:`XbergClient.list_api_keys`."""
         await self._require_tier("pro", "list_api_keys")
         payload = await self._request_json(
-            "GET", f"/v1/projects/{project_id}/api-keys", params=_pagination(limit, offset)
+            "GET", f"/v1/projects/{_q(project_id)}/api-keys", params=_pagination(limit, offset)
         )
         return ListApiKeysResponse.from_dict(_expect_object(payload, "API key list"))
 
@@ -1379,13 +1400,15 @@ class AsyncXbergClient(_BaseClient):
     ) -> CreateApiKeyResponse:
         """Async equivalent of :meth:`XbergClient.create_api_key`."""
         await self._require_tier("pro", "create_api_key")
-        payload = await self._request_json("POST", f"/v1/projects/{project_id}/api-keys", json_body=_coerce_body(body))
+        payload = await self._request_json(
+            "POST", f"/v1/projects/{_q(project_id)}/api-keys", json_body=_coerce_body(body)
+        )
         return CreateApiKeyResponse.from_dict(_expect_object(payload, "API key"))
 
     async def revoke_api_key(self, project_id: str, key_id: str) -> None:
         """Async equivalent of :meth:`XbergClient.revoke_api_key`."""
         await self._require_tier("pro", "revoke_api_key")
-        await self._request_json("DELETE", f"/v1/projects/{project_id}/api-keys/{key_id}")
+        await self._request_json("DELETE", f"/v1/projects/{_q(project_id)}/api-keys/{_q(key_id)}")
 
     async def list_integrations(
         self,
@@ -1397,7 +1420,7 @@ class AsyncXbergClient(_BaseClient):
         """Async equivalent of :meth:`XbergClient.list_integrations`."""
         await self._require_tier("pro", "list_integrations")
         payload = await self._request_json(
-            "GET", f"/v1/projects/{project_id}/integrations", params=_pagination(limit, offset)
+            "GET", f"/v1/projects/{_q(project_id)}/integrations", params=_pagination(limit, offset)
         )
         return ListIntegrationsResponse.from_dict(_expect_object(payload, "integration list"))
 
@@ -1409,31 +1432,33 @@ class AsyncXbergClient(_BaseClient):
         """Async equivalent of :meth:`XbergClient.create_integration`."""
         await self._require_tier("pro", "create_integration")
         payload = await self._request_json(
-            "POST", f"/v1/projects/{project_id}/integrations", json_body=_coerce_body(body)
+            "POST", f"/v1/projects/{_q(project_id)}/integrations", json_body=_coerce_body(body)
         )
         return IntegrationResponse.from_dict(_expect_object(payload, "integration"))
 
     async def get_integration(self, project_id: str, integration_id: str) -> IntegrationResponse:
         """Async equivalent of :meth:`XbergClient.get_integration`."""
         await self._require_tier("pro", "get_integration")
-        payload = await self._request_json("GET", f"/v1/projects/{project_id}/integrations/{integration_id}")
+        payload = await self._request_json("GET", f"/v1/projects/{_q(project_id)}/integrations/{_q(integration_id)}")
         return IntegrationResponse.from_dict(_expect_object(payload, "integration"))
 
     async def delete_integration(self, project_id: str, integration_id: str) -> None:
         """Async equivalent of :meth:`XbergClient.delete_integration`."""
         await self._require_tier("pro", "delete_integration")
-        await self._request_json("DELETE", f"/v1/projects/{project_id}/integrations/{integration_id}")
+        await self._request_json("DELETE", f"/v1/projects/{_q(project_id)}/integrations/{_q(integration_id)}")
 
     async def connect_integration(self, project_id: str, integration_id: str) -> BeginOAuthResponse:
         """Async equivalent of :meth:`XbergClient.connect_integration`."""
         await self._require_tier("pro", "connect_integration")
-        payload = await self._request_json("POST", f"/v1/projects/{project_id}/integrations/{integration_id}/connect")
+        payload = await self._request_json(
+            "POST", f"/v1/projects/{_q(project_id)}/integrations/{_q(integration_id)}/connect"
+        )
         return BeginOAuthResponse.from_dict(_expect_object(payload, "OAuth connect"))
 
     async def disconnect_integration(self, project_id: str, integration_id: str) -> None:
         """Async equivalent of :meth:`XbergClient.disconnect_integration`."""
         await self._require_tier("pro", "disconnect_integration")
-        await self._request_json("POST", f"/v1/projects/{project_id}/integrations/{integration_id}/disconnect")
+        await self._request_json("POST", f"/v1/projects/{_q(project_id)}/integrations/{_q(integration_id)}/disconnect")
 
     async def list_integration_documents(
         self,
@@ -1448,7 +1473,7 @@ class AsyncXbergClient(_BaseClient):
         await self._require_tier("pro", "list_integration_documents")
         params = _query_params(mime_types=mime_types, folder_id=folder_id, max_results=max_results)
         payload = await self._request_json(
-            "GET", f"/v1/projects/{project_id}/integrations/{integration_id}/documents", params=params
+            "GET", f"/v1/projects/{_q(project_id)}/integrations/{_q(integration_id)}/documents", params=params
         )
         return ListDocumentsResponse.from_dict(_expect_object(payload, "integration document list"))
 
@@ -1456,7 +1481,7 @@ class AsyncXbergClient(_BaseClient):
         """Async equivalent of :meth:`XbergClient.fetch_integration_document`."""
         await self._require_tier("pro", "fetch_integration_document")
         return await self._request_bytes(
-            "GET", f"/v1/projects/{project_id}/integrations/{integration_id}/documents/{document_id}"
+            "GET", f"/v1/projects/{_q(project_id)}/integrations/{_q(integration_id)}/documents/{_q(document_id)}"
         )
 
     # -- Enterprise-only surface ------------------------------------------
@@ -1464,17 +1489,17 @@ class AsyncXbergClient(_BaseClient):
     async def versions(self, document_id: str) -> Any:
         """Enterprise only: async equivalent of :meth:`XbergClient.versions`."""
         await self._require_tier("enterprise", "versions")
-        return await self._request_json("GET", f"/v1/documents/{document_id}/versions")
+        return await self._request_json("GET", f"/v1/documents/{_q(document_id)}/versions")
 
     async def diff(self, document_id: str, *, params: Mapping[str, Any] | None = None) -> Any:
         """Enterprise only: async equivalent of :meth:`XbergClient.diff`."""
         await self._require_tier("enterprise", "diff")
-        return await self._request_json("GET", f"/v1/documents/{document_id}/diff", params=params)
+        return await self._request_json("GET", f"/v1/documents/{_q(document_id)}/diff", params=params)
 
     async def get_diff_job(self, document_id: str, diff_job_id: str) -> Any:
         """Enterprise only: async equivalent of :meth:`XbergClient.get_diff_job`."""
         await self._require_tier("enterprise", "get_diff_job")
-        return await self._request_json("GET", f"/v1/documents/{document_id}/diff/{diff_job_id}")
+        return await self._request_json("GET", f"/v1/documents/{_q(document_id)}/diff/{_q(diff_job_id)}")
 
     async def presign_upload(self, body: Mapping[str, Any]) -> Any:
         """Enterprise only: async equivalent of :meth:`XbergClient.presign_upload`."""
@@ -1494,12 +1519,12 @@ class AsyncXbergClient(_BaseClient):
     async def get_document(self, document_id: str) -> Any:
         """Enterprise only: async equivalent of :meth:`XbergClient.get_document`."""
         await self._require_tier("enterprise", "get_document")
-        return await self._request_json("GET", f"/v1/documents/{document_id}")
+        return await self._request_json("GET", f"/v1/documents/{_q(document_id)}")
 
     async def get_job_page(self, job_id: str, page_number: int) -> bytes:
         """Enterprise only: async equivalent of :meth:`XbergClient.get_job_page`."""
         await self._require_tier("enterprise", "get_job_page")
-        return await self._request_bytes("GET", f"/v1/jobs/{job_id}/pages/{page_number}")
+        return await self._request_bytes("GET", f"/v1/jobs/{_q(job_id)}/pages/{_q(page_number)}")
 
     async def list_extraction_events(
         self,
@@ -1523,7 +1548,7 @@ class AsyncXbergClient(_BaseClient):
     async def get_enrich_status(self, job_id: str) -> EnrichJobStatus:
         """Enterprise only: async equivalent of :meth:`XbergClient.get_enrich_status`."""
         await self._require_tier("enterprise", "get_enrich_status")
-        return _parse_enrich_status(await self._request_json("GET", f"{_ENRICH_PATH}/{job_id}"))
+        return _parse_enrich_status(await self._request_json("GET", f"{_ENRICH_PATH}/{_q(job_id)}"))
 
 
 __all__ = [
