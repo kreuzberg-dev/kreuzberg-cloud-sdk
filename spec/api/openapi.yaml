@@ -20,6 +20,12 @@ paths:
       tags:
         - health
       summary: Check service liveness
+      description: |-
+        Always answers `200` once the process has started; it does not check any
+        dependency (database, NATS) — use `GET /readyz` for that. Unauthenticated:
+        intended for a Kubernetes liveness probe, not for API clients. The body
+        also reports the deployment `tier` and whether auto-tune is enabled, which
+        the frontend uses for feature gating.
       operationId: healthz
       responses:
         "200":
@@ -39,6 +45,12 @@ paths:
       tags:
         - health
       summary: Check service readiness
+      description: |-
+        Probes the primary database, the maintenance database, and NATS, and
+        answers `200` with each dependency's status only when all three are
+        reachable; any dependency failure answers `503` with the same body shape
+        so the caller can see which check failed. Unauthenticated: intended for a
+        Kubernetes readiness probe, not for API clients.
       operationId: readyz
       responses:
         "200":
@@ -65,6 +77,14 @@ paths:
       tags:
         - audit
       summary: List audit log entries for the caller's project
+      description: |-
+        Returns a page of `audit_log` rows for the credential's own project, most
+        recent first, optionally filtered to entries whose `action` matches
+        exactly (e.g. `"job.submit"`). Unlike Pro's `GET /v1/audit`, which is
+        gated to an admin or the project's session-JWT owner, any of the
+        project's API keys may read this endpoint — Enterprise has no per-key
+        role concept, so every project key already has full read/write of the
+        project's data plane.
       operationId: list_audit_entries
       parameters:
         - name: action
@@ -75,18 +95,27 @@ paths:
             type: string
         - name: limit
           in: query
-          description: Page size (default 50, max 100).
+          description: |-
+            Page size. Values outside 1..=100 are clamped into range rather than
+            rejected.
           required: false
           schema:
             type: integer
             format: int64
+            default: 50
+            maximum: 100
+            minimum: 1
         - name: offset
           in: query
-          description: Pagination offset (default 0, clamped to a maximum of 1,000,000).
+          description: |-
+            Number of items to skip. A value above 1,000,000 is clamped to
+            1,000,000, which selects an empty page.
           required: false
           schema:
             type: integer
             format: int64
+            default: 0
+            minimum: 0
       responses:
         "200":
           description: Audit entries listed
@@ -119,22 +148,30 @@ paths:
       tags:
         - auto-tune
       summary: List auto-tune jobs
+      description: |-
+        Returns a page of job summaries (status and timestamps, not the ground
+        truth or the winning configuration), most recently submitted first. Fetch
+        `GET /v1/auto-tune/{id}` for one job's live status or
+        `GET /v1/auto-tune/{id}/result` for a completed job's result.
       operationId: list_auto_tune_jobs
       parameters:
         - name: limit
           in: query
-          description: Page size (default 50, clamped to 1-100)
+          description: Page size. Values outside 1..=100 are clamped into range rather than rejected.
           required: false
           schema:
             type: integer
             format: int64
+            maximum: 100
+            minimum: 1
         - name: offset
           in: query
-          description: Pagination offset (default 0, clamped to max 1,000,000)
+          description: Number of items to skip. A value above 1,000,000 is clamped to 1,000,000.
           required: false
           schema:
             type: integer
             format: int64
+            minimum: 0
       responses:
         "200":
           description: Auto-tune jobs for the current project
@@ -293,6 +330,13 @@ paths:
       tags:
         - auto-tune
       summary: Get auto-tune job status
+      description: |-
+        Auto-tune runs a search over extraction configurations against a
+        caller-supplied ground truth, scoring each candidate and tracking the
+        best one seen so far. Returns the job's current lifecycle state and
+        progress; once the state reaches a terminal value, fetch
+        `GET /v1/auto-tune/{id}/result` for the winning configuration and its
+        score.
       operationId: get_auto_tune_status
       parameters:
         - name: id
@@ -350,6 +394,11 @@ paths:
       tags:
         - auto-tune
       summary: Delete an auto-tune job
+      description: |-
+        Irreversible: there is no soft-delete. Rejected with `409` while the job
+        is still running — cancel is not implemented as a separate operation, so
+        a running job must reach a terminal state before it can be deleted.
+        Rejected with `403` for a read-only API key.
       operationId: delete_auto_tune_job
       parameters:
         - name: id
@@ -416,6 +465,12 @@ paths:
       tags:
         - auto-tune
       summary: Promote an auto-tune result to a tuning profile
+      description: |-
+        Persists the job's best-found configuration under the name in
+        `PromoteProfileRequest`, so it can be applied to future extractions
+        without re-running the search. Rejected with `409` when the job has not
+        reached a successful terminal state; rejected with `403` for a read-only
+        API key.
       operationId: promote_auto_tune_profile
       parameters:
         - name: id
@@ -504,6 +559,12 @@ paths:
       tags:
         - auto-tune
       summary: Get auto-tune job result
+      description: |-
+        Returns the best extraction configuration the search found, its score
+        against the supplied ground truth, and the provenance of how it was
+        reached. Rejected with `409` when the job has not yet reached a
+        successful terminal state — including when it failed, since there is no
+        winning configuration to return in that case.
       operationId: get_auto_tune_result
       parameters:
         - name: id
@@ -646,6 +707,14 @@ paths:
       tags:
         - documents
       summary: Get the latest version of a document with its extraction result.
+      description: |-
+        A "document" here is the lineage a caller-supplied `document_id` ties
+        together across repeated extractions of the same logical file (see
+        `POST /v1/extract`'s multipart `document_id-<filename>` part). Returns the
+        most recently created version's metadata plus its `ExtractionResult` when
+        one is available; `result` is `null`, not omitted, when the latest version
+        has no completed extraction yet or its stored result could not be read
+        back.
       operationId: get_latest
       parameters:
         - name: document_id
@@ -692,7 +761,15 @@ paths:
     get:
       tags:
         - documents
-      summary: Compute diff between two versions (sync with async fallback on budget exceeded).
+      summary: Compute the diff between two versions of a document.
+      description: |-
+        `from` and `to` each name a version by its sequence number or by the job
+        ID that produced it; naming the same version for both is a `400`. A diff
+        already computed for the same pair is served from its cached result. A
+        new diff is attempted inline with a 2-second budget: if it finishes in
+        time the response is `200` with the `DiffResponse` body; if not, the
+        computation continues in the background and the response is `202` with a
+        `diff_job_id` to poll via `GET /v1/documents/{document_id}/diff/{diff_job_id}`.
       operationId: get_diff
       parameters:
         - name: document_id
@@ -763,7 +840,14 @@ paths:
     get:
       tags:
         - documents
-      summary: Poll the status of an async diff job.
+      summary: Poll the status of an asynchronously-computed diff.
+      description: |-
+        Reads back a `diff_job_id` returned by the `202` fallback from
+        `GET /v1/documents/{document_id}/diff`. Answers `202` with a
+        `DiffAsyncAccepted` body while the computation is still pending, and `200`
+        with the `DiffResponse` body once it completes. A diff job that itself
+        failed (rather than the poll request) surfaces as a `500` with the
+        recorded failure message.
       operationId: poll_diff
       parameters:
         - name: document_id
@@ -829,7 +913,14 @@ paths:
     get:
       tags:
         - documents
-      summary: List all versions of a document with pagination.
+      summary: List all versions of a document.
+      description: |-
+        Returns every extraction that shares the given `document_id`, newest
+        first, each as a `DocumentVersionEntry` carrying that version's job
+        metadata (status, filename, page/byte counts, timestamps) but not its
+        extraction result — fetch `GET /v1/documents/{document_id}` for the latest
+        version's result, or resolve a specific version's job ID from this list
+        and use it as the `from`/`to` parameter of the diff endpoint.
       operationId: list_versions
       parameters:
         - name: document_id
@@ -841,18 +932,21 @@ paths:
             format: uuid
         - name: limit
           in: query
-          description: Maximum versions to return (default 50, max 200)
+          description: Maximum versions to return. A negative value is rejected with a 422; a value above 200 is accepted but clamped to 200.
           required: false
           schema:
             type: integer
             format: int32
+            maximum: 200
+            minimum: 0
         - name: offset
           in: query
-          description: Versions to skip (default 0, clamped to max 1,000,000)
+          description: Versions to skip. A negative value is clamped to 0; a value above 1,000,000 is clamped to 1,000,000.
           required: false
           schema:
             type: integer
             format: int32
+            minimum: 0
       responses:
         "200":
           description: Document versions
@@ -1148,30 +1242,41 @@ paths:
     get:
       tags:
         - extractions
-      summary: List extraction events for a project.
+      summary: List structured-extraction audit events for a project.
+      description: |-
+        Each event is one preset-driven extraction call: the preset and version
+        used, the call mode (`text_only`, `vision_only`, or `text_plus_vision`),
+        page and vision-call counts, and token usage when the call succeeded.
+        `days` bounds the lookback window from now; `total` in the response is
+        the count of matching events in that window, independent of `limit`.
       operationId: list_extraction_events
       parameters:
         - name: days
           in: query
-          description: Days to look back (default 30, clamped to 1..=365)
+          description: Days to look back. Values outside 1..=365 are clamped into range rather than rejected.
           required: false
           schema:
             type: integer
             format: int64
+            maximum: 365
+            minimum: 1
         - name: limit
           in: query
-          description: Page size (default 50, clamped to 1..=100)
+          description: Page size. Values outside 1..=100 are clamped into range rather than rejected.
           required: false
           schema:
             type: integer
             format: int64
+            maximum: 100
+            minimum: 1
         - name: offset
           in: query
-          description: Pagination offset (default 0, clamped to max 1,000,000)
+          description: Number of items to skip. A value above 1,000,000 is clamped to 1,000,000.
           required: false
           schema:
             type: integer
             format: int64
+            minimum: 0
       responses:
         "200":
           description: Extraction events for the project
@@ -1210,22 +1315,33 @@ paths:
       tags:
         - jobs
       summary: List jobs for the caller's project
+      description: |-
+        Returns a page of the project's extraction and crawl jobs, most recently
+        created first, together with the `total` count of jobs in the project so
+        a client can compute how many pages remain. Each entry is a `JobSummary`,
+        not the full result — fetch `GET /v1/jobs/{id}/result` for a completed
+        job's content. `project_id` restricts the request to the credential's own
+        project; naming a different project is rejected rather than silently
+        ignored.
       operationId: list_jobs
       parameters:
         - name: limit
           in: query
-          description: Page size (default 50, max 100)
+          description: Page size. A value outside 1..=100 is rejected with a 400.
           required: false
           schema:
             type: integer
             format: int64
+            maximum: 100
+            minimum: 1
         - name: offset
           in: query
-          description: Pagination offset (default 0, clamped to max 1,000,000)
+          description: Number of items to skip. A negative value is rejected with a 400; a value above 1,000,000 is accepted but clamped to 1,000,000.
           required: false
           schema:
             type: integer
             format: int64
+            minimum: 0
         - name: project_id
           in: query
           description: Project to read; must be the credential's own project
@@ -1358,6 +1474,14 @@ paths:
       tags:
         - jobs
       summary: Cancel an extraction job
+      description: |-
+        Requests cancellation of a job in the caller's project. This is
+        best-effort: a job already picked up by a worker may finish before the
+        cancellation is observed, and a job that has already reached a terminal
+        state (completed, failed, or already cancelled) answers `204` without
+        changing anything. Returns `404` only when the job ID does not resolve to
+        a job the caller's project owns. There is no response body on success —
+        poll `GET /v1/jobs/{id}` to see the job's final status.
       operationId: cancel_job
       parameters:
         - name: id
@@ -1534,7 +1658,12 @@ paths:
     get:
       tags:
         - presets
-      summary: '`GET /v1/presets` — list curated presets (public).'
+      summary: List the curated preset registry.
+      description: |-
+        Returns every built-in preset's summary (id, name, description) in one
+        unpaginated response — the registry is small and fixed at build time, not
+        a per-project resource. Public: no authentication required, since the
+        preset library itself is not tenant-specific.
       operationId: list_presets
       responses:
         "200":
@@ -1550,7 +1679,12 @@ paths:
     get:
       tags:
         - presets
-      summary: '`GET /v1/presets/{id}` — full preset detail (public).'
+      summary: Get the full detail of one curated preset.
+      description: |-
+        Returns the preset's system prompt, output schema, and content
+        fingerprint (a hash callers can use to detect that a preset's definition
+        changed between releases). `404` when `id` does not match a preset in the
+        registry. Public: no authentication required.
       operationId: get_preset
       parameters:
         - name: id
@@ -1583,7 +1717,11 @@ paths:
     get:
       tags:
         - presets
-      summary: '`GET /v1/presets/{id}/sample/{name}` — raw bundled sample bytes (public).'
+      summary: Get a bundled sample file for a preset's landing-page preview.
+      description: |-
+        Streams the raw sample bytes with a `Content-Type` guessed from `name`'s
+        extension; there is no wrapping envelope. `404` when either the preset or
+        the named sample does not exist. Public: no authentication required.
       operationId: get_preset_sample
       parameters:
         - name: id
@@ -1624,18 +1762,21 @@ paths:
       parameters:
         - name: limit
           in: query
-          description: Maximum results per page (default 50, max 100)
+          description: Maximum results per page. Values outside 1..=100 are clamped into range rather than rejected.
           required: false
           schema:
             type: integer
             format: int32
+            maximum: 100
+            minimum: 1
         - name: offset
           in: query
-          description: Number of results to skip (default 0, clamped to max 1,000,000)
+          description: Number of results to skip. A value above 1,000,000 is clamped to 1,000,000.
           required: false
           schema:
             type: integer
             format: int32
+            minimum: 0
       responses:
         "200":
           description: List of collections
@@ -2330,6 +2471,14 @@ paths:
       tags:
         - rag
       summary: Retrieve relevance-ranked chunks from a RAG collection
+      description: |-
+        `mode` selects the retrieval strategy: `vector` (requires `query` or a
+        caller-supplied `query_vector`), `full_text` (requires `query`, rejects
+        `query_vector`), or `hybrid` (requires `query`, combining both signals).
+        `top_k` (1..=200) bounds the returned chunk count; `candidate_multiplier`
+        (1..=20), when set, widens the pre-rerank candidate pool. `501` when the
+        collection's configured reranker is not available in this deployment;
+        `503` when the collection's concurrent-retrieve limit is exceeded.
       operationId: retrieve
       parameters:
         - name: name
@@ -2497,22 +2646,30 @@ paths:
       tags:
         - saved-presets
       summary: List saved presets
+      description: |-
+        Returns a page of `SavedPresetSummary` entries — not the full schema each
+        preset carries; fetch `GET /v1/saved-presets/{id}` for that. `page` in the
+        response is a zero-based page index derived from `offset / limit`, not an
+        independent cursor.
       operationId: list_saved_presets
       parameters:
         - name: limit
           in: query
-          description: Page size (default 50, clamped to 1-100)
+          description: Page size. Values outside 1..=100 are clamped into range rather than rejected.
           required: false
           schema:
             type: integer
             format: int64
+            maximum: 100
+            minimum: 1
         - name: offset
           in: query
-          description: Pagination offset (default 0, clamped to max 1,000,000)
+          description: Number of items to skip. A value above 1,000,000 is clamped to 1,000,000.
           required: false
           schema:
             type: integer
             format: int64
+            minimum: 0
       responses:
         "200":
           description: Saved presets for the current project
@@ -2556,6 +2713,14 @@ paths:
       tags:
         - saved-presets
       summary: Create a saved preset
+      description: |-
+        A saved preset is a project's own reusable extraction configuration — a
+        name, a JSON Schema (Draft 2020-12) the extraction output must satisfy,
+        and a preferred call mode — distinct from the curated, cross-project
+        preset registry served at `GET /v1/presets`. The schema is validated for
+        well-formedness at creation time, not for reachability against any
+        particular document. Returns `201` with `{success, id, name, message}`.
+        Rejected with `403` for a read-only API key.
       operationId: create_saved_preset
       requestBody:
         content:
@@ -2625,6 +2790,10 @@ paths:
       tags:
         - saved-presets
       summary: Get a saved preset
+      description: |-
+        `404` when `id` does not name a preset in the caller's own project — a
+        preset belonging to a different project is never visible, project
+        membership is not checked separately.
       operationId: get_saved_preset
       parameters:
         - name: preset_id
@@ -2683,6 +2852,10 @@ paths:
       tags:
         - saved-presets
       summary: Delete a saved preset
+      description: |-
+        Irreversible: there is no soft-delete or recovery. `404` when `id` does
+        not name a preset in the caller's project. Rejected with `403` for a
+        read-only API key.
       operationId: delete_saved_preset
       parameters:
         - name: preset_id
@@ -2743,6 +2916,11 @@ paths:
       tags:
         - saved-presets
       summary: Update a saved preset
+      description: |-
+        A full replacement, not a partial merge: `name`, `schema`, and
+        `preferred_call_mode` are all required in the body and are all validated
+        exactly as on create. `404` when `id` does not name a preset in the
+        caller's project. Rejected with `403` for a read-only API key.
       operationId: update_saved_preset
       parameters:
         - name: preset_id
@@ -2826,22 +3004,30 @@ paths:
       tags:
         - auto-tune
       summary: List tuning profiles
+      description: |-
+        A tuning profile is an extraction configuration saved by
+        `POST /v1/auto-tune/{id}/promote`. Returns a page of profile summaries,
+        most recently created first; fetch `GET /v1/tuning-profiles/{id}` for one
+        profile's full configuration.
       operationId: list_tuning_profiles
       parameters:
         - name: limit
           in: query
-          description: Page size (default 50, clamped to 1-100)
+          description: Page size. Values outside 1..=100 are clamped into range rather than rejected.
           required: false
           schema:
             type: integer
             format: int64
+            maximum: 100
+            minimum: 1
         - name: offset
           in: query
-          description: Pagination offset (default 0, clamped to max 1,000,000)
+          description: Number of items to skip. A value above 1,000,000 is clamped to 1,000,000.
           required: false
           schema:
             type: integer
             format: int64
+            minimum: 0
       responses:
         "200":
           description: Tuning profiles for the current project
@@ -2886,6 +3072,7 @@ paths:
       tags:
         - auto-tune
       summary: Get a tuning profile
+      description: '`404` when `id` does not name a profile in the caller''s project.'
       operationId: get_tuning_profile
       parameters:
         - name: id
@@ -2943,6 +3130,11 @@ paths:
       tags:
         - auto-tune
       summary: Delete a tuning profile
+      description: |-
+        Irreversible: there is no soft-delete. Deleting a profile does not affect
+        the auto-tune job that produced it, only the promoted profile record.
+        `404` when `id` does not name a profile in the caller's project. Rejected
+        with `403` for a read-only API key.
       operationId: delete_tuning_profile
       parameters:
         - name: id
@@ -3143,6 +3335,12 @@ paths:
       tags:
         - usage
       summary: Get usage statistics and quota
+      description: |-
+        Reports page and document counts, broken down by MIME type, for the
+        window named by `start`/`end` (each `YYYY-MM-DD`); with both omitted the
+        window defaults to the current calendar month. `start` after `end` is a
+        `400`. `quota_limit`/`quota_remaining` are `null` when the project has no
+        monthly page quota (unlimited).
       operationId: get_usage
       parameters:
         - name: start
@@ -6800,13 +6998,13 @@ components:
 
         Send one or more files as binary parts whose field name is the filename
         (for example a part named `invoice.pdf`). Two reserved text parts carry
-        JSON: `options` (an [`ExtractionOptions`]) and `webhook` (a
-        [`WebhookConfig`]). To attach a lineage document id to a file, add a text
+        JSON: `options` (an `ExtractionOptions`) and `webhook` (a
+        `WebhookConfig`). To attach a lineage document id to a file, add a text
         part named `document_id-<filename>` whose value is the document UUID. To
         attach a per-file extraction config override, add a text part named
-        `config-<filename>` whose value is a JSON-encoded
-        [`types::FileExtractionConfig`] — see its doc comment for the merge
-        precedence against `options.extraction_config`.
+        `config-<filename>` whose value is a JSON-encoded `FileExtractionConfig`
+        — see that schema's own description for the merge precedence against
+        `options.extraction_config`.
       required:
         - file
       properties:
@@ -6823,11 +7021,11 @@ components:
           contentMediaType: application/octet-stream
         options:
           $ref: '#/components/schemas/ExtractionOptions'
-          description: Optional `options` part — a JSON-encoded [`ExtractionOptions`].
+          description: Optional `options` part — a JSON-encoded `ExtractionOptions`.
         webhook:
           $ref: '#/components/schemas/WebhookConfig'
           description: |-
-            Optional `webhook` part — a JSON-encoded [`WebhookConfig`] for async
+            Optional `webhook` part — a JSON-encoded `WebhookConfig` for async
             result delivery.
     ExtractRequest:
       type: object
@@ -9257,10 +9455,9 @@ components:
         Latest version of a document, with its extraction result when one is
         available.
 
-        Mirrors the object [`get_latest`] actually builds: every field is always
-        present, and `result` carries `null` (rather than being omitted) when the
-        document has no completed extraction yet or its stored result could not be
-        read back.
+        Every field is always present; `result` carries `null` (rather than being
+        omitted) when the document has no completed extraction yet or its stored
+        result could not be read back.
       required:
         - id
         - document_id

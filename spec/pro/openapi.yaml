@@ -175,7 +175,14 @@ paths:
     get:
       tags:
         - health
-      summary: GET /healthz — liveness + tier probe (unauthenticated).
+      summary: Check whether the process is alive.
+      description: |-
+        Always answers `200` once the process has started; it does not check any
+        dependency (database, storage) — use `GET /readyz` for that.
+        Unauthenticated: intended for a container orchestrator's liveness probe,
+        not for API clients. The body also reports the deployment `tier`,
+        license state, and whether RAG and auto-tune are enabled on this
+        instance, which the frontend uses for feature gating.
       operationId: healthz
       responses:
         "200":
@@ -202,9 +209,15 @@ paths:
     get:
       tags:
         - health
-      summary: |-
-        GET /readyz: readiness probe (unauthenticated). Checks both database logins
-        and the object store, so a pod is not routed traffic it cannot serve.
+      summary: Check whether the service is ready to serve traffic.
+      description: |-
+        Probes the primary database, the maintenance database login, and the
+        object store (a HEAD on a key that never exists — any answer, found or
+        refused, proves the store is reachable). Answers `200` with each
+        dependency's status only when all are healthy; any failure answers `503`
+        with the same body shape so the caller can see which check failed.
+        Unauthenticated: intended for a container orchestrator's readiness probe,
+        not for API clients.
       operationId: readyz
       responses:
         "200":
@@ -245,24 +258,33 @@ paths:
       parameters:
         - name: action
           in: query
-          description: Optional action filter
+          description: Filter to entries matching this action exactly (e.g. `"job.submit"`).
           required: false
           schema:
             type: string
         - name: limit
           in: query
-          description: Page size (default 50, max 100)
+          description: |-
+            Page size. Values outside 1..=100 are clamped into range rather than
+            rejected.
           required: false
           schema:
             type: integer
             format: int64
+            default: 50
+            maximum: 100
+            minimum: 1
         - name: offset
           in: query
-          description: Pagination offset (default 0, clamped to max 1,000,000)
+          description: |-
+            Number of items to skip. A value above 1,000,000 is clamped to
+            1,000,000, which selects an empty page.
           required: false
           schema:
             type: integer
             format: int64
+            default: 0
+            minimum: 0
       responses:
         "200":
           description: Audit entries for the project
@@ -313,22 +335,30 @@ paths:
       tags:
         - auto-tune
       summary: List auto-tune jobs
+      description: |-
+        Returns a page of job summaries (status and timestamps, not the ground
+        truth or the winning configuration), most recently submitted first. Fetch
+        `GET /v1/auto-tune/{id}` for one job's live status or
+        `GET /v1/auto-tune/{id}/result` for a completed job's result.
       operationId: list_auto_tune_jobs
       parameters:
         - name: limit
           in: query
-          description: Page size (default 50, clamped to 1-100)
+          description: Page size. Values outside 1..=100 are clamped into range rather than rejected.
           required: false
           schema:
             type: integer
             format: int64
+            maximum: 100
+            minimum: 1
         - name: offset
           in: query
-          description: Pagination offset (default 0, clamped to max 1,000,000)
+          description: Number of items to skip. A value above 1,000,000 is clamped to 1,000,000.
           required: false
           schema:
             type: integer
             format: int64
+            minimum: 0
       responses:
         "200":
           description: Auto-tune jobs for the current project
@@ -487,6 +517,13 @@ paths:
       tags:
         - auto-tune
       summary: Get auto-tune job status
+      description: |-
+        Auto-tune runs a search over extraction configurations against a
+        caller-supplied ground truth, scoring each candidate and tracking the
+        best one seen so far. Returns the job's current lifecycle state and
+        progress; once the state reaches a terminal value, fetch
+        `GET /v1/auto-tune/{id}/result` for the winning configuration and its
+        score.
       operationId: get_auto_tune_status
       parameters:
         - name: id
@@ -544,6 +581,11 @@ paths:
       tags:
         - auto-tune
       summary: Delete an auto-tune job
+      description: |-
+        Irreversible: there is no soft-delete. Rejected with `409` while the job
+        is still running — cancel is not implemented as a separate operation, so
+        a running job must reach a terminal state before it can be deleted.
+        Rejected with `403` for a read-only API key.
       operationId: delete_auto_tune_job
       parameters:
         - name: id
@@ -610,6 +652,12 @@ paths:
       tags:
         - auto-tune
       summary: Promote an auto-tune result to a tuning profile
+      description: |-
+        Persists the job's best-found configuration under the name in
+        `PromoteProfileRequest`, so it can be applied to future extractions
+        without re-running the search. Rejected with `409` when the job has not
+        reached a successful terminal state; rejected with `403` for a read-only
+        API key.
       operationId: promote_auto_tune_profile
       parameters:
         - name: id
@@ -698,6 +746,12 @@ paths:
       tags:
         - auto-tune
       summary: Get auto-tune job result
+      description: |-
+        Returns the best extraction configuration the search found, its score
+        against the supplied ground truth, and the provenance of how it was
+        reached. Rejected with `409` when the job has not yet reached a
+        successful terminal state — including when it failed, since there is no
+        winning configuration to return in that case.
       operationId: get_auto_tune_result
       parameters:
         - name: id
@@ -761,14 +815,12 @@ paths:
     post:
       tags:
         - extract
-      summary: |-
-        POST /v1/extract — submit up to [`PRO_MAX_DOCUMENTS_PER_REQUEST`] documents
-        for extraction.
+      summary: POST /v1/extract — submit up to 10 documents for extraction.
       description: |-
         Accepts the canonical `ExtractRequest` superset (ADR-0066, amended
-        2026-09-05) as `application/json`, or the equivalent
-        [`ExtractMultipartForm`] shape as `multipart/form-data`. `urls`/
-        `crawl_config` (crawl-based extraction) remain Enterprise-only.
+        2026-09-05) as `application/json`, or the equivalent multipart form shape
+        as `multipart/form-data`. `urls`/`crawl_config` (crawl-based extraction)
+        remain Enterprise-only.
       operationId: extract
       requestBody:
         content:
@@ -840,23 +892,34 @@ paths:
     get:
       tags:
         - jobs
-      summary: GET /v1/jobs — list jobs for the authenticated project.
+      summary: List jobs for the authenticated project.
+      description: |-
+        Returns a page of the project's extraction jobs, together with the
+        `total` count of jobs in the project. `project_id` lets the system-wide
+        admin key, or a session-JWT caller whose own project is fixed at login,
+        read a different project they can see; naming a project the caller
+        cannot read answers `404` rather than an empty page. A bare data-plane
+        API key names no human, so it can only read the project its own
+        credential carries.
       operationId: list_jobs
       parameters:
         - name: limit
           in: query
-          description: Page size (default 50, max 100)
+          description: Page size. A value outside 1..=100 is rejected with a 400.
           required: false
           schema:
             type: integer
             format: int64
+            maximum: 100
+            minimum: 1
         - name: offset
           in: query
-          description: Pagination offset (default 0, clamped to max 1,000,000)
+          description: Number of items to skip. A negative value is rejected with a 400; a value above 1,000,000 is accepted but clamped to 1,000,000.
           required: false
           schema:
             type: integer
             format: int64
+            minimum: 0
         - name: project_id
           in: query
           description: Project to read. Absent reads the credential's own project.
@@ -913,7 +976,13 @@ paths:
     get:
       tags:
         - jobs
-      summary: GET /v1/jobs/:id — fetch a single job by ID.
+      summary: Fetch one job's metadata and status by ID.
+      description: |-
+        Returns the job's status and processing statistics, not its extraction
+        content — fetch `GET /v1/jobs/{id}/result` for that once the job is
+        terminal. `project_id` scopes the lookup the same way as
+        `GET /v1/jobs`'s own `project_id`; a job outside the resolved project
+        answers `404`.
       operationId: get_job
       parameters:
         - name: id
@@ -978,7 +1047,13 @@ paths:
     delete:
       tags:
         - jobs
-      summary: ~keep DELETE /v1/jobs/:id — idempotently cancel a non-terminal job.
+      summary: ~keep Cancel a job, idempotently.
+      description: |-
+        ~keep Requests cancellation of a non-terminal job; a job that has already
+        ~keep reached a terminal state (completed, failed, or already cancelled)
+        ~keep answers `204` without changing anything, so a caller may retry this
+        ~keep call freely. There is no response body on success — poll
+        ~keep `GET /v1/jobs/{id}` to see the job's final status.
       operationId: cancel_job
       parameters:
         - name: id
@@ -1176,7 +1251,12 @@ paths:
     get:
       tags:
         - presets
-      summary: '`GET /v1/presets` — list curated presets (public).'
+      summary: List the curated preset registry.
+      description: |-
+        Returns every built-in preset's summary (id, name, description) in one
+        unpaginated response — the registry is small and fixed at build time, not
+        a per-project resource. Public: no authentication required, since the
+        preset library itself is not tenant-specific.
       operationId: list_presets
       responses:
         "200":
@@ -1205,7 +1285,12 @@ paths:
     get:
       tags:
         - presets
-      summary: '`GET /v1/presets/{id}` — full preset detail (public).'
+      summary: Get the full detail of one curated preset.
+      description: |-
+        Returns the preset's system prompt, output schema, and content
+        fingerprint (a hash callers can use to detect that a preset's definition
+        changed between releases). `404` when `id` does not match a preset in the
+        registry. Public: no authentication required.
       operationId: get_preset
       parameters:
         - name: id
@@ -1245,7 +1330,11 @@ paths:
     get:
       tags:
         - presets
-      summary: '`GET /v1/presets/{id}/sample/{name}` — raw bundled sample bytes (public).'
+      summary: Get a bundled sample file for a preset's landing-page preview.
+      description: |-
+        Streams the raw sample bytes with a `Content-Type` guessed from `name`'s
+        extension; there is no wrapping envelope. `404` when either the preset or
+        the named sample does not exist. Public: no authentication required.
       operationId: get_preset_sample
       parameters:
         - name: id
@@ -1287,26 +1376,40 @@ paths:
     get:
       tags:
         - projects
-      summary: |-
-        GET /v1/projects — list the caller's own projects. A session-JWT human
-        sees their own projects; the admin API key sees `ADMIN_USER_ID`'s projects
-        (unchanged from the pre-OIDC-login behavior). Anything else ⇒ 403.
+      summary: List the caller's own projects.
+      description: |-
+        A session-JWT human sees the projects owned by `ctx.user_id`; the admin
+        API key sees `ADMIN_USER_ID`'s projects. A bare data-plane API key (no
+        user and not admin) is refused with `403` — there is no project-picker
+        use case for it, since its own credential already names one project.
       operationId: list_projects
       parameters:
         - name: limit
           in: query
-          description: Page size (default 1000, clamped to 1-1000)
+          description: |-
+            Page size. A value outside 1..=1000 is rejected with a 400, on both
+            tiers.
           required: false
           schema:
             type: integer
             format: int64
+            default: 100
+            maximum: 1000
+            minimum: 1
+          example: 100
         - name: offset
           in: query
-          description: Pagination offset (default 0, clamped to max 1,000,000)
+          description: |-
+            Number of items to skip. A negative value is rejected with a 400; a
+            value above 1,000,000 is accepted but clamped to 1,000,000, which
+            selects an empty page rather than erroring.
           required: false
           schema:
             type: integer
             format: int64
+            default: 0
+            minimum: 0
+          example: 0
       responses:
         "200":
           description: Projects visible to the caller
@@ -1355,10 +1458,14 @@ paths:
     post:
       tags:
         - projects
-      summary: |-
-        POST /v1/projects — create a project. Owner is the caller: the
-        authenticated human (`ctx.user_id`) when present, else `ADMIN_USER_ID`
-        for the admin API key. Neither present ⇒ 403.
+      summary: Create a project.
+      description: |-
+        The owner is the caller: the authenticated human (`ctx.user_id`) when
+        present, else `ADMIN_USER_ID` for the admin API key. A request from
+        neither is a `403`. Unlike Enterprise, which derives a slug from `name`,
+        Pro requires the caller to supply `slug` explicitly; a missing slug is a
+        `400` and a slug that collides with an existing project is a `409`. The
+        project starts `ACTIVE` with no API keys, webhooks, or usage.
       operationId: create_project
       requestBody:
         content:
@@ -1433,7 +1540,12 @@ paths:
     get:
       tags:
         - projects
-      summary: GET /v1/projects/:project_id/api-keys — list API keys for a project.
+      summary: List API keys for a project.
+      description: |-
+        Returns each key's metadata (name, prefix, scope, kind, timestamps) —
+        never the plaintext key itself, which is shown only once, at creation.
+        Gated the same way as the rest of the project's control-plane operations:
+        the admin key, or the project's session-JWT owner.
       operationId: list_api_keys
       parameters:
         - name: project_id
@@ -1445,18 +1557,30 @@ paths:
             format: uuid
         - name: limit
           in: query
-          description: Page size (default 100, clamped to 1-100)
+          description: |-
+            Page size. A value outside 1..=1000 is rejected with a 400, on both
+            tiers.
           required: false
           schema:
             type: integer
             format: int64
+            default: 100
+            maximum: 1000
+            minimum: 1
+          example: 100
         - name: offset
           in: query
-          description: Pagination offset (default 0, clamped to max 1,000,000)
+          description: |-
+            Number of items to skip. A negative value is rejected with a 400; a
+            value above 1,000,000 is accepted but clamped to 1,000,000, which
+            selects an empty page rather than erroring.
           required: false
           schema:
             type: integer
             format: int64
+            default: 0
+            minimum: 0
+          example: 0
       responses:
         "200":
           description: API keys for the project
@@ -1511,7 +1635,14 @@ paths:
     post:
       tags:
         - projects
-      summary: POST /v1/projects/:project_id/api-keys — create an API key for a project.
+      summary: Create an API key for a project.
+      description: |-
+        `name` is optional on Pro (unlike Enterprise, which requires one).
+        `scope` defaults to `write`; a `read` key is refused on every mutating
+        method (`POST`/`PUT`/`PATCH`/`DELETE`) at the extractor level, before the
+        handler runs. `expires_at`, when set, must parse as ISO 8601. The
+        plaintext key is returned only in this response — it is not recoverable
+        afterward, only its prefix is.
       operationId: create_api_key
       parameters:
         - name: project_id
@@ -1594,7 +1725,12 @@ paths:
     delete:
       tags:
         - projects
-      summary: DELETE /v1/projects/:project_id/api-keys/:key_id — revoke an API key.
+      summary: Revoke an API key.
+      description: |-
+        Irreversible: a revoked key cannot be un-revoked, only replaced by
+        creating a new one. Gated the same way as the rest of the project's
+        control-plane operations: the admin key, or the project's session-JWT
+        owner.
       operationId: revoke_api_key
       parameters:
         - name: project_id
@@ -1662,7 +1798,11 @@ paths:
     get:
       tags:
         - integrations
-      summary: GET /v1/projects/{project_id}/integrations — list integrations (admin or project owner).
+      summary: List a project's source integrations.
+      description: |-
+        Returns each integration's metadata (name, kind, auth type) — never any
+        credential material, sealed or otherwise. Gated to a system-wide admin or
+        the project's session-JWT owner.
       operationId: list_integrations
       parameters:
         - name: project_id
@@ -1674,18 +1814,30 @@ paths:
             format: uuid
         - name: limit
           in: query
-          description: Page size (default 50, max 1000)
+          description: |-
+            Page size. A value outside 1..=1000 is rejected with a 400, on both
+            tiers.
           required: false
           schema:
             type: integer
             format: int64
+            default: 100
+            maximum: 1000
+            minimum: 1
+          example: 100
         - name: offset
           in: query
-          description: Pagination offset (default 0, clamped to max 1,000,000)
+          description: |-
+            Number of items to skip. A negative value is rejected with a 400; a
+            value above 1,000,000 is accepted but clamped to 1,000,000, which
+            selects an empty page rather than erroring.
           required: false
           schema:
             type: integer
             format: int64
+            default: 0
+            minimum: 0
+          example: 0
       responses:
         "200":
           description: Integrations for the project
@@ -1740,7 +1892,15 @@ paths:
     post:
       tags:
         - integrations
-      summary: POST /v1/projects/{project_id}/integrations — create an integration (admin or project owner).
+      summary: Create a source integration for a project.
+      description: |-
+        `kind` must name a connector this deployment supports; `auth_type` must
+        be one of `none`, `static`, `api_key`, `oauth2`, or `oidc`. For
+        `oauth2`/`oidc`, an optional `credentials` object of caller-supplied
+        client credentials is sealed (encrypted) before storage — only a masked
+        form is ever read back. Establishing the actual OAuth connection is a
+        separate step: see `POST .../connect`. Gated to a system-wide admin or
+        the project's session-JWT owner.
       operationId: create_integration
       parameters:
         - name: project_id
@@ -1823,7 +1983,12 @@ paths:
     get:
       tags:
         - integrations
-      summary: GET /v1/projects/{project_id}/integrations/{integration_id} — get an integration (admin or project owner).
+      summary: Get one source integration's metadata.
+      description: |-
+        Returns the same shape as a `list_integrations` entry — never any
+        credential material. `404` when `integration_id` does not name an
+        integration in the given project. Gated to a system-wide admin or the
+        project's session-JWT owner.
       operationId: get_integration
       parameters:
         - name: project_id
@@ -1894,7 +2059,12 @@ paths:
     delete:
       tags:
         - integrations
-      summary: DELETE /v1/projects/{project_id}/integrations/{integration_id} — delete an integration (admin or project owner).
+      summary: Delete a source integration.
+      description: |-
+        Irreversible. Its OAuth connection, if any, is revoked with the provider
+        first — best-effort, so a provider-side failure does not block deleting
+        the local record. Gated to a system-wide admin or the project's
+        session-JWT owner.
       operationId: delete_integration
       parameters:
         - name: project_id
@@ -1962,7 +2132,12 @@ paths:
     post:
       tags:
         - integrations
-      summary: POST /v1/projects/{project_id}/integrations/{integration_id}/connect — begin OAuth (admin or project owner).
+      summary: Begin the OAuth connection flow for an integration.
+      description: |-
+        Returns the provider's authorization URL to redirect the end user to; the
+        flow completes at the public OAuth callback route, not this endpoint.
+        Only meaningful for an integration whose `auth_type` is `oauth2` or
+        `oidc`. Gated to a system-wide admin or the project's session-JWT owner.
       operationId: begin_oauth_connect
       parameters:
         - name: project_id
@@ -2040,7 +2215,14 @@ paths:
     post:
       tags:
         - integrations
-      summary: 'POST /v1/projects/{project_id}/integrations/{integration_id}/disconnect: revoke the OAuth connection (admin or project owner).'
+      summary: Revoke an integration's OAuth connection.
+      description: |-
+        Best-effort at the provider: the provider is asked to revoke first, then
+        the local connection record is cleared regardless of whether the
+        provider call succeeded. Idempotent — an already-disconnected integration
+        still answers `204` and still records the request in the audit log. The
+        integration record itself is not deleted, only its connection. Gated to
+        a system-wide admin or the project's session-JWT owner.
       operationId: disconnect_integration
       parameters:
         - name: project_id
@@ -2108,7 +2290,18 @@ paths:
     get:
       tags:
         - integrations
-      summary: GET /v1/projects/{project_id}/integrations/{iid}/documents — list documents (admin or project owner).
+      summary: List documents visible through a connected source integration.
+      description: |-
+        Delegates to the integration's own connector, so behavior and pagination
+        depend on the connected source (Google Drive, SharePoint, etc.), not on
+        this service's own database. `mime_types` and `folder_id` are passed
+        through to the connector as filters; `max_results` bounds the returned
+        count (clamped to 1000) but is not a hard cursor — a source with more
+        matching documents than `max_results` allows may still answer `413` if
+        satisfying the filter needs more pages than the connector reads. Errors
+        distinguish this service's own failures from the upstream source's:
+        `502` for an unreachable or malformed upstream response, `429` for
+        upstream rate-limiting.
       operationId: list_integration_documents
       parameters:
         - name: project_id
@@ -2211,7 +2404,16 @@ paths:
     get:
       tags:
         - integrations
-      summary: GET /v1/projects/{project_id}/integrations/{iid}/documents/{doc_id} — fetch document (admin or project owner).
+      summary: Fetch one document's raw bytes through a connected source integration.
+      description: |-
+        Streams the document as `application/octet-stream` with the source's own
+        MIME type in `Content-Type` and a sanitized filename in
+        `Content-Disposition` — there is no JSON envelope on success. `document_id`
+        is the source's own identifier, not one this service assigns. As with
+        listing, errors distinguish this service's own failures from the
+        upstream source's: `502` for an unreachable or malformed upstream
+        response, `429` for upstream rate-limiting, `413` when the document
+        exceeds what the connector reads.
       operationId: fetch_integration_document
       parameters:
         - name: project_id
@@ -2299,7 +2501,14 @@ paths:
     get:
       tags:
         - projects
-      summary: GET /v1/projects/:project_id/rag-config — read a project's RAG configuration.
+      summary: Read a project's RAG configuration.
+      description: |-
+        Returns the project's current retrieval settings (chunking, embedding
+        model, reranker) regardless of whether RAG is enabled on this Pro
+        instance — the configuration is stored per-project even when the RAG
+        runtime itself is not built. Gated the same way as the rest of the
+        project's control-plane operations: the admin key, or the project's
+        session-JWT owner.
       operationId: get_rag_config
       parameters:
         - name: project_id
@@ -2357,7 +2566,15 @@ paths:
     put:
       tags:
         - projects
-      summary: PUT /v1/projects/:project_id/rag-config — set a project's RAG configuration.
+      summary: Replace a project's RAG configuration.
+      description: |-
+        A full replacement, not a partial merge — every field in
+        `SetRagConfigRequest` is applied, including `enabled`. Persists
+        regardless of whether the RAG runtime is built on this instance; setting
+        `enabled: true` on a deployment with no RAG runtime configured does not
+        make `/v1/rag/*` start answering. Gated the same way as the rest of the
+        project's control-plane operations: the admin key, or the project's
+        session-JWT owner.
       operationId: set_rag_config
       parameters:
         - name: project_id
@@ -2440,18 +2657,21 @@ paths:
       parameters:
         - name: limit
           in: query
-          description: Maximum results per page (default 50, max 100)
+          description: Maximum results per page. Values outside 1..=100 are clamped into range rather than rejected.
           required: false
           schema:
             type: integer
             format: int32
+            maximum: 100
+            minimum: 1
         - name: offset
           in: query
-          description: Number of results to skip (default 0, clamped to max 1,000,000)
+          description: Number of results to skip. A value above 1,000,000 is clamped to 1,000,000.
           required: false
           schema:
             type: integer
             format: int32
+            minimum: 0
       responses:
         "200":
           description: List of collections
@@ -3146,6 +3366,14 @@ paths:
       tags:
         - rag
       summary: Retrieve relevance-ranked chunks from a RAG collection
+      description: |-
+        `mode` selects the retrieval strategy: `vector` (requires `query` or a
+        caller-supplied `query_vector`), `full_text` (requires `query`, rejects
+        `query_vector`), or `hybrid` (requires `query`, combining both signals).
+        `top_k` (1..=200) bounds the returned chunk count; `candidate_multiplier`
+        (1..=20), when set, widens the pre-rerank candidate pool. `501` when the
+        collection's configured reranker is not available in this deployment;
+        `503` when the collection's concurrent-retrieve limit is exceeded.
       operationId: retrieve
       parameters:
         - name: name
@@ -3313,22 +3541,30 @@ paths:
       tags:
         - saved-presets
       summary: List saved presets
+      description: |-
+        Returns a page of `SavedPresetSummary` entries — not the full schema each
+        preset carries; fetch `GET /v1/saved-presets/{id}` for that. `page` in the
+        response is a zero-based page index derived from `offset / limit`, not an
+        independent cursor.
       operationId: list_saved_presets
       parameters:
         - name: limit
           in: query
-          description: Page size (default 50, clamped to 1-100)
+          description: Page size. Values outside 1..=100 are clamped into range rather than rejected.
           required: false
           schema:
             type: integer
             format: int64
+            maximum: 100
+            minimum: 1
         - name: offset
           in: query
-          description: Pagination offset (default 0, clamped to max 1,000,000)
+          description: Number of items to skip. A value above 1,000,000 is clamped to 1,000,000.
           required: false
           schema:
             type: integer
             format: int64
+            minimum: 0
       responses:
         "200":
           description: Saved presets for the current project
@@ -3372,6 +3608,14 @@ paths:
       tags:
         - saved-presets
       summary: Create a saved preset
+      description: |-
+        A saved preset is a project's own reusable extraction configuration — a
+        name, a JSON Schema (Draft 2020-12) the extraction output must satisfy,
+        and a preferred call mode — distinct from the curated, cross-project
+        preset registry served at `GET /v1/presets`. The schema is validated for
+        well-formedness at creation time, not for reachability against any
+        particular document. Returns `201` with `{success, id, name, message}`.
+        Rejected with `403` for a read-only API key.
       operationId: create_saved_preset
       requestBody:
         content:
@@ -3441,6 +3685,10 @@ paths:
       tags:
         - saved-presets
       summary: Get a saved preset
+      description: |-
+        `404` when `id` does not name a preset in the caller's own project — a
+        preset belonging to a different project is never visible, project
+        membership is not checked separately.
       operationId: get_saved_preset
       parameters:
         - name: id
@@ -3499,6 +3747,10 @@ paths:
       tags:
         - saved-presets
       summary: Delete a saved preset
+      description: |-
+        Irreversible: there is no soft-delete or recovery. `404` when `id` does
+        not name a preset in the caller's project. Rejected with `403` for a
+        read-only API key.
       operationId: delete_saved_preset
       parameters:
         - name: id
@@ -3559,6 +3811,11 @@ paths:
       tags:
         - saved-presets
       summary: Update a saved preset
+      description: |-
+        A full replacement, not a partial merge: `name`, `schema`, and
+        `preferred_call_mode` are all required in the body and are all validated
+        exactly as on create. `404` when `id` does not name a preset in the
+        caller's project. Rejected with `403` for a read-only API key.
       operationId: update_saved_preset
       parameters:
         - name: id
@@ -3642,22 +3899,30 @@ paths:
       tags:
         - auto-tune
       summary: List tuning profiles
+      description: |-
+        A tuning profile is an extraction configuration saved by
+        `POST /v1/auto-tune/{id}/promote`. Returns a page of profile summaries,
+        most recently created first; fetch `GET /v1/tuning-profiles/{id}` for one
+        profile's full configuration.
       operationId: list_tuning_profiles
       parameters:
         - name: limit
           in: query
-          description: Page size (default 50, clamped to 1-100)
+          description: Page size. Values outside 1..=100 are clamped into range rather than rejected.
           required: false
           schema:
             type: integer
             format: int64
+            maximum: 100
+            minimum: 1
         - name: offset
           in: query
-          description: Pagination offset (default 0, clamped to max 1,000,000)
+          description: Number of items to skip. A value above 1,000,000 is clamped to 1,000,000.
           required: false
           schema:
             type: integer
             format: int64
+            minimum: 0
       responses:
         "200":
           description: Tuning profiles for the current project
@@ -3702,6 +3967,7 @@ paths:
       tags:
         - auto-tune
       summary: Get a tuning profile
+      description: '`404` when `id` does not name a profile in the caller''s project.'
       operationId: get_tuning_profile
       parameters:
         - name: id
@@ -3759,6 +4025,11 @@ paths:
       tags:
         - auto-tune
       summary: Delete a tuning profile
+      description: |-
+        Irreversible: there is no soft-delete. Deleting a profile does not affect
+        the auto-tune job that produced it, only the promoted profile record.
+        `404` when `id` does not name a profile in the caller's project. Rejected
+        with `403` for a read-only API key.
       operationId: delete_tuning_profile
       parameters:
         - name: id
@@ -5218,18 +5489,15 @@ components:
 
         Send one or more files as binary parts whose field name is the filename
         (for example a part named `invoice.pdf`). Two reserved text parts carry
-        JSON: `options` (an [`ExtractionOptions`]) and `webhook` (a
-        [`api_types::WebhookConfig`]). To attach a lineage document id to a file —
-        rejected today, see [`PendingDocument`] below — add a text part named
-        `document_id-<filename>` whose value is the document UUID. To attach a
-        per-file extraction config override, add a text part named
-        `config-<filename>` whose value is a JSON-encoded
-        [`api_types::FileExtractionConfig`].
+        JSON: `options` (an `ExtractionOptions`) and `webhook` (a
+        `WebhookConfig`). A `document_id-<filename>` text part naming a lineage
+        document id is rejected today, even though the JSON intake path accepts
+        one. To attach a per-file extraction config override, add a text part
+        named `config-<filename>` whose value is a JSON-encoded
+        `FileExtractionConfig`.
 
-        Documentation-only: parsing goes through
-        [`api_types::multipart::parse_extract_multipart`], not a derived
-        `FromRequest` impl on this type. Modeled on
-        `services/api/src/rest/extract.rs::ExtractMultipartForm`.
+        Documentation-only: parsing does not go through axum's derived
+        `FromRequest`; this shape mirrors Enterprise's own multipart form.
       required:
         - file
       properties:
@@ -5246,12 +5514,12 @@ components:
           contentMediaType: application/octet-stream
         options:
           $ref: '#/components/schemas/ExtractionOptions'
-          description: Optional `options` part — a JSON-encoded [`ExtractionOptions`].
+          description: Optional `options` part — a JSON-encoded `ExtractionOptions`.
         webhook:
           $ref: '#/components/schemas/WebhookConfig'
           description: |-
-            Optional `webhook` part — a JSON-encoded [`api_types::WebhookConfig`]
-            for async result delivery.
+            Optional `webhook` part — a JSON-encoded `WebhookConfig` for async
+            result delivery.
     ExtractRequest:
       type: object
       description: |-

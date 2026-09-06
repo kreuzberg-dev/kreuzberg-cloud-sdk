@@ -289,19 +289,29 @@ paths:
       parameters:
         - name: limit
           in: query
-          description: Page size (default 100, max 1000).
+          description: |-
+            Page size. A value outside 1..=1000 is rejected with a 400, on both
+            tiers.
           required: false
           schema:
             type: integer
             format: int64
+            default: 100
+            maximum: 1000
+            minimum: 1
           example: 100
         - name: offset
           in: query
-          description: Number of items to skip (default 0, clamped to a maximum of 1,000,000).
+          description: |-
+            Number of items to skip. A negative value is rejected with a 400; a
+            value above 1,000,000 is accepted but clamped to 1,000,000, which
+            selects an empty page rather than erroring.
           required: false
           schema:
             type: integer
             format: int64
+            default: 0
+            minimum: 0
           example: 0
       responses:
         "200":
@@ -655,19 +665,29 @@ paths:
       parameters:
         - name: limit
           in: query
-          description: Page size (default 100, max 1000).
+          description: |-
+            Page size. A value outside 1..=1000 is rejected with a 400, on both
+            tiers.
           required: false
           schema:
             type: integer
             format: int64
+            default: 100
+            maximum: 1000
+            minimum: 1
           example: 100
         - name: offset
           in: query
-          description: Number of items to skip (default 0, clamped to a maximum of 1,000,000).
+          description: |-
+            Number of items to skip. A negative value is rejected with a 400; a
+            value above 1,000,000 is accepted but clamped to 1,000,000, which
+            selects an empty page rather than erroring.
           required: false
           schema:
             type: integer
             format: int64
+            default: 0
+            minimum: 0
           example: 0
         - name: id
           in: path
@@ -1159,19 +1179,29 @@ paths:
       parameters:
         - name: limit
           in: query
-          description: Page size (default 100, max 1000).
+          description: |-
+            Page size. A value outside 1..=1000 is rejected with a 400, on both
+            tiers.
           required: false
           schema:
             type: integer
             format: int64
+            default: 100
+            maximum: 1000
+            minimum: 1
           example: 100
         - name: offset
           in: query
-          description: Number of items to skip (default 0, clamped to a maximum of 1,000,000).
+          description: |-
+            Number of items to skip. A negative value is rejected with a 400; a
+            value above 1,000,000 is accepted but clamped to 1,000,000, which
+            selects an empty page rather than erroring.
           required: false
           schema:
             type: integer
             format: int64
+            default: 0
+            minimum: 0
           example: 0
         - name: id
           in: path
@@ -1708,19 +1738,29 @@ paths:
       parameters:
         - name: limit
           in: query
-          description: Page size (default 100, max 1000).
+          description: |-
+            Page size. A value outside 1..=1000 is rejected with a 400, on both
+            tiers.
           required: false
           schema:
             type: integer
             format: int64
+            default: 100
+            maximum: 1000
+            minimum: 1
           example: 100
         - name: offset
           in: query
-          description: Number of items to skip (default 0, clamped to a maximum of 1,000,000).
+          description: |-
+            Number of items to skip. A negative value is rejected with a 400; a
+            value above 1,000,000 is accepted but clamped to 1,000,000, which
+            selects an empty page rather than erroring.
           required: false
           schema:
             type: integer
             format: int64
+            default: 0
+            minimum: 0
           example: 0
         - name: id
           in: path
@@ -1958,19 +1998,29 @@ paths:
       parameters:
         - name: limit
           in: query
-          description: Page size (default 100, max 1000).
+          description: |-
+            Page size. A value outside 1..=1000 is rejected with a 400, on both
+            tiers.
           required: false
           schema:
             type: integer
             format: int64
+            default: 100
+            maximum: 1000
+            minimum: 1
           example: 100
         - name: offset
           in: query
-          description: Number of items to skip (default 0, clamped to a maximum of 1,000,000).
+          description: |-
+            Number of items to skip. A negative value is rejected with a 400; a
+            value above 1,000,000 is accepted but clamped to 1,000,000, which
+            selects an empty page rather than erroring.
           required: false
           schema:
             type: integer
             format: int64
+            default: 0
+            minimum: 0
           example: 0
         - name: id
           in: path
@@ -2429,19 +2479,29 @@ paths:
       parameters:
         - name: limit
           in: query
-          description: Page size (default 100, max 1000).
+          description: |-
+            Page size. A value outside 1..=1000 is rejected with a 400, on both
+            tiers.
           required: false
           schema:
             type: integer
             format: int64
+            default: 100
+            maximum: 1000
+            minimum: 1
           example: 100
         - name: offset
           in: query
-          description: Number of items to skip (default 0, clamped to a maximum of 1,000,000).
+          description: |-
+            Number of items to skip. A negative value is rejected with a 400; a
+            value above 1,000,000 is accepted but clamped to 1,000,000, which
+            selects an empty page rather than erroring.
           required: false
           schema:
             type: integer
             format: int64
+            default: 0
+            minimum: 0
           example: 0
         - name: id
           in: path
@@ -2707,19 +2767,29 @@ paths:
       parameters:
         - name: limit
           in: query
-          description: Page size (default 100, max 1000).
+          description: |-
+            Page size. A value outside 1..=1000 is rejected with a 400, on both
+            tiers.
           required: false
           schema:
             type: integer
             format: int64
+            default: 100
+            maximum: 1000
+            minimum: 1
           example: 100
         - name: offset
           in: query
-          description: Number of items to skip (default 0, clamped to a maximum of 1,000,000).
+          description: |-
+            Number of items to skip. A negative value is rejected with a 400; a
+            value above 1,000,000 is accepted but clamped to 1,000,000, which
+            selects an empty page rather than erroring.
           required: false
           schema:
             type: integer
             format: int64
+            default: 0
+            minimum: 0
           example: 0
         - name: id
           in: path
@@ -2786,7 +2856,7 @@ paths:
         - webhooks
       summary: Manually retry one past delivery attempt.
       description: |-
-        Placeholder: see [`list_webhook_deliveries`] — the response schema and
+        Placeholder: as with the delivery-history route, the response schema and
         error set are final, only the 501 goes away once redelivery is wired to
         the real delivery path.
       operationId: retry_webhook_delivery
