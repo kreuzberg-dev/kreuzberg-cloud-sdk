@@ -88,6 +88,12 @@ tasks:
     cmds:
       - task: lint
       - task: test
+      # Catches a client surface that drifted between languages, and a reference
+      # page left stale by a change to one. Both used to pass silently: the
+      # generator skipped a method it could not find, so Go shipping
+      # `DeleteDocuments` against `delete_rag_documents` elsewhere rendered three
+      # clean pages and no error.
+      - task: docs:reference:check
 
   release:check:
     desc: "Pre-flight: validate version semver, lint, test, build"
