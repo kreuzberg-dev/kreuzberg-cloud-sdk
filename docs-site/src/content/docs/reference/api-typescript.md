@@ -33,6 +33,14 @@ Poll, read, page through and cancel extraction jobs.
 | `waitForJobs` |  |
 | `audit` |  |
 
+## Crawl
+
+Enterprise-only crawl job event stream.
+
+| Method | Description |
+| --- | --- |
+| `streamCrawlEvents` | Enterprise only: stream a crawl job's events |
+
 ## Presets
 
 The curated preset registry, served by both tiers.

@@ -33,6 +33,14 @@ Poll, read, page through and cancel extraction jobs.
 | `wait_for_jobs` | Wait for multiple jobs sequentially (sync). |
 | `audit` | Fetch audit-log entries via ``GET /v1/audit``. Returns the decoded response body. |
 
+## Crawl
+
+Enterprise-only crawl job event stream.
+
+| Method | Description |
+| --- | --- |
+| `stream_crawl_events` | Enterprise only: stream a crawl job's events (``GET /v1/crawl-jobs/{id}/events``). |
+
 ## Presets
 
 The curated preset registry, served by both tiers.

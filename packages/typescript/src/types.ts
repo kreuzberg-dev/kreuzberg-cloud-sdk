@@ -90,6 +90,38 @@ export type EnrichJobStatus = components["schemas"]["EnrichJobStatus"];
 export type ListExtractionEventsResponse = components["schemas"]["ListExtractionEventsResponse"];
 export type ExtractionEventSummary = components["schemas"]["ExtractionEventSummary"];
 
+/**
+ * One event from {@link XbergClient.streamCrawlEvents}.
+ *
+ * A tagged union discriminated on `kind`, the same shape {@link DiffResult}
+ * uses — except the discriminant here is a real wire field, not a reattached
+ * HTTP status. Narrow before touching a variant-specific field:
+ *
+ * ```ts
+ * for await (const event of client.streamCrawlEvents(crawlJobId)) {
+ *   if (event.kind === "page") {
+ *     // event.status_code, event.depth, event.url
+ *   } else if (event.kind === "complete") {
+ *     break;
+ *   }
+ * }
+ * ```
+ *
+ * `crawl_job_id` and `ts` are carried by every variant, so they read without
+ * narrowing.
+ */
+export type CrawlEvent = components["schemas"]["CrawlEventV1"];
+/** The `kind` discriminator of a {@link CrawlEvent}. */
+export type CrawlEventKind = CrawlEvent["kind"];
+/** A page was successfully crawled and indexed. */
+export type CrawlPageEvent = Extract<CrawlEvent, { kind: "page" }>;
+/** A new URL was discovered during crawling. */
+export type CrawlDiscoveredEvent = Extract<CrawlEvent, { kind: "discovered" }>;
+/** The crawl job finished; the stream closes after this event. */
+export type CrawlCompleteEvent = Extract<CrawlEvent, { kind: "complete" }>;
+/** A single URL failed. The crawl continues; this is not a stream-level error. */
+export type CrawlErrorEvent = Extract<CrawlEvent, { kind: "error" }>;
+
 // -- Pro-only surface (pro schema) --
 export type GetJobResponse = proComponents["schemas"]["GetJobResponse"];
 export type AuthConfigResponse = proComponents["schemas"]["AuthConfigResponse"];

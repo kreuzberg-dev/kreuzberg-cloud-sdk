@@ -35,6 +35,11 @@ GROUPS: list[tuple[str, str, list[str]]] = [
             "audit",
         ],
     ),
+    (
+        "Crawl",
+        "Enterprise-only crawl job event stream.",
+        ["stream_crawl_events"],
+    ),
     ("Presets", "The curated preset registry, served by both tiers.", ["presets", "get_preset", "get_preset_sample"]),
     (
         "Saved presets",

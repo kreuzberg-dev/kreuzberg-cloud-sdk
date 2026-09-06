@@ -1,7 +1,8 @@
 /**
  * Internal helpers for {@link XbergClient}: base-URL resolution, query-string
- * and backoff arithmetic, and the file-to-`Blob` conversion the multipart
- * request paths need. Not part of the public API — of the names here only
+ * and backoff arithmetic, the file-to-`Blob` conversion the multipart request
+ * paths need, and the event-stream frame decoder `streamCrawlEvents` reads its
+ * response through. Not part of the public API — of the names here only
  * {@link FileLike} and {@link BackoffStrategy} are re-exported, via `client.ts`,
  * because they appear in public client signatures.
  */
@@ -159,4 +160,97 @@ export function describeFile(file: FileLike): string {
     return "upload.bin";
   }
   return file.name ?? "upload.bin";
+}
+
+/**
+ * Incremental decoder for a `text/event-stream` body, fed the decoded text of
+ * each network chunk.
+ *
+ * Implements the parts of the WHATWG event-stream parser this endpoint can
+ * exercise. A frame is terminated by a *blank line*, not by a newline: its
+ * payload is every `data:` field it carried, joined with `\n`. Lines opening
+ * with `:` are comments — the endpoint's 15s heartbeat is one — and
+ * `event:`/`id:`/`retry:` fields are accepted and ignored. A single space
+ * after a field's colon is framing, not value, so it is stripped.
+ *
+ * All of which is why this exists instead of `JSON.parse` per line: against a
+ * server that happens to emit one compact frame per line the naive version
+ * passes every test, then silently drops every multi-line payload and throws
+ * on the first heartbeat against a real one. Chunk boundaries fall wherever
+ * the network puts them, so lines are also reassembled here rather than
+ * assumed to arrive whole.
+ */
+export class EventStreamDecoder {
+  private buffer = "";
+  private data: string[] = [];
+
+  /** Consume one chunk of decoded text, returning the payload of every frame it completed. */
+  public push(chunk: string): string[] {
+    this.buffer += chunk;
+    const payloads: string[] = [];
+    for (;;) {
+      const boundary = this.nextLineBoundary();
+      if (boundary === undefined) {
+        return payloads;
+      }
+      const line = this.buffer.slice(0, boundary.index);
+      this.buffer = this.buffer.slice(boundary.index + boundary.width);
+      const payload = this.feed(line);
+      if (payload !== undefined) {
+        payloads.push(payload);
+      }
+    }
+  }
+
+  /**
+   * Locate the next `\n`, `\r\n` or `\r` in the buffer. A trailing `\r` is
+   * reported as "no boundary yet": it may be the first half of a `\r\n` the
+   * network split across two chunks, and treating it as a terminator there
+   * would dispatch a frame one line early.
+   */
+  private nextLineBoundary(): { index: number; width: number } | undefined {
+    for (let index = 0; index < this.buffer.length; index += 1) {
+      const character = this.buffer[index];
+      if (character === "\n") {
+        return { index, width: 1 };
+      }
+      if (character === "\r") {
+        if (index === this.buffer.length - 1) {
+          return undefined;
+        }
+        return { index, width: this.buffer[index + 1] === "\n" ? 2 : 1 };
+      }
+    }
+    return undefined;
+  }
+
+  /** Consume one terminator-stripped line, returning a payload if it completed a frame. */
+  private feed(line: string): string | undefined {
+    if (line === "") {
+      return this.dispatch();
+    }
+    if (line.startsWith(":")) {
+      return undefined;
+    }
+    const colon = line.indexOf(":");
+    const field = colon === -1 ? line : line.slice(0, colon);
+    let value = colon === -1 ? "" : line.slice(colon + 1);
+    if (value.startsWith(" ")) {
+      value = value.slice(1);
+    }
+    if (field === "data") {
+      this.data.push(value);
+    }
+    return undefined;
+  }
+
+  /** Emit the buffered `data` payload, or nothing when the blank line closed no frame. */
+  private dispatch(): string | undefined {
+    if (this.data.length === 0) {
+      return undefined;
+    }
+    const payload = this.data.join("\n");
+    this.data = [];
+    return payload;
+  }
 }

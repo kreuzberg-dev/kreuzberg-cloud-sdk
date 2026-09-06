@@ -135,7 +135,7 @@ raises a clear error instead of a raw 404:
 
 - **Pro only:** `login`, `auth_config`, `get_rag_config`/`set_rag_config`
 - **Pro only (control plane):** `list_projects`/`create_project`, `list_api_keys`/`create_api_key`/`revoke_api_key`, `list_integrations`/`create_integration`/`get_integration`/`delete_integration`, `connect_integration`/`disconnect_integration`, `list_integration_documents`/`fetch_integration_document`
-- **Enterprise only:** `versions`, `get_document`, `diff`/`get_diff_job`, `presign_upload`/`confirm_upload`, `usage`, `list_extraction_events`, `get_job_page` (raw `image/png` bytes), `submit_enrich`/`get_enrich_status`
+- **Enterprise only:** `versions`, `get_document`, `diff`/`get_diff_job`, `presign_upload`/`confirm_upload`, `usage`, `list_extraction_events`, `get_job_page` (raw `image/png` bytes), `submit_enrich`/`get_enrich_status`, `stream_crawl_events` (a generator of Server-Sent Events)
 
 ### Deliberately not exposed
 

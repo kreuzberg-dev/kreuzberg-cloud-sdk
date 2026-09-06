@@ -24,6 +24,7 @@ import {
   DEFAULT_BACKOFF_FACTOR,
   DEFAULT_ENTERPRISE_BASE_URL,
   DEFAULT_RETRY_BACKOFF_CAP_MS,
+  EventStreamDecoder,
   buildQueryString,
   defaultSleep,
   describeFile,
@@ -43,6 +44,7 @@ import type {
   BeginOAuthResponse,
   ConfirmUploadRequest,
   ConfirmUploadResponse,
+  CrawlEvent,
   CreateApiKeyRequest,
   CreateApiKeyResponse,
   CreateAutoTuneJobRequest,
@@ -119,6 +121,13 @@ const ENRICH_PATH = "/v1/enrich";
 const EXTRACTIONS_PATH = "/v1/extractions";
 const DOCUMENTS_PATH = "/v1/documents";
 const JOBS_PATH = "/v1/jobs";
+const CRAWL_JOBS_PATH = "/v1/crawl-jobs";
+
+/** Media type of the crawl-event stream, sent as `Accept` and served as `Content-Type`. */
+const EVENT_STREAM_MEDIA_TYPE = "text/event-stream";
+
+/** The `kind` values `CrawlEventV1` declares. A frame carrying anything else is rejected. */
+const CRAWL_EVENT_KINDS: ReadonlySet<string> = new Set(["page", "discovered", "complete", "error"]);
 
 export interface XbergClientOptions {
   apiKey?: string;
@@ -197,6 +206,16 @@ export interface SubmitAutoTuneParams {
   request: CreateAutoTuneJobRequest;
   /** One binary `file` part per document referenced by `request.documents[].filename`. */
   files: readonly FileLike[];
+}
+
+/** Options accepted by `streamCrawlEvents`. */
+export interface StreamCrawlEventsOptions {
+  /**
+   * Aborts the stream from outside the loop. Breaking out of the `for await`
+   * already closes the response body, so this is only needed to hang up from
+   * somewhere else — a React effect teardown, a shutdown handler.
+   */
+  signal?: AbortSignal;
 }
 
 /** Filters accepted by `listIntegrationDocuments`. */
@@ -846,6 +865,38 @@ export class XbergClient {
     return this.requestJson<EnrichJobStatus>("GET", `${ENRICH_PATH}/${encodeURIComponent(jobId)}`);
   }
 
+  /**
+   * Enterprise only: stream a crawl job's events
+   * (`GET /v1/crawl-jobs/{crawlJobId}/events`, Server-Sent Events).
+   *
+   * Returns an `AsyncIterable` of the `kind`-discriminated {@link CrawlEvent}
+   * union; the server closes the stream after the `complete` event.
+   *
+   * ```ts
+   * for await (const event of client.streamCrawlEvents(crawlJobId)) {
+   *   if (event.kind === "page") {
+   *     console.log(event.url, event.status_code);
+   *   }
+   * }
+   * ```
+   *
+   * Nothing is requested — not even the `/healthz` tier probe — until
+   * iteration begins, and the response body is cancelled when iteration ends:
+   * on `complete`, on `break`/`return` out of the loop, on a thrown error, or
+   * when `options.signal` aborts. A stream is idle between events by design,
+   * so unlike every other method here it carries no request timeout and is not
+   * routed through the retry engine — a retried subscription would redeliver
+   * every event the caller had already handled.
+   */
+  public streamCrawlEvents(crawlJobId: string, options: StreamCrawlEventsOptions = {}): AsyncIterable<CrawlEvent> {
+    const path = `${CRAWL_JOBS_PATH}/${encodeURIComponent(crawlJobId)}/events`;
+    const open = async (): Promise<Response> => {
+      await this.requireTier("enterprise", "streamCrawlEvents");
+      return this.openEventStream(path, options.signal);
+    };
+    return { [Symbol.asyncIterator]: (): AsyncIterator<CrawlEvent> => iterateCrawlEvents(open) };
+  }
+
   /** Enterprise only: request a presigned upload URL (`POST /v1/uploads/presign`). */
   public async presignUpload(body: PresignUploadRequest): Promise<PresignUploadResponse> {
     await this.requireTier("enterprise", "presignUpload");
@@ -983,6 +1034,41 @@ export class XbergClient {
     return { status: response.status, body };
   }
 
+  /**
+   * Open a `text/event-stream` response, deliberately bypassing
+   * {@link requestWithRetry}.
+   *
+   * Two of that method's behaviours are wrong for a subscription. Its retry
+   * loop would re-open a partly-consumed stream and redeliver every event the
+   * caller already handled — indistinguishable, from the caller's side, from
+   * the server sending them twice. And its `AbortSignal.timeout(timeoutMs)`
+   * bounds a request/response round trip, while this response stays open for
+   * the length of a crawl and is idle between events by design; the caller's
+   * own `signal` is the only deadline.
+   */
+  private async openEventStream(path: string, signal?: AbortSignal): Promise<Response> {
+    const url = `${this.baseUrl}${path}`;
+    const requestInit: RequestInit = {
+      method: "GET",
+      headers: { ...this.headers, Accept: EVENT_STREAM_MEDIA_TYPE },
+    };
+    if (signal !== undefined) {
+      requestInit.signal = signal;
+    }
+
+    let response: Response;
+    try {
+      response = await this.fetchImpl(url, requestInit);
+    } catch (cause) {
+      throw new XbergError(`Network error contacting ${url}`, { status: 0, body: null, cause });
+    }
+    if (!response.ok) {
+      await raiseForStatus(response);
+      throw new XbergError("Unreachable", { status: response.status, body: null });
+    }
+    return response;
+  }
+
   /** Issue a request, raise on non-2xx, and return the response body as raw bytes. */
   private async requestBytes(method: string, path: string, init: RequestParts = {}): Promise<Uint8Array> {
     const response = await this.requestWithRetry(method, path, init);
@@ -1071,6 +1157,65 @@ function toDiffResult(status: number, body: DiffResponse | DiffAsyncAccepted): D
     return { status: 202, body: body as DiffAsyncAccepted };
   }
   return { status: 200, body: body as DiffResponse };
+}
+
+/** Parse one SSE frame payload into the `kind`-discriminated {@link CrawlEvent} it names. */
+function parseCrawlEvent(payload: string): CrawlEvent {
+  let body: unknown;
+  try {
+    body = JSON.parse(payload);
+  } catch (cause) {
+    throw new XbergError(`Crawl event stream sent a non-JSON frame: ${payload}`, {
+      status: 0,
+      body: payload,
+      cause,
+    });
+  }
+  const kind = (body as { kind?: unknown } | null)?.kind;
+  if (typeof kind !== "string" || !CRAWL_EVENT_KINDS.has(kind)) {
+    throw new XbergError(`Crawl event stream sent an unrecognised kind (${JSON.stringify(kind ?? null)})`, {
+      status: 0,
+      body,
+    });
+  }
+  return body as CrawlEvent;
+}
+
+/**
+ * Drive one crawl-event subscription: open it, decode its frames, and cancel
+ * the response body on every exit path.
+ *
+ * `open` is a thunk rather than an already-opened `Response` so that a caller
+ * who never iterates opens nothing — the tier gate and the request both live
+ * inside the generator. The `finally` runs when the consumer `break`s or
+ * `return`s out of its `for await` as much as when the stream ends, which is
+ * what makes the subscription cancellable without a separate handle.
+ */
+async function* iterateCrawlEvents(open: () => Promise<Response>): AsyncGenerator<CrawlEvent> {
+  const response = await open();
+  if (response.body === null) {
+    throw new XbergError("Crawl event stream response carried no body", {
+      status: response.status,
+      body: null,
+    });
+  }
+  const reader = response.body.getReader();
+  const text = new TextDecoder();
+  const frames = new EventStreamDecoder();
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) {
+        return;
+      }
+      for (const payload of frames.push(text.decode(value, { stream: true }))) {
+        yield parseCrawlEvent(payload);
+      }
+    }
+  } finally {
+    // Never let a teardown failure mask the error that caused the teardown.
+    await reader.cancel().catch(() => undefined);
+  }
 }
 
 /** Backwards-compatible factory returning the low-level `openapi-fetch` client. */

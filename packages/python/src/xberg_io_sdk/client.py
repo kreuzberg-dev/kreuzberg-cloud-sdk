@@ -27,6 +27,7 @@ import mimetypes
 import threading
 import time
 from collections.abc import Mapping
+from contextlib import asynccontextmanager, contextmanager
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, BinaryIO, Literal, Protocol
 from urllib.parse import quote
@@ -36,6 +37,10 @@ import httpx
 from xberg_io_sdk._generated_api.models.auto_tune_capabilities_response import AutoTuneCapabilitiesResponse
 from xberg_io_sdk._generated_api.models.auto_tune_job_status import AutoTuneJobStatus
 from xberg_io_sdk._generated_api.models.auto_tune_result import AutoTuneResult
+from xberg_io_sdk._generated_api.models.crawl_event_v1_type_0 import CrawlEventV1Type0
+from xberg_io_sdk._generated_api.models.crawl_event_v1_type_1 import CrawlEventV1Type1
+from xberg_io_sdk._generated_api.models.crawl_event_v1_type_2 import CrawlEventV1Type2
+from xberg_io_sdk._generated_api.models.crawl_event_v1_type_3 import CrawlEventV1Type3
 from xberg_io_sdk._generated_api.models.create_auto_tune_job_response import CreateAutoTuneJobResponse
 from xberg_io_sdk._generated_api.models.create_saved_preset_response import CreateSavedPresetResponse
 from xberg_io_sdk._generated_api.models.enrich_job_status_type_0 import EnrichJobStatusType0
@@ -67,7 +72,7 @@ from xberg_io_sdk.errors import XbergError, parse_retry_after, raise_for_status
 
 if TYPE_CHECKING:
     import sys
-    from collections.abc import Iterable
+    from collections.abc import AsyncIterator, Iterable, Iterator
     from types import TracebackType
 
     from xberg_io_sdk._generated_api.models.create_auto_tune_job_request import CreateAutoTuneJobRequest
@@ -152,6 +157,28 @@ _ENRICH_STATUS_MODELS: dict[str, _EnrichJobStatusModel] = {
     "completed": EnrichJobStatusType1,
     "failed": EnrichJobStatusType2,
 }
+
+CrawlEvent = CrawlEventV1Type0 | CrawlEventV1Type1 | CrawlEventV1Type2 | CrawlEventV1Type3
+"""The four ``kind``-discriminated variants ``GET /v1/crawl-jobs/{id}/events`` streams.
+
+``page`` (:class:`CrawlEventV1Type0`), ``error`` (:class:`CrawlEventV1Type1`),
+``discovered`` (:class:`CrawlEventV1Type2`) and ``complete``
+(:class:`CrawlEventV1Type3`). Every variant carries ``crawl_job_id`` and ``ts``;
+narrow on ``event.kind`` before touching a variant-specific field.
+"""
+
+_CrawlEventModel = type[CrawlEventV1Type0] | type[CrawlEventV1Type1] | type[CrawlEventV1Type2] | type[CrawlEventV1Type3]
+
+_CRAWL_EVENT_MODELS: dict[str, _CrawlEventModel] = {
+    "page": CrawlEventV1Type0,
+    "error": CrawlEventV1Type1,
+    "discovered": CrawlEventV1Type2,
+    "complete": CrawlEventV1Type3,
+}
+
+_SSE_ACCEPT = "text/event-stream"
+_SSE_DATA_FIELD = "data"
+_SSE_COMMENT_PREFIX = ":"
 
 
 def _user_agent() -> str:
@@ -275,6 +302,63 @@ def _parse_enrich_status(payload: Any) -> EnrichJobStatus:
     if model is None:
         raise ValueError(f"unexpected enrich status response shape: {payload!r}")
     return model.from_dict(body)
+
+
+class _SSEDecoder:
+    """Incremental decoder for a ``text/event-stream`` body, fed one line at a time.
+
+    Implements the parts of the WHATWG event-stream parser this endpoint can
+    exercise. A frame is terminated by a blank line, not by a newline: its
+    payload is every ``data:`` field it carried, joined with newlines. Lines
+    opening with ``:`` are comments -- the endpoint's 15s heartbeat is one --
+    and ``event:``/``id:``/``retry:`` fields are accepted and ignored. A single
+    space after a field's colon is framing, not value, so it is stripped.
+
+    All of which is why this exists instead of ``json.loads(line)`` per line:
+    against a server that happens to emit one compact frame per line the naive
+    version passes every test, then silently drops every multi-line payload and
+    raises on the first heartbeat comment against a real one.
+
+    A stream that ends mid-frame -- no terminating blank line -- discards it,
+    as the spec requires; the payload is by definition incomplete.
+    """
+
+    def __init__(self) -> None:
+        self._data: list[str] = []
+
+    def feed(self, line: str) -> str | None:
+        """Consume one terminator-stripped line, returning a payload if it completed a frame."""
+        if not line:
+            return self._dispatch()
+        if line.startswith(_SSE_COMMENT_PREFIX):
+            return None
+        field, separator, value = line.partition(":")
+        if separator and value.startswith(" "):
+            value = value[1:]
+        if field == _SSE_DATA_FIELD:
+            self._data.append(value)
+        return None
+
+    def _dispatch(self) -> str | None:
+        """Emit the buffered ``data`` payload, or ``None`` when the blank line closed nothing."""
+        if not self._data:
+            return None
+        payload = "\n".join(self._data)
+        self._data.clear()
+        return payload
+
+
+def _parse_crawl_event(payload: str) -> CrawlEvent:
+    """Parse one SSE frame payload into the ``kind``-discriminated variant it names."""
+    try:
+        body = json.loads(payload)
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"crawl event stream sent a non-JSON frame: {payload!r}") from exc
+    document = _expect_object(body, "crawl event")
+    model = _CRAWL_EVENT_MODELS.get(str(document.get("kind", "")))
+    if model is None:
+        raise ValueError(f"unexpected crawl event kind: {document.get('kind')!r}")
+    return model.from_dict(document)
 
 
 def _parse_job(payload: Any) -> JobResponse:
@@ -551,6 +635,27 @@ class XbergClient(_BaseClient):
         response = self._request(method, path, params=params)
         raise_for_status(response)
         return response.content
+
+    @contextmanager
+    def _request_stream(self, method: str, path: str, *, accept: str) -> Iterator[httpx.Response]:
+        """Open a streaming response, closing it on every exit path.
+
+        Deliberately not routed through :meth:`_request`. That method is the
+        retry engine, and retrying a partially-consumed stream replays every
+        event the caller already handled -- from the client's side an
+        indistinguishable duplicate, from the server's a second subscription.
+        No ``Retry-After`` makes that safe, so the stream simply opts out.
+
+        The read timeout is lifted for a related reason: ``timeout`` bounds a
+        request/response round trip, while a subscription is idle between
+        events by design. Connect, write and pool timeouts still apply.
+        """
+        timeout = httpx.Timeout(self._timeout, read=None)
+        with self._http.stream(method, path, headers={"Accept": accept}, timeout=timeout) as response:
+            if not response.is_success:
+                response.read()
+                raise_for_status(response)
+            yield response
 
     def _resolve_tier(self) -> str:
         """Return the effective tier — an explicit ``target`` if set, else probed from ``/healthz``.
@@ -1066,6 +1171,33 @@ class XbergClient(_BaseClient):
         self._require_tier("enterprise", "get_enrich_status")
         return _parse_enrich_status(self._request_json("GET", f"{_ENRICH_PATH}/{_q(job_id)}"))
 
+    def stream_crawl_events(self, crawl_job_id: str) -> Iterator[CrawlEvent]:
+        """Enterprise only: stream a crawl job's events (``GET /v1/crawl-jobs/{id}/events``).
+
+        Yields the ``kind``-discriminated :data:`CrawlEvent` variants as the
+        server publishes them, and returns when the server closes the stream
+        (which it does once it has sent the ``complete`` event).
+
+        This is a generator: nothing is requested -- not even the ``/healthz``
+        tier probe -- until iteration begins, and the response body is closed
+        when iteration ends, whether that is exhaustion, ``break``, or an
+        exception. Closing the generator explicitly (or letting it fall out of
+        scope) is enough to hang up on the server.
+
+        >>> for event in client.stream_crawl_events(job_id):  # doctest: +SKIP
+        ...     if event.kind == "page":
+        ...         print(event.url, event.status_code)
+        ...     elif event.kind == "complete":
+        ...         break
+        """
+        self._require_tier("enterprise", "stream_crawl_events")
+        decoder = _SSEDecoder()
+        with self._request_stream("GET", f"/v1/crawl-jobs/{_q(crawl_job_id)}/events", accept=_SSE_ACCEPT) as response:
+            for line in response.iter_lines():
+                payload = decoder.feed(line)
+                if payload is not None:
+                    yield _parse_crawl_event(payload)
+
 
 class AsyncXbergClient(_BaseClient):
     """Asynchronous client for Xberg Enterprise and Xberg Pro.
@@ -1177,6 +1309,16 @@ class AsyncXbergClient(_BaseClient):
         response = await self._request(method, path, params=params)
         raise_for_status(response)
         return response.content
+
+    @asynccontextmanager
+    async def _request_stream(self, method: str, path: str, *, accept: str) -> AsyncIterator[httpx.Response]:
+        """Async equivalent of :meth:`XbergClient._request_stream` — no retries, no read timeout."""
+        timeout = httpx.Timeout(self._timeout, read=None)
+        async with self._http.stream(method, path, headers={"Accept": accept}, timeout=timeout) as response:
+            if not response.is_success:
+                await response.aread()
+                raise_for_status(response)
+            yield response
 
     async def _resolve_tier(self) -> str:
         """Return the effective tier — an explicit ``target`` if set, else probed from ``/healthz``.
@@ -1687,11 +1829,28 @@ class AsyncXbergClient(_BaseClient):
         await self._require_tier("enterprise", "get_enrich_status")
         return _parse_enrich_status(await self._request_json("GET", f"{_ENRICH_PATH}/{_q(job_id)}"))
 
+    async def stream_crawl_events(self, crawl_job_id: str) -> AsyncIterator[CrawlEvent]:
+        """Enterprise only: async equivalent of :meth:`XbergClient.stream_crawl_events`.
+
+        An async generator: consume it with ``async for``. Same guarantees as
+        the sync form -- nothing is requested until iteration begins, and the
+        response body is closed when iteration ends however it ends.
+        """
+        await self._require_tier("enterprise", "stream_crawl_events")
+        decoder = _SSEDecoder()
+        path = f"/v1/crawl-jobs/{_q(crawl_job_id)}/events"
+        async with self._request_stream("GET", path, accept=_SSE_ACCEPT) as response:
+            async for line in response.aiter_lines():
+                payload = decoder.feed(line)
+                if payload is not None:
+                    yield _parse_crawl_event(payload)
+
 
 __all__ = [
     "AsyncXbergClient",
     "BackoffStrategy",
     "BodyInput",
+    "CrawlEvent",
     "EnrichJobStatus",
     "FileInput",
     "OptionsInput",

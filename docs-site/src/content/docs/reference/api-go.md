@@ -33,6 +33,14 @@ Poll, read, page through and cancel extraction jobs.
 | `WaitForJobs` | WaitForJobs concurrently waits for a slice of job IDs and returns their results in submission order |
 | `Audit` | Audit fetches audit-log entries via GET /v1/audit |
 
+## Crawl
+
+Enterprise-only crawl job event stream.
+
+| Method | Description |
+| --- | --- |
+| `StreamCrawlEvents` | StreamCrawlEvents subscribes to a crawl job's Server-Sent Events feed (GET /v1/crawl-jobs/{crawlJobID}/events) and returns an iterator over the events it publishes |
+
 ## Presets
 
 The curated preset registry, served by both tiers.

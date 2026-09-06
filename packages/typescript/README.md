@@ -134,7 +134,8 @@ control plane — `listProjects` / `createProject`, `listApiKeys` / `createApiKe
 
 Xberg Enterprise only: `getDocument`, `versions`, `diff` / `getDiffJob`,
 `presignUpload` / `confirmUpload`, `usage`, `listExtractionEvents`, `getJobPage`,
-`submitEnrich` / `getEnrichStatus`.
+`submitEnrich` / `getEnrichStatus`, `streamCrawlEvents` (an `AsyncIterable` over
+a Server-Sent Events stream).
 
 `getPresetSample`, `fetchIntegrationDocument`, and `getJobPage` return raw
 `Uint8Array` bytes rather than JSON; `getJobPage` serves `image/png`.

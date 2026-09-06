@@ -49,10 +49,11 @@ DELIBERATE_EXCLUSIONS = {
 # Operations a client will expose but does not yet, each with the issue that
 # will close it. Distinct from DELIBERATE_EXCLUSIONS on purpose: an exclusion
 # says "never", a tracked gap says "not yet", and collapsing the two is how a
-# gap quietly becomes a decision nobody made.
-TRACKED_GAPS = {
-    ("GET", "/v1/crawl-jobs/{}/events"): "#9 -- SSE streaming, Enterprise only",
-}
+# gap quietly becomes a decision nobody made. Empty right now: the last entry
+# (#9, the crawl-event SSE stream) was removed by the change that implemented
+# it, which is the only way an entry may leave -- `main` fails on a tracked gap
+# the client has since started reaching.
+TRACKED_GAPS: dict[tuple[str, str], str] = {}
 
 # Requests the client builds through a helper rather than a literal, so the
 # regex below cannot see them. Keep this list short: every entry is a place the
@@ -70,8 +71,15 @@ HELPER_BUILT = {
     ("DELETE", "/v1/saved-presets/{}"),
 }
 
+# `stream` is in the alternation because a streaming response cannot go through
+# `_request_*` -- that is the retry engine, and retrying a partly-consumed
+# stream replays events -- so `stream_crawl_events` opens its own connection via
+# `_request_stream`. It still spells the route as a literal at the call site,
+# which is the only thing this check needs to keep reading the source rather
+# than a hand-maintained list.
 _REQUEST = re.compile(
-    r"""_request_(?:json|bytes|none)\(\s*["'](GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS)["']\s*,\s*f?["']([^"']+)["']""",
+    r"""_request_(?:json|bytes|none|stream)"""
+    r"""\(\s*["'](GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS)["']\s*,\s*f?["']([^"']+)["']""",
 )
 
 # Several routes are built from a module-level constant rather than a literal
@@ -82,7 +90,8 @@ _REQUEST = re.compile(
 # path-escaping sweep, so it is worth handling rather than special-casing.
 _CONSTANT = re.compile(r'^(_[A-Z][A-Z0-9_]*)\s*=\s*"(/[^"]*)"', re.MULTILINE)
 _CONSTANT_REQUEST = re.compile(
-    r"""_request_(?:json|bytes|none)\(\s*["'](GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS)["']\s*,\s*"""
+    r"""_request_(?:json|bytes|none|stream)"""
+    r"""\(\s*["'](GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS)["']\s*,\s*"""
     r"""(?:(_[A-Z][A-Z0-9_]*)|f"\{(_[A-Z][A-Z0-9_]*)\}([^"]*)")""",
 )
 
