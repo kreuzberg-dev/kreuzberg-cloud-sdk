@@ -67,15 +67,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **The operations no client could reach**, in all three languages: auto-tune (7) and
   tuning-profiles (3) on both tiers, and enrich (2), `GET /v1/documents/{id}`, `GET /v1/extractions`
   and `GET /v1/jobs/{id}/pages/{n}` on Enterprise, plus the missing `get_saved_preset` and
-  `update_saved_preset`. Enterprise coverage goes from 27 of 49 operations to 47, Pro from 42 of 56
-  to 52. auto-tune is the notable one: a licensed Pro instance advertises `auto_tune` as enabled,
-  so the SDK named a feature it could not call.
+  `update_saved_preset`, `cancel_job` and `delete_rag_documents`. Enterprise coverage goes from 27
+  of 49 operations to 47, Pro from 42 of 56 to 53 — Pro is now complete, the three uncovered
+  operations being deliberate exclusions. The one remaining Enterprise gap is the crawl-event SSE
+  stream. These counts are measured by `task spec:coverage` rather than asserted; the previous
+  edition of this entry claimed numbers nothing checked, and two of them were wrong. auto-tune is
+  the notable addition: a licensed Pro instance advertises `auto_tune` as enabled, so the SDK named
+  a feature it could not call.
 - Each package README now lists what is **deliberately** not exposed — `GET /readyz` (an
   infrastructure probe; `/healthz` is the tier probe and is used) and Pro's redirect/cookie login
   flows — so an absence reads as a decision rather than an oversight.
-- `task pro:up|down|reset|key|verify`, which run the SDKs against a real Pro container instead of a
-  mock. The existing fixtures encoded a shape neither spec declares, so they agreed with the client
-  and with nothing else.
+- `task pro:up|down|reset|key|verify`, which check a real Pro container against the vendored spec.
+  The existing fixtures encoded a shape neither spec declares, so they agreed with the client and
+  with nothing else. Note these assertions currently drive `curl`, not the clients — driving the
+  SDKs themselves is tracked separately, and until it lands the client's own conformance is still
+  inferred rather than executed.
+- `task spec:coverage`, which loads both vendored specs, computes the set of operations the client
+  actually reaches, and fails on any that is neither covered nor recorded as a deliberate exclusion
+  or a tracked gap. Nothing asserted this before, which is how `cancel_job` and `delete_documents`
+  sat in both specs, in no client, and outside every exclusion list — so they read as covered in
+  four hand-maintained places that agreed with each other and with nothing else.
+- A cross-language parity gate in the reference generator. It previously skipped any method it could
+  not find in a language, so a surface present in two clients and missing from the third produced
+  three clean pages and no error.
 
 ### Removed
 
@@ -181,7 +195,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - All three packages generated from `services/api`'s public extraction OpenAPI spec.
 - Comprehensive test coverage: 53 tests (Python), 57 tests (TypeScript), ~44 tests (Go).
 
-[Unreleased]: https://github.com/xberg-io/sdks/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/xberg-io/sdks/compare/v0.3.1...HEAD
+[0.3.1]: https://github.com/xberg-io/sdks/compare/v0.3.0...v0.3.1
+[0.3.0]: https://github.com/xberg-io/sdks/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/xberg-io/sdks/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/xberg-io/sdks/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/xberg-io/sdks/compare/v0.0.1...v0.1.0

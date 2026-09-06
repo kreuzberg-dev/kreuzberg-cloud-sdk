@@ -93,6 +93,7 @@ tasks:
       # generator skipped a method it could not find, so Go shipping
       # `DeleteDocuments` against `delete_rag_documents` elsewhere rendered three
       # clean pages and no error.
+      - task: spec:coverage
       - task: docs:reference:check
 
   release:check:

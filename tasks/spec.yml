@@ -12,6 +12,11 @@ vars:
   UPSTREAM_API_URL: '{{.XBERG_ENTERPRISE_URL | default "https://api.xberg.io"}}/api-doc/openapi.json'
 
 tasks:
+  coverage:
+    desc: "Fail if a spec operation is in no client and not deliberately excluded"
+    cmds:
+      - python3 scripts/spec-coverage.py
+
   fetch:
     desc: "Refresh both vendored specs from the sibling xberg-enterprise repo (JSON → YAML)"
     cmds:
