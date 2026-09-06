@@ -166,5 +166,6 @@ Read back what the client was configured with. Go only; the other two expose the
 | Method | Description |
 | --- | --- |
 | `BaseURL` | BaseURL returns the configured base URL. |
+| `ControlPlaneBaseURL` | ControlPlaneBaseURL returns the origin the control-plane surface is addressed at — the same as [Client.BaseURL] unless [WithControlPlaneBaseURL] was given. |
 | `HTTPClient` | HTTPClient returns the underlying *http.Client |
 | `Target` | Target returns the explicitly configured target, or the empty [Target] when the tier is discovered lazily from GET /healthz. |

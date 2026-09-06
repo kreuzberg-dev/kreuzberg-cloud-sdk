@@ -54,6 +54,28 @@ describe("base-url policy", () => {
     await client.listRagCollections();
     expect(urls[0]).toBe(`${PRO_URL}/v1/rag/collections`);
   });
+
+  it("defaults the control-plane base URL to the data-plane one", () => {
+    // Pro serves both planes from one binary, so a Pro client that never heard
+    // of this option must keep addressing the control plane at its base URL.
+    const client = new XbergClient({ apiKey: "k", target: "pro", baseUrl: PRO_URL });
+    expect(client.controlPlaneBaseUrl).toBe(PRO_URL);
+  });
+
+  it("moves only the control plane when a control-plane base URL is given", async () => {
+    // Enterprise splits the planes across two binaries.
+    const { fetchImpl, urls } = recordingFetch();
+    const client = new XbergClient({
+      apiKey: "k",
+      target: "enterprise",
+      baseUrl: "https://data.example.test:8080",
+      controlPlaneBaseUrl: "https://control.example.test:8081/",
+      fetch: fetchImpl,
+    });
+    expect(client.controlPlaneBaseUrl).toBe("https://control.example.test:8081");
+    await client.listRagCollections();
+    expect(urls[0]).toBe("https://data.example.test:8080/v1/rag/collections");
+  });
 });
 
 // -- tier gating (explicit target) --------------------------------------------

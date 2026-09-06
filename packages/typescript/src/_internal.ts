@@ -45,6 +45,23 @@ export function resolveBaseUrl(baseUrl: string | undefined, target: Target | und
   return DEFAULT_ENTERPRISE_BASE_URL;
 }
 
+/**
+ * Resolve the base URL of the Enterprise control plane, defaulting to the data plane's.
+ *
+ * Enterprise runs the control plane (projects, API keys, integrations, RAG
+ * config, members, invitations, managed webhooks, usage, analytics, billing) as
+ * a second binary on its own origin; Pro serves it from the same one. The
+ * default therefore has to be `baseUrl`, exactly as the console's
+ * `NEXT_PUBLIC_BACKEND_API_URL` is same-origin unless set — anything else would
+ * break every Pro control-plane call the moment this option existed.
+ */
+export function resolveControlPlaneBaseUrl(controlPlaneBaseUrl: string | undefined, baseUrl: string): string {
+  if (controlPlaneBaseUrl !== undefined) {
+    return controlPlaneBaseUrl.replace(/\/+$/, "");
+  }
+  return baseUrl;
+}
+
 export function defaultSleep(ms: number): Promise<void> {
   return new Promise((resolve) => {
     setTimeout(resolve, ms);

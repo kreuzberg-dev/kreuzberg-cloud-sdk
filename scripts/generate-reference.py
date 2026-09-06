@@ -112,7 +112,7 @@ GROUPS: list[tuple[str, str, list[str]]] = [
     (
         "Client accessors",
         "Read back what the client was configured with. Go only; the other two expose these as properties.",
-        ["base_url", "http_client", "target"],
+        ["base_url", "control_plane_base_url", "http_client", "target"],
     ),
 ]
 
@@ -206,8 +206,14 @@ LANGS = {
 
 
 # Python alone needs an explicit teardown: httpx holds a connection pool, while
-# `fetch` and `http.Client` need none. Everything else must exist in all three.
-LANGUAGE_LOCAL = {"python": {"close", "aclose"}, "typescript": set(), "go": {"BaseURL", "HTTPClient", "Target"}}
+# `fetch` and `http.Client` need none. Go alone reads its configuration back
+# through methods, where Python and TypeScript expose plain attributes. Every
+# other name must exist in all three.
+LANGUAGE_LOCAL = {
+    "python": {"close", "aclose"},
+    "typescript": set(),
+    "go": {"BaseURL", "ControlPlaneBaseURL", "HTTPClient", "Target"},
+}
 
 
 def parity_failures() -> list[str]:

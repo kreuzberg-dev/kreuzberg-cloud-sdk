@@ -61,6 +61,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **The Enterprise control-plane spec** (`spec/backend/openapi.yaml`, 48 operations) is vendored as
+  a third schema set and generates types in all three languages; `tools/oapi-pro-config` became
+  `tools/oapi-schemaset-config`, which now derives the exclusion, inclusion and rename lists for any
+  secondary Go schema set rather than only Pro's. Each client gains a
+  `control_plane_base_url` / `controlPlaneBaseUrl` / `WithControlPlaneBaseURL` option, defaulting to
+  the data-plane base URL so Pro — which serves both planes from one binary — is unaffected. No
+  control-plane methods yet.
 - **The Pro control plane** — projects, api-keys and integrations (13 operations) — in all three
   languages. Without these a Pro user could not create a project or mint an API key, so the client
   could not reach an instance it had not been handed a key for out of band.

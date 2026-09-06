@@ -13,6 +13,11 @@
 // defaults the base URL to [DefaultEnterpriseBaseURL]; Pro ships no default and
 // requires [WithBaseURL].
 //
+// Enterprise splits into two binaries — the data plane the base URL addresses
+// and a control plane (projects, API keys, integrations) on its own origin —
+// while Pro serves both from one. [WithControlPlaneBaseURL] addresses the
+// second, and defaults to the data-plane base URL.
+//
 // Most users should construct a [Client] via [New] and pass a context.Context
 // to each request method.
 package xberg

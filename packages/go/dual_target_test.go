@@ -60,6 +60,40 @@ func TestNew_ProAcceptsExplicitBaseURL(t *testing.T) {
 	}
 }
 
+func TestNew_ControlPlaneBaseURLDefaultsToTheDataPlane(t *testing.T) {
+	t.Parallel()
+	// Pro serves both planes from one binary, so a Pro client that never heard
+	// of this option must keep addressing the control plane at its base URL.
+	client, err := xberg.New(xberg.WithTarget(xberg.TargetPro), xberg.WithBaseURL("https://pro.example.test"))
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	if got := client.ControlPlaneBaseURL(); got != client.BaseURL() {
+		t.Errorf("ControlPlaneBaseURL = %q, want the data-plane URL %q", got, client.BaseURL())
+	}
+}
+
+func TestNew_ControlPlaneBaseURLOverride(t *testing.T) {
+	t.Parallel()
+	// Enterprise splits the planes across two binaries, so the override must
+	// move the control plane without disturbing the data plane.
+	const controlPlane = "https://control.example.test:8081"
+	client, err := xberg.New(
+		xberg.WithTarget(xberg.TargetEnterprise),
+		xberg.WithBaseURL("https://data.example.test:8080"),
+		xberg.WithControlPlaneBaseURL(controlPlane),
+	)
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	if got := client.ControlPlaneBaseURL(); got != controlPlane {
+		t.Errorf("ControlPlaneBaseURL = %q, want %q", got, controlPlane)
+	}
+	if got := client.BaseURL(); got != "https://data.example.test:8080" {
+		t.Errorf("BaseURL = %q, want the untouched data-plane URL", got)
+	}
+}
+
 // -- tier gating (explicit target) --------------------------------------------
 
 func TestTierGate_ProOnlyMethodOnEnterpriseTarget(t *testing.T) {

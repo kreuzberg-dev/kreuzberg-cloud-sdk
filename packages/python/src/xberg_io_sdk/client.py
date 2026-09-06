@@ -12,6 +12,11 @@ Both products authenticate identically: ``Authorization: Bearer {api_key}`` —
 Enterprise uses a ``kz_`` project key, Pro accepts a ``kz_`` key or an OIDC
 session JWT. Enterprise defaults ``base_url`` to ``https://api.xberg.io``; Pro
 has no default (its spec ships no servers block) and requires an explicit one.
+
+Enterprise splits into two binaries — the data plane ``base_url`` addresses and
+a control plane (projects, API keys, integrations) on its own origin — while Pro
+serves both from one. ``control_plane_base_url`` addresses the second, and
+defaults to ``base_url``.
 """
 
 from __future__ import annotations
@@ -345,6 +350,21 @@ def _resolve_base_url(base_url: str | None, target: Target | None) -> str:
     return DEFAULT_ENTERPRISE_BASE_URL
 
 
+def _resolve_control_plane_base_url(control_plane_base_url: str | None, base_url: str) -> str:
+    """Resolve the base URL of the Enterprise control plane, defaulting to the data plane's.
+
+    Enterprise runs the control plane (projects, API keys, integrations, RAG
+    config, members, invitations, managed webhooks, usage, analytics, billing)
+    as a second binary on its own origin; Pro serves it from the same one. The
+    default therefore has to be ``base_url``, exactly as the console's
+    ``NEXT_PUBLIC_BACKEND_API_URL`` is same-origin unless set — anything else
+    would break every Pro control-plane call the moment this argument existed.
+    """
+    if control_plane_base_url is not None:
+        return control_plane_base_url.rstrip("/")
+    return base_url
+
+
 _KNOWN_TIERS: frozenset[str] = frozenset({"enterprise", "pro"})
 
 
@@ -374,6 +394,7 @@ class _BaseClient:
         *,
         api_key: str | None = None,
         base_url: str | None = None,
+        control_plane_base_url: str | None = None,
         target: Target | None = None,
         timeout: float = DEFAULT_TIMEOUT_SECONDS,
         headers: Mapping[str, str] | None = None,
@@ -384,6 +405,13 @@ class _BaseClient:
         self._api_key = api_key
         self._target: Target | None = target
         self._base_url = _resolve_base_url(base_url, target)
+        self._control_plane_base_url = _resolve_control_plane_base_url(control_plane_base_url, self._base_url)
+        # ~keep Readable, unlike the other constructor arguments, because a
+        # ~keep two-origin client is the one case where "which host will this
+        # ~keep actually call?" is not answerable from the constructor call: the
+        # ~keep control plane silently defaults to `base_url`. Go exposes it as
+        # ~keep `ControlPlaneBaseURL()` and TypeScript as a public field, so all
+        # ~keep three read it back the same way.
         self._timeout = timeout
         self._retries = retries
         self._retry_on: frozenset[int] = frozenset(retry_on) if retry_on is not None else _DEFAULT_RETRY_STATUSES
@@ -403,6 +431,16 @@ class _BaseClient:
                 status_code=None,
             )
 
+    @property
+    def control_plane_base_url(self) -> str:
+        """Origin the control-plane surface is addressed at.
+
+        The same as the data-plane base URL unless ``control_plane_base_url``
+        was passed: Enterprise runs the control plane as a second binary on its
+        own origin, while Pro serves both planes from one.
+        """
+        return self._control_plane_base_url
+
 
 class XbergClient(_BaseClient):
     """Synchronous client for Xberg Enterprise and Xberg Pro.
@@ -417,6 +455,7 @@ class XbergClient(_BaseClient):
         *,
         api_key: str | None = None,
         base_url: str | None = None,
+        control_plane_base_url: str | None = None,
         target: Target | None = None,
         timeout: float = DEFAULT_TIMEOUT_SECONDS,
         headers: Mapping[str, str] | None = None,
@@ -427,6 +466,7 @@ class XbergClient(_BaseClient):
         super().__init__(
             api_key=api_key,
             base_url=base_url,
+            control_plane_base_url=control_plane_base_url,
             target=target,
             timeout=timeout,
             headers=headers,
@@ -1041,6 +1081,7 @@ class AsyncXbergClient(_BaseClient):
         *,
         api_key: str | None = None,
         base_url: str | None = None,
+        control_plane_base_url: str | None = None,
         target: Target | None = None,
         timeout: float = DEFAULT_TIMEOUT_SECONDS,
         headers: Mapping[str, str] | None = None,
@@ -1051,6 +1092,7 @@ class AsyncXbergClient(_BaseClient):
         super().__init__(
             api_key=api_key,
             base_url=base_url,
+            control_plane_base_url=control_plane_base_url,
             target=target,
             timeout=timeout,
             headers=headers,

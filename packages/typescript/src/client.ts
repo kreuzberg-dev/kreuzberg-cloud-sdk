@@ -11,6 +11,11 @@
  * Both products authenticate identically: `Authorization: Bearer {apiKey}`.
  * Enterprise defaults `baseUrl` to `https://api.xberg.io`; Pro has no default
  * (its spec ships no servers block) and requires an explicit one.
+ *
+ * Enterprise splits into two binaries — the data plane `baseUrl` addresses and a
+ * control plane (projects, API keys, integrations) on its own origin — while Pro
+ * serves both from one. `controlPlaneBaseUrl` addresses the second, and defaults
+ * to `baseUrl`.
  */
 
 import createOpenApiClient, { type Client } from "openapi-fetch";
@@ -25,6 +30,7 @@ import {
   nextBackoffInterval,
   parseRetryAfterHeader,
   resolveBaseUrl,
+  resolveControlPlaneBaseUrl,
   toBlob,
 } from "./_internal.js";
 import type { BackoffStrategy, FileLike, QueryParams, Target } from "./_internal.js";
@@ -118,6 +124,12 @@ export interface XbergClientOptions {
   apiKey?: string;
   baseUrl?: string;
   /**
+   * Origin of the Enterprise control plane, which runs as a second binary
+   * alongside the data plane. Defaults to `baseUrl` — Pro serves both planes
+   * from one binary, so every Pro call keeps working untouched.
+   */
+  controlPlaneBaseUrl?: string;
+  /**
    * Which product to talk to. When omitted, the tier is discovered lazily from
    * `GET /healthz` before the first tier-specific call. Enterprise defaults
    * `baseUrl`; `target: "pro"` requires an explicit `baseUrl`.
@@ -205,6 +217,8 @@ export type XbergRawClient = Client<paths>;
  */
 export class XbergClient {
   private readonly baseUrl: string;
+  /** Origin the control-plane surface is addressed at. Same as `baseUrl` unless overridden. */
+  public readonly controlPlaneBaseUrl: string;
   private readonly headers: Record<string, string>;
   private readonly fetchImpl: typeof fetch;
   private readonly timeoutMs: number;
@@ -224,6 +238,7 @@ export class XbergClient {
       this.target = options.target;
     }
     this.baseUrl = resolveBaseUrl(options.baseUrl, options.target);
+    this.controlPlaneBaseUrl = resolveControlPlaneBaseUrl(options.controlPlaneBaseUrl, this.baseUrl);
     this.fetchImpl = options.fetch ?? fetch;
     this.timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
     this.retries = options.retries ?? 0;

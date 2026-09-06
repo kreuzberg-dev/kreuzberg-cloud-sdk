@@ -44,6 +44,17 @@ func WithBaseURL(u string) Option {
 	}
 }
 
+// WithControlPlaneBaseURL overrides the origin of the Enterprise control plane,
+// which runs as a second binary alongside the data plane. It defaults to the
+// data-plane base URL — Pro serves both planes from one binary, so every Pro
+// call keeps working untouched.
+func WithControlPlaneBaseURL(u string) Option {
+	return func(c *clientConfig) {
+		c.controlPlaneBaseURL = u
+		c.controlPlaneBaseURLSet = true
+	}
+}
+
 // WithAPIKey sets the bearer token sent on every request.
 func WithAPIKey(key string) Option {
 	return func(c *clientConfig) { c.apiKey = key }
@@ -80,14 +91,16 @@ func WithRetries(n int) Option {
 }
 
 type clientConfig struct {
-	baseURL    string
-	baseURLSet bool
-	apiKey     string
-	userAgent  string
-	httpClient *http.Client
-	timeout    time.Duration
-	retries    int
-	target     Target
+	baseURL                string
+	baseURLSet             bool
+	controlPlaneBaseURL    string
+	controlPlaneBaseURLSet bool
+	apiKey                 string
+	userAgent              string
+	httpClient             *http.Client
+	timeout                time.Duration
+	retries                int
+	target                 Target
 }
 
 // Client is the dual-target client for Xberg Enterprise and Xberg Pro. One
@@ -120,6 +133,9 @@ func New(opts ...Option) (*Client, error) {
 	if err := resolveBaseURL(&cfg); err != nil {
 		return nil, err
 	}
+	if err := resolveControlPlaneBaseURL(&cfg); err != nil {
+		return nil, err
+	}
 	return &Client{cfg: cfg}, nil
 }
 
@@ -143,12 +159,34 @@ func resolveBaseURL(cfg *clientConfig) error {
 	return nil
 }
 
+// resolveControlPlaneBaseURL defaults the control-plane origin to the data-plane
+// one. Enterprise runs the control plane (projects, API keys, integrations, RAG
+// config, members, invitations, managed webhooks, usage, analytics, billing) as
+// a second binary on its own origin; Pro serves it from the same one. The
+// default therefore has to be the data-plane base URL, exactly as the console's
+// NEXT_PUBLIC_BACKEND_API_URL is same-origin unless set — anything else would
+// break every Pro control-plane call the moment this option existed.
+func resolveControlPlaneBaseURL(cfg *clientConfig) error {
+	if !cfg.controlPlaneBaseURLSet {
+		cfg.controlPlaneBaseURL = cfg.baseURL
+		return nil
+	}
+	if cfg.controlPlaneBaseURL == "" {
+		return fmt.Errorf("xberg: control-plane base URL must not be empty")
+	}
+	return nil
+}
+
 // HTTPClient returns the underlying *http.Client. Useful for tests that need
 // to inspect the configured transport.
 func (c *Client) HTTPClient() *http.Client { return c.cfg.httpClient }
 
 // BaseURL returns the configured base URL.
 func (c *Client) BaseURL() string { return c.cfg.baseURL }
+
+// ControlPlaneBaseURL returns the origin the control-plane surface is addressed
+// at — the same as [Client.BaseURL] unless [WithControlPlaneBaseURL] was given.
+func (c *Client) ControlPlaneBaseURL() string { return c.cfg.controlPlaneBaseURL }
 
 // Target returns the explicitly configured target, or the empty [Target] when
 // the tier is discovered lazily from GET /healthz.

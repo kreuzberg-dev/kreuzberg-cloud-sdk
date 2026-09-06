@@ -38,6 +38,24 @@ def test_pro_target_accepts_explicit_base_url() -> None:
         assert client._base_url == PRO_URL
 
 
+def test_control_plane_base_url_defaults_to_the_data_plane() -> None:
+    # Pro serves both planes from one binary, so a Pro client that never heard of
+    # this argument must keep addressing the control plane at its base URL.
+    with XbergClient(target="pro", base_url=PRO_URL) as client:
+        assert client._control_plane_base_url == PRO_URL
+
+
+def test_control_plane_base_url_override_leaves_the_data_plane_alone() -> None:
+    # Enterprise splits the planes across two binaries.
+    with XbergClient(
+        target="enterprise",
+        base_url="https://data.example.test:8080",
+        control_plane_base_url="https://control.example.test:8081/",
+    ) as client:
+        assert client._control_plane_base_url == "https://control.example.test:8081"
+        assert client._base_url == "https://data.example.test:8080"
+
+
 # -- retry engine --------------------------------------------------------------
 
 
@@ -309,3 +327,24 @@ async def test_capability_probe_concurrent_callers_share_one_probe_async(base_ur
 
     assert health.call_count == 1
     assert all(result.presets == [] for result in results)
+
+
+def test_control_plane_base_url_is_readable_on_both_clients() -> None:
+    """A two-origin client must be able to say which host it will actually call.
+
+    The control plane silently defaults to the data-plane base URL, so the
+    constructor call alone does not answer it. Go exposes `ControlPlaneBaseURL()`
+    and TypeScript a public field; this is the Python half of that.
+    """
+    override = "https://control.example.com"
+    for client_class in (XbergClient, AsyncXbergClient):
+        default = client_class(api_key="kz_test", base_url="https://data.example.com")
+        assert default.control_plane_base_url == "https://data.example.com"
+
+        explicit = client_class(
+            api_key="kz_test",
+            base_url="https://data.example.com",
+            control_plane_base_url=f"{override}/",
+        )
+        assert explicit.control_plane_base_url == override
+        assert explicit._base_url == "https://data.example.com"
