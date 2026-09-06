@@ -24,9 +24,15 @@ const crawlJobsPath = "/v1/crawl-jobs"
 // eventStreamMediaType is the media type of an SSE response, sent as Accept.
 const eventStreamMediaType = "text/event-stream"
 
-// maxCrawlEventFrameBytes caps a single event-stream line. The frames this
-// endpoint sends are a few hundred bytes; the cap exists so a server that
-// never emits a newline cannot grow the scanner's buffer without bound.
+// maxCrawlEventFrameBytes caps an event-stream frame. The frames this endpoint
+// sends are a few hundred bytes; the cap exists so a server that never emits a
+// newline cannot grow the scanner's buffer without bound.
+//
+// It is applied twice, because one application does not cover the other: to a
+// single line, so one endless line cannot fill memory, and to the running total
+// of a frame's "data:" fields, so an endless *succession* of lines just under
+// the line cap — never followed by the blank line that would close the frame —
+// cannot either.
 const maxCrawlEventFrameBytes = 1 << 20
 
 // CrawlEventKind is the `kind` discriminator every [CrawlEventV1] variant
@@ -155,7 +161,11 @@ func streamCrawlEventFrames(body io.Reader, yield func(CrawlEvent, error) bool) 
 	scanner.Split(scanEventStreamLines)
 	var frames sseDecoder
 	for scanner.Scan() {
-		payload, complete := frames.feed(scanner.Text())
+		payload, complete, err := frames.feed(scanner.Text())
+		if err != nil {
+			yield(CrawlEvent{}, err)
+			return
+		}
 		if !complete {
 			continue
 		}
@@ -213,7 +223,9 @@ func (c *Client) openEventStream(ctx context.Context, path string) (io.ReadClose
 }
 
 // parseCrawlEvent decodes one SSE frame payload into the kind-discriminated
-// variant it names. The generated union stores the payload verbatim and
+// variant it names. A malformed frame is an [XbergError], not a bare error, so
+// the base errors.As catch documented on that type also covers a stream that
+// goes wrong mid-flight — the TypeScript client raises its base error here too. The generated union stores the payload verbatim and
 // validates nothing, so the kind is read (and checked) from a minimal envelope
 // first — a frame naming a kind the spec does not declare is an error, not an
 // event silently handed on with an empty Kind.
@@ -223,15 +235,17 @@ func parseCrawlEvent(payload string) (CrawlEvent, error) {
 		Kind string `json:"kind"`
 	}
 	if err := json.Unmarshal(raw, &envelope); err != nil {
-		return CrawlEvent{}, fmt.Errorf("xberg: decoding crawl event: %w", err)
+		return CrawlEvent{}, &XbergError{Message: fmt.Sprintf("decoding crawl event: %s", err)}
 	}
 	kind := CrawlEventKind(envelope.Kind)
 	if !kind.valid() {
-		return CrawlEvent{}, fmt.Errorf("xberg: crawl event stream sent unrecognized kind %q", envelope.Kind)
+		return CrawlEvent{}, &XbergError{
+			Message: fmt.Sprintf("crawl event stream sent unrecognized kind %q", envelope.Kind),
+		}
 	}
 	event := CrawlEvent{Kind: kind}
 	if err := event.UnmarshalJSON(raw); err != nil {
-		return CrawlEvent{}, fmt.Errorf("xberg: decoding crawl event: %w", err)
+		return CrawlEvent{}, &XbergError{Message: fmt.Sprintf("decoding crawl event: %s", err)}
 	}
 	return event, nil
 }
@@ -254,25 +268,37 @@ func parseCrawlEvent(payload string) (CrawlEvent, error) {
 // the spec requires: the payload is by definition incomplete.
 type sseDecoder struct {
 	data []string
+	// size is the running byte total of the frame being assembled, reset with
+	// data on every dispatch.
+	size int
 }
 
 // feed consumes one terminator-stripped line and reports the payload of the
 // frame it completed, if it completed one.
-func (d *sseDecoder) feed(line string) (payload string, complete bool) {
+func (d *sseDecoder) feed(line string) (payload string, complete bool, err error) {
 	if line == "" {
-		return d.dispatch()
+		payload, complete = d.dispatch()
+		return payload, complete, nil
 	}
 	if strings.HasPrefix(line, ":") {
-		return "", false
+		return "", false, nil
 	}
 	field, value, hasColon := strings.Cut(line, ":")
 	if hasColon {
 		value = strings.TrimPrefix(value, " ")
 	}
 	if field == "data" {
+		// +1 for the "\n" dispatch will join with.
+		d.size += len(value) + 1
+		if d.size > maxCrawlEventFrameBytes {
+			return "", false, &XbergError{Message: fmt.Sprintf(
+				"crawl event frame exceeded %d bytes before the stream closed it",
+				maxCrawlEventFrameBytes,
+			)}
+		}
 		d.data = append(d.data, value)
 	}
-	return "", false
+	return "", false, nil
 }
 
 // dispatch emits the buffered data payload, or reports that the blank line
@@ -283,6 +309,7 @@ func (d *sseDecoder) dispatch() (payload string, complete bool) {
 	}
 	joined := strings.Join(d.data, "\n")
 	d.data = d.data[:0]
+	d.size = 0
 	return joined, true
 }
 

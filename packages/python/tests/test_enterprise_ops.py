@@ -122,7 +122,7 @@ def test_get_enrich_status_sync_rejects_an_unknown_status(base_url: str, api_key
     )
     with (
         XbergClient(api_key=api_key, base_url=base_url, target="enterprise") as client,
-        pytest.raises(ValueError, match="unexpected enrich status response shape"),
+        pytest.raises(XbergError, match="unexpected enrich status response shape"),
     ):
         client.get_enrich_status(ENRICH_JOB_ID)
 

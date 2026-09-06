@@ -51,7 +51,7 @@ def test_extract_response_non_dict_payload_raises_value_error(base_url: str, api
     )
     with (
         XbergClient(api_key=api_key, base_url=base_url) as client,
-        pytest.raises(ValueError, match="unexpected extract response shape"),
+        pytest.raises(XbergError, match="unexpected extract response shape"),
     ):
         client.extract(file=b"x")
 
@@ -64,7 +64,7 @@ def test_get_job_non_dict_payload_raises_value_error(base_url: str, api_key: str
     )
     with (
         XbergClient(api_key=api_key, base_url=base_url) as client,
-        pytest.raises(ValueError, match="unexpected job response shape"),
+        pytest.raises(XbergError, match="unexpected job response shape"),
     ):
         client.get_job(job_id)
 

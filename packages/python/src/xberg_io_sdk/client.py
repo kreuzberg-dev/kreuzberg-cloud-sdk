@@ -183,6 +183,14 @@ _CRAWL_EVENT_MODELS: dict[str, _CrawlEventModel] = {
 _SSE_ACCEPT = "text/event-stream"
 _SSE_DATA_FIELD = "data"
 _SSE_COMMENT_PREFIX = ":"
+# Caps the running total of a frame's ``data:`` fields, so a server that never
+# sends the blank line closing a frame cannot grow the decoder without bound.
+#
+# Unlike Go and TypeScript, this client reads lines through ``httpx``'s own
+# decoder, which applies no per-line cap of its own -- so a single endless line
+# (as opposed to endless *lines*) is still bounded only by memory. Closing that
+# needs the line splitting to move in here; tracked separately.
+_MAX_SSE_FRAME_BYTES = 1 << 20
 
 
 def _user_agent() -> str:
@@ -324,10 +332,10 @@ def _saved_presets_path(tier: str, preset_id: str | None = None) -> str:
 def _job_ids_from_extract_response(payload: Any) -> list[str]:
     """Pluck the ``job_ids`` list out of a ``POST /v1/extract`` response body."""
     if not isinstance(payload, dict):
-        raise ValueError(f"unexpected extract response shape: {payload!r}")
+        raise XbergError(f"unexpected extract response shape: {payload!r}", status_code=None)
     job_ids = payload.get("job_ids")
     if not isinstance(job_ids, list) or not job_ids:
-        raise ValueError(f"extract response missing job_ids: {payload!r}")
+        raise XbergError(f"extract response missing job_ids: {payload!r}", status_code=None)
     return [str(job_id) for job_id in job_ids]
 
 
@@ -344,9 +352,15 @@ def _auto_tune_multipart_data(request: BodyInput) -> dict[str, str]:
 
 
 def _expect_object(payload: Any, what: str) -> Mapping[str, Any]:
-    """Assert a decoded response body is a JSON object before handing it to a model parser."""
+    """Assert a decoded response body is a JSON object before handing it to a model parser.
+
+    Raises :class:`XbergError`, not ``ValueError``: a server that answers with
+    the wrong shape is an SDK-level failure, and a caller wrapping a call in
+    ``except XbergError`` should not have to also catch a bare built-in to
+    cover it. The TypeScript client raises its base error here too.
+    """
     if not isinstance(payload, Mapping):
-        raise ValueError(f"unexpected {what} response shape: {payload!r}")
+        raise XbergError(f"unexpected {what} response shape: {payload!r}", status_code=None)
     return payload
 
 
@@ -355,7 +369,7 @@ def _parse_enrich_status(payload: Any) -> EnrichJobStatus:
     body = _expect_object(payload, "enrich status")
     model = _ENRICH_STATUS_MODELS.get(str(body.get("status", "")))
     if model is None:
-        raise ValueError(f"unexpected enrich status response shape: {payload!r}")
+        raise XbergError(f"unexpected enrich status response shape: {payload!r}", status_code=None)
     return model.from_dict(body)
 
 
@@ -380,6 +394,7 @@ class _SSEDecoder:
 
     def __init__(self) -> None:
         self._data: list[str] = []
+        self._size = 0
 
     def feed(self, line: str) -> str | None:
         """Consume one terminator-stripped line, returning a payload if it completed a frame."""
@@ -391,6 +406,12 @@ class _SSEDecoder:
         if separator and value.startswith(" "):
             value = value[1:]
         if field == _SSE_DATA_FIELD:
+            self._size += len(value) + 1  # +1 for the newline _dispatch joins with
+            if self._size > _MAX_SSE_FRAME_BYTES:
+                raise XbergError(
+                    f"crawl event frame exceeded {_MAX_SSE_FRAME_BYTES} bytes before the stream closed it",
+                    status_code=None,
+                )
             self._data.append(value)
         return None
 
@@ -400,6 +421,7 @@ class _SSEDecoder:
             return None
         payload = "\n".join(self._data)
         self._data.clear()
+        self._size = 0
         return payload
 
 
@@ -408,18 +430,20 @@ def _parse_crawl_event(payload: str) -> CrawlEvent:
     try:
         body = json.loads(payload)
     except json.JSONDecodeError as exc:
-        raise ValueError(f"crawl event stream sent a non-JSON frame: {payload!r}") from exc
+        raise XbergError(
+            f"crawl event stream sent a non-JSON frame: {payload!r}", status_code=None
+        ) from exc
     document = _expect_object(body, "crawl event")
     model = _CRAWL_EVENT_MODELS.get(str(document.get("kind", "")))
     if model is None:
-        raise ValueError(f"unexpected crawl event kind: {document.get('kind')!r}")
+        raise XbergError(f"unexpected crawl event kind: {document.get('kind')!r}", status_code=None)
     return model.from_dict(document)
 
 
 def _parse_job(payload: Any) -> JobResponse:
     """Parse a ``GET /v1/jobs/{id}`` response body into a typed :class:`JobResponse`."""
     if not isinstance(payload, dict):
-        raise ValueError(f"unexpected job response shape: {payload!r}")
+        raise XbergError(f"unexpected job response shape: {payload!r}", status_code=None)
     return JobResponse.from_dict(payload)
 
 
@@ -431,7 +455,7 @@ def _parse_job_result(payload: Any) -> JobResult:
 def _parse_presets(payload: Any) -> list[PresetSummary]:
     """Parse a ``GET /v1/presets`` response body into a list of :class:`PresetSummary`."""
     if not isinstance(payload, list):
-        raise ValueError(f"unexpected preset list response shape: {payload!r}")
+        raise XbergError(f"unexpected preset list response shape: {payload!r}", status_code=None)
     return [PresetSummary.from_dict(_expect_object(item, "preset summary")) for item in payload]
 
 

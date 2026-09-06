@@ -14,6 +14,18 @@ export const DEFAULT_RETRY_BACKOFF_CAP_MS = 30_000;
 export const DEFAULT_BACKOFF_FACTOR = 2;
 
 /**
+ * Caps an event-stream frame. The frames this endpoint sends are a few hundred
+ * bytes; the cap exists so a server that never closes a frame cannot grow this
+ * decoder without bound.
+ *
+ * It is applied twice, because one application does not cover the other: to the
+ * pending line, so one endless line cannot fill memory, and to the running
+ * total of a frame's `data:` fields, so an endless succession of shorter lines
+ * never followed by the blank line that would close the frame cannot either.
+ */
+export const MAX_EVENT_STREAM_FRAME_BYTES = 1 << 20;
+
+/**
  * Backoff strategy for retries and `waitForJob` polling.
  *
  * - `exponential` — interval doubles after every attempt, capped at 30s.
@@ -183,6 +195,8 @@ export function describeFile(file: FileLike): string {
 export class EventStreamDecoder {
   private buffer = "";
   private data: string[] = [];
+  /** Running length of the frame being assembled, reset with `data` on dispatch. */
+  private size = 0;
 
   /** Consume one chunk of decoded text, returning the payload of every frame it completed. */
   public push(chunk: string): string[] {
@@ -191,6 +205,12 @@ export class EventStreamDecoder {
     for (;;) {
       const boundary = this.nextLineBoundary();
       if (boundary === undefined) {
+        if (this.buffer.length > MAX_EVENT_STREAM_FRAME_BYTES) {
+          throw new XbergError(
+            `Crawl event stream sent a line longer than ${MAX_EVENT_STREAM_FRAME_BYTES} bytes`,
+            { status: 0, body: null },
+          );
+        }
         return payloads;
       }
       const line = this.buffer.slice(0, boundary.index);
@@ -239,6 +259,13 @@ export class EventStreamDecoder {
       value = value.slice(1);
     }
     if (field === "data") {
+      this.size += value.length + 1; // +1 for the "\n" dispatch joins with
+      if (this.size > MAX_EVENT_STREAM_FRAME_BYTES) {
+        throw new XbergError(
+          `Crawl event frame exceeded ${MAX_EVENT_STREAM_FRAME_BYTES} bytes before the stream closed it`,
+          { status: 0, body: null },
+        );
+      }
       this.data.push(value);
     }
     return undefined;
@@ -251,6 +278,7 @@ export class EventStreamDecoder {
     }
     const payload = this.data.join("\n");
     this.data = [];
+    this.size = 0;
     return payload;
   }
 }

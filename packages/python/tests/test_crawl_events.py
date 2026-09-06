@@ -205,7 +205,7 @@ def test_stream_crawl_events_rejects_an_unrecognized_kind(base_url: str, api_key
     response, _ = stream_response(sse(json_frame({**PAGE_EVENT, "kind": "teleported"})))
     respx.get(f"{base_url}{EVENTS_PATH}").mock(return_value=response)
 
-    with enterprise_client(base_url, api_key) as client, pytest.raises(ValueError, match="unexpected crawl event kind"):
+    with enterprise_client(base_url, api_key) as client, pytest.raises(XbergError, match="unexpected crawl event kind"):
         list(client.stream_crawl_events(CRAWL_JOB_ID))
 
 
@@ -352,3 +352,16 @@ async def test_stream_crawl_events_async_joins_multiline_data(base_url: str, api
     assert events[0].kind == "complete"
     assert events[0].pages_crawled == 7
     assert events[0].crawl_job_id == uuid.UUID(CRAWL_JOB_ID)
+
+
+@respx.mock
+def test_stream_crawl_events_rejects_a_frame_that_never_closes(base_url: str, api_key: str) -> None:
+    """A succession of ``data:`` lines with no terminating blank line is capped, not buffered forever."""
+    # 17 x 64 KiB carries the frame past the 1 MiB cap without any one line
+    # being unusually long -- the shape a per-line cap alone would miss.
+    body = ("data: " + "x" * (64 * 1024) + "\n") * 17
+    response, _ = stream_response(body.encode())
+    respx.get(f"{base_url}{EVENTS_PATH}").mock(return_value=response)
+
+    with enterprise_client(base_url, api_key) as client, pytest.raises(XbergError, match="exceeded"):
+        list(client.stream_crawl_events(CRAWL_JOB_ID))

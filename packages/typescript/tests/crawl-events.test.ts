@@ -3,6 +3,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { XbergClient } from "../src/client.js";
 import { NotFoundError, ServerError, XbergError } from "../src/errors.js";
 import type { CrawlEvent } from "../src/types.js";
+import { EventStreamDecoder } from "../src/_internal.js";
 import { TEST_BASE_URL, createTestServer, url } from "./_helpers.js";
 
 /**
@@ -378,5 +379,28 @@ describe("streamCrawlEvents", () => {
 
     await collect(events);
     expect(requested).toBe(true);
+  });
+  // Driven against the decoder rather than through `msw`: a body large enough
+  // to trip the cap is large enough to make the mock server the slow part of
+  // the test, and the guard being proved lives entirely in the decoder.
+  it("caps a frame whose data lines never reach a blank line", () => {
+    const decoder = new EventStreamDecoder();
+    // 64 KiB per line stays well under the per-line cap, so this is the other
+    // shape — an endless succession of ordinary lines with no frame terminator.
+    const line = `data: ${"x".repeat(64 * 1024)}\n`;
+    expect(() => {
+      for (let index = 0; index < 20; index += 1) {
+        decoder.push(line);
+      }
+    }).toThrow(XbergError);
+  });
+
+  it("caps a single line that never ends", () => {
+    const decoder = new EventStreamDecoder();
+    expect(() => {
+      for (let index = 0; index < 20; index += 1) {
+        decoder.push("x".repeat(64 * 1024)); // no terminator, ever
+      }
+    }).toThrow(/longer than/);
   });
 });

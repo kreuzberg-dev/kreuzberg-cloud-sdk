@@ -298,6 +298,35 @@ func TestStreamCrawlEvents_RejectsUnrecognizedKind(t *testing.T) {
 	if !strings.Contains(err.Error(), `unrecognized kind "teleported"`) {
 		t.Errorf("err = %v, want it to name the unrecognized kind", err)
 	}
+	// The package documents that errors.As(err, &XbergError{}) reaches every
+	// error the SDK raises. A stream that goes wrong mid-flight is no exception
+	// — TypeScript throws its base error here, and a caller triaging "SDK
+	// error vs. bug" must not have that answer depend on the language.
+	var base *xberg.XbergError
+	if !errors.As(err, &base) {
+		t.Errorf("err is %T, want it to satisfy errors.As(&XbergError{})", err)
+	}
+}
+
+func TestStreamCrawlEvents_RejectsANonJSONFrame(t *testing.T) {
+	t.Parallel()
+	client, _, _ := sseServer(t, []string{dataFrame("{not valid json")}, false)
+
+	events, err := client.StreamCrawlEvents(context.Background(), testCrawlJobID)
+	if err != nil {
+		t.Fatalf("StreamCrawlEvents: %v", err)
+	}
+	collected, err := collectCrawlEvents(events)
+	if err == nil {
+		t.Fatalf("draining the stream: want an error, got %d events", len(collected))
+	}
+	var base *xberg.XbergError
+	if !errors.As(err, &base) {
+		t.Errorf("err is %T, want it to satisfy errors.As(&XbergError{})", err)
+	}
+	if base.Status != 0 {
+		t.Errorf("Status = %d, want 0 — no HTTP response backs a decode failure", base.Status)
+	}
 }
 
 func TestStreamCrawlEvents_ClosesBodyWhenCallerBreaks(t *testing.T) {
@@ -461,4 +490,32 @@ func equalKinds(got, want []xberg.CrawlEventKind) bool {
 		}
 	}
 	return true
+}
+
+// TestStreamCrawlEvents_RejectsAFrameThatNeverCloses covers the second half of
+// the frame cap. The per-line cap already stops one endless line; this is the
+// other shape — a succession of lines each well under it, with the blank line
+// that would close the frame never arriving.
+func TestStreamCrawlEvents_RejectsAFrameThatNeverCloses(t *testing.T) {
+	t.Parallel()
+	// 64 KiB per line, repeated forever: under the 1 MiB line cap, over the
+	// 1 MiB frame cap after 16 of them.
+	line := "data: " + strings.Repeat("x", 64*1024) + "\n"
+	client, _, _ := sseServer(t, []string{line}, true)
+
+	events, err := client.StreamCrawlEvents(context.Background(), testCrawlJobID)
+	if err != nil {
+		t.Fatalf("StreamCrawlEvents: %v", err)
+	}
+	collected, err := collectCrawlEvents(events)
+	if err == nil {
+		t.Fatalf("draining the stream: want an error, got %d events", len(collected))
+	}
+	if !strings.Contains(err.Error(), "exceeded") {
+		t.Errorf("err = %v, want it to report the frame cap", err)
+	}
+	var base *xberg.XbergError
+	if !errors.As(err, &base) {
+		t.Errorf("err is %T, want it to satisfy errors.As(&XbergError{})", err)
+	}
 }

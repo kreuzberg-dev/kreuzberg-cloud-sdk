@@ -268,7 +268,7 @@ def test_extract_response_with_unexpected_shape_raises(base_url: str, api_key: s
         return_value=httpx.Response(202, json={"unexpected": "shape"}),
     )
 
-    with XbergClient(api_key=api_key, base_url=base_url) as client, pytest.raises(ValueError, match="job_ids"):
+    with XbergClient(api_key=api_key, base_url=base_url) as client, pytest.raises(XbergError, match="job_ids"):
         client.extract(file=b"x")
 
 

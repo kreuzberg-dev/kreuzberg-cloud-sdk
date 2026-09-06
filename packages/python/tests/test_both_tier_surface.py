@@ -19,7 +19,7 @@ from tests.conftest import (
     make_preset_detail,
     make_preset_summary,
 )
-from xberg_io_sdk import AsyncXbergClient, JobResult, XbergClient
+from xberg_io_sdk import AsyncXbergClient, JobResult, XbergClient, XbergError
 from xberg_io_sdk._generated_api.models.preset_detail import PresetDetail
 from xberg_io_sdk._generated_api.models.preset_summary import PresetSummary
 
@@ -101,7 +101,7 @@ def test_get_job_result_rejects_non_object_body(base_url: str, api_key: str) -> 
     )
     with (
         XbergClient(api_key=api_key, base_url=base_url, target="pro") as client,
-        pytest.raises(ValueError, match="unexpected job result response shape"),
+        pytest.raises(XbergError, match="unexpected job result response shape"),
     ):
         client.get_job_result("aaaaaaaa-0000-4000-8000-000000000004")
 
@@ -170,7 +170,7 @@ def test_presets_rejects_non_array_body(base_url: str, api_key: str) -> None:
     respx.get(f"{base_url}/v1/presets").mock(return_value=httpx.Response(200, json={"presets": []}))
     with (
         XbergClient(api_key=api_key, base_url=base_url, target="enterprise") as client,
-        pytest.raises(ValueError, match="unexpected preset list response shape"),
+        pytest.raises(XbergError, match="unexpected preset list response shape"),
     ):
         client.presets()
 
