@@ -57,6 +57,12 @@ tasks:
       - task: python:test
       - task: typescript:test
       - task: go:test
+      - task: scripts:test
+
+  scripts:test:
+    desc: "Run the contract tests for the repo tooling under scripts/"
+    cmds:
+      - uv run -m pytest scripts/tests -v
 
   lint:
     desc: "Lint all code via poly"

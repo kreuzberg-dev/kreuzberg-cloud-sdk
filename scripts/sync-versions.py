@@ -3,13 +3,15 @@
 
 Single source of truth: ``VERSION`` at the repo root. Run this script (or
 ``task version:sync``) after bumping it to propagate to every language package.
+Pass ``--check`` to report drift and exit non-zero without writing anything,
+which is what the release pre-flight wants.
 
 Affected files:
   - packages/python/pyproject.toml                          (``project.version``)
   - packages/typescript/package.json                        (``version``)
   - packages/typescript/src/version.ts                      (``export const VERSION``)
   - packages/python/src/xberg_io_sdk/__init__.py            (``__version__``)
-  - packages/go/v1/version.go                               (``const Version``)
+  - packages/go/version.go                                  (``const Version``)
 Go module versions for the module path itself live in git tags only.
 """
 
@@ -29,6 +31,7 @@ PYTHON_INIT = REPO_ROOT / "packages" / "python" / "src" / "xberg_io_sdk" / "__in
 GO_VERSION = REPO_ROOT / "packages" / "go" / "version.go"
 
 VERSION_PATTERN = re.compile(r"^\d+\.\d+\.\d+(?:[-+][\w.+-]+)?$")
+CHECK_FLAG = "--check"
 
 
 def read_version() -> str:
@@ -39,8 +42,8 @@ def read_version() -> str:
     return raw
 
 
-def update_pyproject(path: Path, version: str) -> bool:
-    """Rewrite the ``project.version`` line in a pyproject.toml; return True if changed."""
+def update_pyproject(path: Path, version: str, *, write: bool) -> bool:
+    """Rewrite the ``project.version`` line in a pyproject.toml; return True if it differs from ``version``."""
     text = path.read_text(encoding="utf-8")
     new_text, count = re.subn(
         r'(?m)^(version\s*=\s*")[^"]+(")',
@@ -52,23 +55,25 @@ def update_pyproject(path: Path, version: str) -> bool:
         sys.exit(f"no version line found in {path}")
     if new_text == text:
         return False
-    path.write_text(new_text, encoding="utf-8")
+    if write:
+        path.write_text(new_text, encoding="utf-8")
     return True
 
 
-def update_package_json(path: Path, version: str) -> bool:
-    """Rewrite the ``version`` field in a package.json; return True if changed."""
+def update_package_json(path: Path, version: str, *, write: bool) -> bool:
+    """Rewrite the ``version`` field in a package.json; return True if it differs from ``version``."""
     raw = path.read_text(encoding="utf-8")
     data = json.loads(raw)
     if data.get("version") == version:
         return False
     data["version"] = version
-    path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+    if write:
+        path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
     return True
 
 
-def update_typescript_version(path: Path, version: str) -> bool:
-    """Rewrite the ``export const VERSION`` literal in the TS version.ts; return True if changed."""
+def update_typescript_version(path: Path, version: str, *, write: bool) -> bool:
+    """Rewrite the ``export const VERSION`` literal in the TS version.ts; return True if it differs from ``version``."""
     text = path.read_text(encoding="utf-8")
     new_text, count = re.subn(
         r'(?m)^(export const VERSION\s*=\s*")[^"]+(")',
@@ -80,12 +85,13 @@ def update_typescript_version(path: Path, version: str) -> bool:
         sys.exit(f"no `export const VERSION` line found in {path}")
     if new_text == text:
         return False
-    path.write_text(new_text, encoding="utf-8")
+    if write:
+        path.write_text(new_text, encoding="utf-8")
     return True
 
 
-def update_python_init(path: Path, version: str) -> bool:
-    """Rewrite the ``__version__`` literal in the Python package __init__.py; return True if changed."""
+def update_python_init(path: Path, version: str, *, write: bool) -> bool:
+    """Rewrite the ``__version__`` literal in the Python package __init__.py; return True if it differs from ``version``."""
     text = path.read_text(encoding="utf-8")
     new_text, count = re.subn(
         r'(?m)^(__version__\s*=\s*")[^"]+(")',
@@ -97,12 +103,13 @@ def update_python_init(path: Path, version: str) -> bool:
         sys.exit(f"no __version__ line found in {path}")
     if new_text == text:
         return False
-    path.write_text(new_text, encoding="utf-8")
+    if write:
+        path.write_text(new_text, encoding="utf-8")
     return True
 
 
-def update_go_version(path: Path, version: str) -> bool:
-    """Rewrite the ``const Version`` literal in the Go version.go; return True if changed."""
+def update_go_version(path: Path, version: str, *, write: bool) -> bool:
+    """Rewrite the ``const Version`` literal in the Go version.go; return True if it differs from ``version``."""
     text = path.read_text(encoding="utf-8")
     new_text, count = re.subn(
         r'(?m)^(const Version\s*=\s*")[^"]+(")',
@@ -114,7 +121,8 @@ def update_go_version(path: Path, version: str) -> bool:
         sys.exit(f"no `const Version` line found in {path}")
     if new_text == text:
         return False
-    path.write_text(new_text, encoding="utf-8")
+    if write:
+        path.write_text(new_text, encoding="utf-8")
     return True
 
 
@@ -133,27 +141,44 @@ def require_all_targets_exist(paths: list[Path]) -> None:
         sys.exit(f"version target(s) missing: {', '.join(missing)}")
 
 
-def main() -> int:
-    """Propagate the root VERSION value to every per-package manifest."""
+def parse_arguments(argv: list[str]) -> bool:
+    """Return True when the caller asked for a read-only drift check."""
+    unrecognised = [argument for argument in argv if argument != CHECK_FLAG]
+    if unrecognised:
+        sys.exit(f"unrecognised argument(s): {' '.join(unrecognised)} (only {CHECK_FLAG} is accepted)")
+    return CHECK_FLAG in argv
+
+
+def main(argv: list[str]) -> int:
+    """Propagate the root VERSION to every manifest, or under ``--check`` report drift without writing."""
+    check_only = parse_arguments(argv)
     version = read_version()
     require_all_targets_exist([PYTHON_PYPROJECT, TYPESCRIPT_PACKAGE, TYPESCRIPT_VERSION_TS, PYTHON_INIT, GO_VERSION])
-    changed: list[str] = []
-    if update_pyproject(PYTHON_PYPROJECT, version):
-        changed.append(str(PYTHON_PYPROJECT.relative_to(REPO_ROOT)))
-    if update_package_json(TYPESCRIPT_PACKAGE, version):
-        changed.append(str(TYPESCRIPT_PACKAGE.relative_to(REPO_ROOT)))
-    if update_typescript_version(TYPESCRIPT_VERSION_TS, version):
-        changed.append(str(TYPESCRIPT_VERSION_TS.relative_to(REPO_ROOT)))
-    if update_python_init(PYTHON_INIT, version):
-        changed.append(str(PYTHON_INIT.relative_to(REPO_ROOT)))
-    if update_go_version(GO_VERSION, version):
-        changed.append(str(GO_VERSION.relative_to(REPO_ROOT)))
-    if changed:
-        print(f"synced version {version} -> {', '.join(changed)}")  # noqa: T201
-    else:
+    write = not check_only
+    drifted: list[str] = []
+    if update_pyproject(PYTHON_PYPROJECT, version, write=write):
+        drifted.append(str(PYTHON_PYPROJECT.relative_to(REPO_ROOT)))
+    if update_package_json(TYPESCRIPT_PACKAGE, version, write=write):
+        drifted.append(str(TYPESCRIPT_PACKAGE.relative_to(REPO_ROOT)))
+    if update_typescript_version(TYPESCRIPT_VERSION_TS, version, write=write):
+        drifted.append(str(TYPESCRIPT_VERSION_TS.relative_to(REPO_ROOT)))
+    if update_python_init(PYTHON_INIT, version, write=write):
+        drifted.append(str(PYTHON_INIT.relative_to(REPO_ROOT)))
+    if update_go_version(GO_VERSION, version, write=write):
+        drifted.append(str(GO_VERSION.relative_to(REPO_ROOT)))
+
+    if not drifted:
         print(f"version {version} already in sync")  # noqa: T201
+        return 0
+    if check_only:
+        sys.stderr.write(f"VERSION says {version}, but it is not applied to:\n")
+        for name in drifted:
+            sys.stderr.write(f"  {name}\n")
+        sys.stderr.write("run `task version:sync` to propagate it\n")
+        return 1
+    print(f"synced version {version} -> {', '.join(drifted)}")  # noqa: T201
     return 0
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(main(sys.argv[1:]))
