@@ -86,9 +86,16 @@ jobs:
           py_version=$(grep -E '^version = ' packages/python/pyproject.toml | head -1 | sed 's/version = "\(.*\)"/\1/')
           ts_version=$(python3 -c 'import json; print(json.load(open("packages/typescript/package.json"))["version"])')
           go_version=$(grep -E '^const Version = ' packages/go/version.go | sed 's/.*"\(.*\)".*/\1/')
-          for v in "$file_version" "$py_version" "$ts_version" "$go_version"; do
+          # These two are written by scripts/sync-versions.py and were unchecked
+          # here, so a half-applied bump could reach the registries: src/version.ts
+          # feeds the client's User-Agent, and __init__.py is what
+          # `xberg_io_sdk.__version__` reports. Every file the sync script writes
+          # is verified, so the two lists cannot drift apart again.
+          ts_const_version=$(grep -E '^export const VERSION = ' packages/typescript/src/version.ts | sed 's/.*"\(.*\)".*/\1/')
+          py_init_version=$(grep -E '^__version__ = ' packages/python/src/xberg_io_sdk/__init__.py | sed 's/.*"\(.*\)".*/\1/')
+          for v in "$file_version" "$py_version" "$ts_version" "$go_version" "$ts_const_version" "$py_init_version"; do
             if [ "$v" != "$VERSION" ]; then
-              echo "version mismatch: tag=$VERSION file=$file_version py=$py_version ts=$ts_version go=$go_version" >&2
+              echo "version mismatch: tag=$VERSION file=$file_version py=$py_version ts=$ts_version go=$go_version ts_const=$ts_const_version py_init=$py_init_version" >&2
               exit 1
             fi
           done

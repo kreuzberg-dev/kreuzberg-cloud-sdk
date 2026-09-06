@@ -26,7 +26,7 @@ PYTHON_PYPROJECT = REPO_ROOT / "packages" / "python" / "pyproject.toml"
 TYPESCRIPT_PACKAGE = REPO_ROOT / "packages" / "typescript" / "package.json"
 TYPESCRIPT_VERSION_TS = REPO_ROOT / "packages" / "typescript" / "src" / "version.ts"
 PYTHON_INIT = REPO_ROOT / "packages" / "python" / "src" / "xberg_io_sdk" / "__init__.py"
-GO_VERSION = REPO_ROOT / "packages" / "go" / "v1" / "version.go"
+GO_VERSION = REPO_ROOT / "packages" / "go" / "version.go"
 
 VERSION_PATTERN = re.compile(r"^\d+\.\d+\.\d+(?:[-+][\w.+-]+)?$")
 
@@ -118,9 +118,25 @@ def update_go_version(path: Path, version: str) -> bool:
     return True
 
 
+def require_all_targets_exist(paths: list[Path]) -> None:
+    """Abort before writing anything if a target file is missing.
+
+    Every updater does a bare ``read_text``, so a stale path raised
+    ``FileNotFoundError`` only once the earlier files had already been
+    rewritten. A bump then half-applied: the Python and TypeScript manifests
+    moved, the Go constant did not, and the next tag push failed
+    ``validate-versions`` in CI rather than here. Checking up front makes a
+    renamed package a loud no-op instead of a silent partial write.
+    """
+    missing = [str(path.relative_to(REPO_ROOT)) for path in paths if not path.is_file()]
+    if missing:
+        sys.exit(f"version target(s) missing: {', '.join(missing)}")
+
+
 def main() -> int:
     """Propagate the root VERSION value to every per-package manifest."""
     version = read_version()
+    require_all_targets_exist([PYTHON_PYPROJECT, TYPESCRIPT_PACKAGE, TYPESCRIPT_VERSION_TS, PYTHON_INIT, GO_VERSION])
     changed: list[str] = []
     if update_pyproject(PYTHON_PYPROJECT, version):
         changed.append(str(PYTHON_PYPROJECT.relative_to(REPO_ROOT)))
