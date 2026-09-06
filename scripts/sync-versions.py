@@ -61,14 +61,28 @@ def update_pyproject(path: Path, version: str, *, write: bool) -> bool:
 
 
 def update_package_json(path: Path, version: str, *, write: bool) -> bool:
-    """Rewrite the ``version`` field in a package.json; return True if it differs from ``version``."""
-    raw = path.read_text(encoding="utf-8")
-    data = json.loads(raw)
-    if data.get("version") == version:
+    """Point a package.json ``version`` at ``version``; return True if it differs.
+
+    The value is substituted in place rather than by re-serialising the parsed
+    document. A ``json.dumps(..., indent=2)`` round-trip rewrote every array in
+    the file onto one element per line, so cutting 0.4.0 reformatted
+    ``keywords`` and ``files`` as a side effect of the version bump and left
+    ``main`` failing ``poly fmt --check``. The document is still parsed, but
+    only to read the current value.
+    """
+    text = path.read_text(encoding="utf-8")
+    if json.loads(text).get("version") == version:
         return False
-    data["version"] = version
+    new_text, count = re.subn(
+        r'(?m)^(  "version": ")[^"]+(")',
+        rf"\g<1>{version}\g<2>",
+        text,
+        count=1,
+    )
+    if count == 0:
+        sys.exit(f'no top-level "version" field found in {path}')
     if write:
-        path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+        path.write_text(new_text, encoding="utf-8")
     return True
 
 

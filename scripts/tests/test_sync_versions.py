@@ -24,7 +24,9 @@ GO_VERSION_RELATIVE = "packages/go/version.go"
 PACKAGE_JSON_RELATIVE = "packages/typescript/package.json"
 MANIFESTS = {
     "packages/python/pyproject.toml": '[project]\nname = "x"\nversion = "{version}"\n',
-    PACKAGE_JSON_RELATIVE: '{{\n  "name": "x",\n  "version": "{version}"\n}}\n',
+    PACKAGE_JSON_RELATIVE: (
+        '{{\n  "name": "x",\n  "version": "{version}",\n  "keywords": ["one", "two"],\n  "files": ["dist"]\n}}\n'
+    ),
     "packages/typescript/src/version.ts": 'export const VERSION = "{version}";\n',
     "packages/python/src/xberg_io_sdk/__init__.py": '__version__ = "{version}"\n',
     GO_VERSION_RELATIVE: 'package xberg\n\nconst Version = "{version}"\n',
@@ -91,3 +93,22 @@ def test_unrecognised_argument_is_refused_before_anything_is_written(tmp_path: P
     assert result.returncode != 0
     assert "--dry-run" in result.stderr
     assert '"0.0.1"' in go_version.read_text(encoding="utf-8")
+
+
+def test_bumping_the_version_leaves_package_json_formatting_alone(tmp_path: Path) -> None:
+    """A version bump must not reflow the rest of the document.
+
+    Rewriting the file from ``json.dumps(..., indent=2)`` exploded every array
+    onto one element per line, so cutting 0.4.0 reformatted ``keywords`` and
+    ``files`` as a side effect and left the repository failing poly fmt.
+    """
+    build_repository(tmp_path, version="1.2.3", manifest_version="0.0.1")
+    package_json = tmp_path / PACKAGE_JSON_RELATIVE
+
+    result = run_script(tmp_path)
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    written = package_json.read_text(encoding="utf-8")
+    assert '"version": "1.2.3"' in written
+    assert '"keywords": ["one", "two"]' in written, "the bump reflowed an array it was not asked to touch"
+    assert '"files": ["dist"]' in written
