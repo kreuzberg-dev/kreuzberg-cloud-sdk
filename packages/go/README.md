@@ -21,7 +21,7 @@
 
 </div>
 
-Official Go client for the [Xberg Enterprise](https://enterprise.xberg.io) and
+Official Go client for the [Xberg Enterprise](https://xberg.io) and
 Xberg Pro document-processing APIs. One `Client` speaks to either product.
 
 ```sh
@@ -213,8 +213,8 @@ originate from an HTTP response — embeds `XbergError`, so a single
 ## Documentation
 
 - SDK docs: <https://docs.sdks.xberg.io>
-- API reference: <https://enterprise.xberg.io>
-- OpenAPI spec: <https://api.xberg.io/api-doc/openapi.json>
+- Product overview: <https://xberg.io>
+- OpenAPI spec: [`spec/api/openapi.yaml`](https://github.com/xberg-io/sdks/blob/main/spec/api/openapi.yaml)
 
 ## License
 

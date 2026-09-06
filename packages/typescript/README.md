@@ -30,7 +30,7 @@
 
 </div>
 
-Official TypeScript / Node.js client for the [Xberg Enterprise](https://enterprise.xberg.io)
+Official TypeScript / Node.js client for the [Xberg Enterprise](https://xberg.io)
 and Xberg Pro document-processing APIs. One `XbergClient` speaks to either
 product: the shared surface (extraction, jobs, audit, curated presets, RAG) is
 written once, and tier-specific methods are capability-gated.
@@ -161,7 +161,7 @@ is still exported for direct OpenAPI access.
 ## Docs
 
 - SDK docs: <https://docs.sdks.xberg.io>
-- Full reference at <https://enterprise.xberg.io>.
+- Product overview: <https://xberg.io>
 
 ## License
 

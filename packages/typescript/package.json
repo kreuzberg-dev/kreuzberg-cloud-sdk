@@ -4,7 +4,7 @@
   "description": "Official TypeScript client for the Xberg Enterprise and Xberg Pro document-processing APIs.",
   "license": "MIT",
   "author": "Kreuzberg, Inc. <contact@xberg.io>",
-  "homepage": "https://enterprise.xberg.io",
+  "homepage": "https://xberg.io",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/xberg-io/sdks.git",

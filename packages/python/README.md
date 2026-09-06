@@ -30,7 +30,7 @@
 
 </div>
 
-Official Python client for the [Xberg Enterprise](https://enterprise.xberg.io)
+Official Python client for the [Xberg Enterprise](https://xberg.io)
 and Xberg Pro document-processing APIs — one client, two targets.
 
 - httpx-based, sync (`XbergClient`) and async (`AsyncXbergClient`) surfaces
@@ -158,7 +158,7 @@ Errors are raised as one of:
 ## Documentation
 
 - SDK docs: <https://docs.sdks.xberg.io>
-- Full reference and guides: <https://enterprise.xberg.io>
+- Product overview: <https://xberg.io>
 
 ## License
 
