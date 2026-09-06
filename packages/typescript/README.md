@@ -110,12 +110,13 @@ Shared surface (both tiers):
 | `waitForJobs(jobIds, opts?)` | `Promise<Job[]>` |
 | `extractAndWait({ file, options?, ...waitOpts })` | `Promise<Job>` |
 | `listJobs({ limit?, offset? })` | `Promise<ListJobsResponse>` |
+| `cancelJob(jobId)` | `Promise<void>` |
 | `audit({ action?, limit?, offset? })` | `Promise<ListAuditEntriesResponse>` |
 | `presets()`, `getPreset(id)`, `getPresetSample(id, name)` | Curated preset registry |
 | `listSavedPresets({ limit?, offset? })`, `createSavedPreset(body)`, `getSavedPreset(id)`, `updateSavedPreset(id, body)`, `deleteSavedPreset(id)` | Project-owned saved presets |
 | `listAutoTuneJobs({ limit?, offset? })`, `submitAutoTune({ request, files })`, `getAutoTuneCapabilities()`, `getAutoTuneStatus(id)`, `getAutoTuneResult(id)`, `promoteAutoTuneProfile(id, body)`, `deleteAutoTuneJob(id)` | Auto-tune |
 | `listTuningProfiles({ limit?, offset? })`, `getTuningProfile(id)`, `deleteTuningProfile(id)` | Tuning profiles |
-| `listRagCollections()`, `createRagCollection(body)`, `ragRetrieve(name, body)`, … | RAG surface |
+| `listRagCollections()`, `createRagCollection(body)`, `deleteRagCollection(name)`, `ragRetrieve(name, body)`, `deleteRagDocuments(name, body)`, … | RAG surface |
 
 `Job` is the job envelope (`GET /v1/jobs/{id}`); `JobResult` is the stored
 extraction result (`GET /v1/jobs/{id}/result`). They are different schemas — the

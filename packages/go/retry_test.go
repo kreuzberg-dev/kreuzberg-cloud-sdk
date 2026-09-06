@@ -2,8 +2,13 @@ package xberg_test
 
 import (
 	"context"
+	"fmt"
+	"io"
+	"mime"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -116,5 +121,67 @@ func TestRetry_DoesNotRetryOn400(t *testing.T) {
 	}
 	if got := calls.Load(); got != 1 {
 		t.Errorf("calls = %d, want 1 (no retries on 400)", got)
+	}
+}
+
+// TestRetry_RewindsMultipartBodyOnRetry proves a retried Extract resends the
+// full multipart body: the file part read by the server on the successful
+// (second) attempt must carry the complete original content, not an
+// already-exhausted or partially-read stream from the failed first attempt.
+func TestRetry_RewindsMultipartBodyOnRetry(t *testing.T) {
+	t.Parallel()
+	var calls atomic.Int32
+	var gotContent string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodPost && r.URL.Path == "/v1/extract":
+			if calls.Add(1) == 1 {
+				w.WriteHeader(http.StatusServiceUnavailable)
+				_, _ = w.Write([]byte(`{"error":"unavailable"}`))
+				return
+			}
+			mediaType, params, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
+			if err != nil || !strings.HasPrefix(mediaType, "multipart/") {
+				t.Errorf("content-type = %q, want multipart/...", r.Header.Get("Content-Type"))
+			}
+			reader := multipart.NewReader(r.Body, params["boundary"])
+			for {
+				part, partErr := reader.NextPart()
+				if partErr == io.EOF {
+					break
+				}
+				if partErr != nil {
+					t.Fatalf("multipart read: %v", partErr)
+				}
+				if part.FormName() == "file" {
+					body, readErr := io.ReadAll(part)
+					if readErr != nil {
+						t.Fatalf("reading file part: %v", readErr)
+					}
+					gotContent = string(body)
+				}
+			}
+			w.WriteHeader(http.StatusAccepted)
+			fmt.Fprintf(w, `{"job_ids":[%q],"status":"pending"}`, extractJobA)
+		case r.Method == http.MethodGet:
+			_, _ = w.Write([]byte(jobBody(extractJobA, "a.pdf", "pending")))
+		default:
+			t.Errorf("unexpected request %s %s", r.Method, r.URL.Path)
+		}
+	}))
+	defer server.Close()
+	client := mustClient(t, xberg.WithBaseURL(server.URL), xberg.WithRetries(2))
+	if _, err := client.Extract(
+		context.Background(),
+		xberg.FileSource{Name: "a.pdf", Reader: strings.NewReader("hello world")},
+		nil,
+	); err != nil {
+		t.Fatalf("Extract: %v", err)
+	}
+	if got := calls.Load(); got != 2 {
+		t.Errorf("calls = %d, want 2 (one failure, one retry)", got)
+	}
+	if gotContent != "hello world" {
+		t.Errorf("file content on retry = %q, want %q", gotContent, "hello world")
 	}
 }

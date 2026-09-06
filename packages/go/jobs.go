@@ -42,11 +42,24 @@ func (c *Client) GetJob(ctx context.Context, jobID string) (*JobResponse, error)
 	return &job, nil
 }
 
+// CancelJob cancels a running job (DELETE /v1/jobs/{id}). It is idempotent:
+// the server answers 204 both for a job that is cancelled by this call and one
+// that has already reached a terminal state. A 404 (job not found in the
+// caller's project) surfaces as a [NotFoundError].
+//
+// Part of the shared surface (Enterprise + Pro).
+func (c *Client) CancelJob(ctx context.Context, jobID string) error {
+	if jobID == "" {
+		return fmt.Errorf("xberg: CancelJob requires a non-empty jobID")
+	}
+	return c.callJSON(ctx, methodDelete, jobPath(jobID, ""), nil, nil)
+}
+
 // GetJobResult fetches a job's stored extraction result via
 // GET /v1/jobs/{id}/result. The returned [JobResult] carries the extracted
 // documents in Results (opaque JSON, one entry per document), any child job
 // IDs produced by a split, and any non-fatal per-document errors. The server
-// answers 409 — surfaced as an [APIError] — while the job has not reached a
+// answers 409 — surfaced as an [XbergError] — while the job has not reached a
 // terminal successful state.
 //
 // Part of the shared surface (Enterprise + Pro).
@@ -201,13 +214,13 @@ func (c *Client) ExtractAndWait(
 	file FileSource,
 	opts *ExtractAndWaitOptions,
 ) (*JobResponse, error) {
-	var extraction *ExtractionOptions
+	var extract *ExtractOptions
 	var wait *WaitOptions
 	if opts != nil {
-		extraction = opts.Extraction
+		extract = opts.Extract
 		wait = opts.Wait
 	}
-	job, err := c.Extract(ctx, file, extraction)
+	job, err := c.Extract(ctx, file, extract)
 	if err != nil {
 		return nil, err
 	}

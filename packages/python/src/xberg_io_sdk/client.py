@@ -19,6 +19,7 @@ from __future__ import annotations
 import asyncio
 import json
 import mimetypes
+import threading
 import time
 from collections.abc import Mapping
 from pathlib import Path
@@ -186,9 +187,41 @@ def _multipart_files(files: Iterable[FileInput]) -> list[tuple[str, tuple[str, b
     return [("file", _prepare_file_part(file)) for file in files]
 
 
+def _reject_unretryable_files(files: Any) -> None:
+    """Refuse to retry a multipart upload whose stream cannot be replayed.
+
+    httpx rewinds seekable file parts itself -- ``_multipart.py`` seeks each
+    file to 0 before rendering, on every attempt -- so a retried upload of a
+    ``Path``, ``bytes`` or any seekable handle already re-sends the whole body
+    and needs no help here.
+
+    A stream that reports ``seekable() is False`` is the case httpx cannot
+    save: it swallows the ``UnsupportedOperation`` and reads from an exhausted
+    stream, so attempt two uploads zero bytes and the server accepts an empty
+    document. Failing loudly is the only honest option, because the caller
+    cannot detect the truncation from the response.
+    """
+    for _, (_, payload, _) in files:
+        if isinstance(payload, (bytes, bytearray)):
+            continue
+        seekable = getattr(payload, "seekable", None)
+        if seekable is not None and not seekable():
+            raise XbergError(
+                "cannot retry this request: an uploaded file stream is not seekable "
+                "(pass a pathlib.Path, bytes, or a seekable file handle to allow retries)",
+                status_code=None,
+            )
+
+
 def _multipart_data(options: OptionsInput, webhook: Mapping[str, Any] | None) -> dict[str, str]:
-    """Build the ``data=`` argument carrying serialized options and webhook config as JSON parts."""
-    data = {"webhook": json.dumps(dict(webhook) if webhook is not None else {"url": ""})}
+    """Build the ``data=`` argument carrying serialized options and webhook config as JSON parts.
+
+    ``webhook`` is optional on the wire -- omit the part entirely rather than
+    sending a placeholder ``{"url": ""}`` when the caller supplied none.
+    """
+    data: dict[str, str] = {}
+    if webhook is not None:
+        data["webhook"] = json.dumps(dict(webhook))
     coerced = _coerce_options(options)
     if coerced is not None:
         data["options"] = json.dumps(coerced)
@@ -312,6 +345,27 @@ def _resolve_base_url(base_url: str | None, target: Target | None) -> str:
     return DEFAULT_ENTERPRISE_BASE_URL
 
 
+_KNOWN_TIERS: frozenset[str] = frozenset({"enterprise", "pro"})
+
+
+def _parse_probed_tier(body: Any) -> str:
+    """Extract and validate the ``tier`` field of a ``GET /healthz`` response body.
+
+    Raises :class:`XbergError` for a missing, null, or unrecognized tier rather
+    than returning a sentinel -- callers must never cache the result of a
+    failed probe, or an instance that answers ``/healthz`` without a tier
+    would poison every tier-gated method for the client's lifetime.
+    """
+    tier = body.get("tier") if isinstance(body, Mapping) else None
+    if not isinstance(tier, str) or tier not in _KNOWN_TIERS:
+        raise XbergError(
+            f"/healthz returned an unrecognized tier {tier!r} (expected one of {sorted(_KNOWN_TIERS)})",
+            status_code=None,
+            payload=body if isinstance(body, Mapping) else None,
+        )
+    return tier
+
+
 class _BaseClient:
     """Shared configuration and tier-gating state for the sync and async clients."""
 
@@ -381,6 +435,7 @@ class XbergClient(_BaseClient):
             retry_backoff=retry_backoff,
         )
         self._http = httpx.Client(base_url=self._base_url, timeout=self._timeout, headers=self._headers)
+        self._tier_lock = threading.Lock()
 
     def __enter__(self) -> Self:
         """Enter the context manager."""
@@ -412,6 +467,8 @@ class XbergClient(_BaseClient):
         """Issue one HTTP request with the configured retry engine, returning the raw response."""
         attempt = 0
         interval = _RETRY_BACKOFF_BASE
+        if files and self._retries > 0:
+            _reject_unretryable_files(files)
         while True:
             try:
                 response = self._http.request(method, path, files=files, data=data, json=json_body, params=params)
@@ -456,13 +513,21 @@ class XbergClient(_BaseClient):
         return response.content
 
     def _resolve_tier(self) -> str:
-        """Return the effective tier — an explicit ``target`` if set, else probed from ``/healthz``."""
+        """Return the effective tier — an explicit ``target`` if set, else probed from ``/healthz``.
+
+        ``_tier_lock`` makes the probe single-flight: concurrent callers share
+        one in-flight ``GET /healthz`` instead of each issuing their own. The
+        lock is dedicated to tier resolution, so it never serializes unrelated
+        requests. A failed probe (see :func:`_parse_probed_tier`) is never
+        cached, so a later call can retry instead of being stuck with a bad
+        result for the client's lifetime.
+        """
         if self._target is not None:
             return self._target
-        if self._probed_tier is None:
-            body = self._request_json("GET", "/healthz")
-            self._probed_tier = str(body.get("tier", "")) if isinstance(body, dict) else ""
-        return self._probed_tier
+        with self._tier_lock:
+            if self._probed_tier is None:
+                self._probed_tier = _parse_probed_tier(self._request_json("GET", "/healthz"))
+            return self._probed_tier
 
     def _require_tier(self, required: Target, method_name: str) -> None:
         self._require_tier_or_raise(self._resolve_tier(), required, method_name)
@@ -515,6 +580,10 @@ class XbergClient(_BaseClient):
         """List jobs via ``GET /v1/jobs`` (paginated). Returns the decoded response body."""
         params = {k: v for k, v in (("limit", limit), ("offset", offset)) if v is not None}
         return self._request_json("GET", "/v1/jobs", params=params or None)
+
+    def cancel_job(self, job_id: str) -> None:
+        """Cancel an extraction job (``DELETE /v1/jobs/{id}``, 204 whether pending or already terminal)."""
+        self._request_json("DELETE", f"/v1/jobs/{_q(job_id)}")
 
     def wait_for_job(
         self,
@@ -590,13 +659,20 @@ class XbergClient(_BaseClient):
         """Fetch a RAG collection (``GET /v1/rag/collections/{name}``)."""
         return self._request_json("GET", f"/v1/rag/collections/{_q(name)}")
 
-    def delete_rag_collection(self, name: str) -> Any:
-        """Delete a RAG collection (``DELETE /v1/rag/collections/{name}``)."""
-        return self._request_json("DELETE", f"/v1/rag/collections/{_q(name)}")
+    def delete_rag_collection(self, name: str) -> None:
+        """Delete a RAG collection (``DELETE /v1/rag/collections/{name}``, 204)."""
+        self._request_json("DELETE", f"/v1/rag/collections/{_q(name)}")
 
     def add_rag_documents(self, name: str, body: Mapping[str, Any]) -> Any:
         """Add documents to a RAG collection (``POST /v1/rag/collections/{name}/documents``)."""
         return self._request_json("POST", f"/v1/rag/collections/{_q(name)}/documents", json_body=body)
+
+    def delete_rag_documents(self, name: str, body: Mapping[str, Any]) -> Any:
+        """Delete documents from a RAG collection by ID or filter (``DELETE .../documents``).
+
+        Returns the decoded ``{"deleted_count": ...}`` response body.
+        """
+        return self._request_json("DELETE", f"/v1/rag/collections/{_q(name)}/documents", json_body=body)
 
     def reindex_rag_document(self, name: str, document_id: str, body: Mapping[str, Any] | None = None) -> Any:
         """Reindex a RAG document (``POST /v1/rag/collections/{name}/documents/{id}/reindex``)."""
@@ -983,6 +1059,7 @@ class AsyncXbergClient(_BaseClient):
             retry_backoff=retry_backoff,
         )
         self._http = httpx.AsyncClient(base_url=self._base_url, timeout=self._timeout, headers=self._headers)
+        self._tier_lock = asyncio.Lock()
 
     async def __aenter__(self) -> Self:
         """Enter the async context manager."""
@@ -1014,6 +1091,8 @@ class AsyncXbergClient(_BaseClient):
         """Issue one HTTP request with the configured retry engine, returning the raw response."""
         attempt = 0
         interval = _RETRY_BACKOFF_BASE
+        if files and self._retries > 0:
+            _reject_unretryable_files(files)
         while True:
             try:
                 response = await self._http.request(method, path, files=files, data=data, json=json_body, params=params)
@@ -1058,13 +1137,21 @@ class AsyncXbergClient(_BaseClient):
         return response.content
 
     async def _resolve_tier(self) -> str:
-        """Return the effective tier — an explicit ``target`` if set, else probed from ``/healthz``."""
+        """Return the effective tier — an explicit ``target`` if set, else probed from ``/healthz``.
+
+        ``_tier_lock`` makes the probe single-flight: concurrent callers share
+        one in-flight ``GET /healthz`` instead of each issuing their own. The
+        lock is dedicated to tier resolution, so it never serializes unrelated
+        requests. A failed probe (see :func:`_parse_probed_tier`) is never
+        cached, so a later call can retry instead of being stuck with a bad
+        result for the client's lifetime.
+        """
         if self._target is not None:
             return self._target
-        if self._probed_tier is None:
-            body = await self._request_json("GET", "/healthz")
-            self._probed_tier = str(body.get("tier", "")) if isinstance(body, dict) else ""
-        return self._probed_tier
+        async with self._tier_lock:
+            if self._probed_tier is None:
+                self._probed_tier = _parse_probed_tier(await self._request_json("GET", "/healthz"))
+            return self._probed_tier
 
     async def _require_tier(self, required: Target, method_name: str) -> None:
         self._require_tier_or_raise(await self._resolve_tier(), required, method_name)
@@ -1113,6 +1200,10 @@ class AsyncXbergClient(_BaseClient):
         """Async equivalent of :meth:`XbergClient.list_jobs`."""
         params = {k: v for k, v in (("limit", limit), ("offset", offset)) if v is not None}
         return await self._request_json("GET", "/v1/jobs", params=params or None)
+
+    async def cancel_job(self, job_id: str) -> None:
+        """Async equivalent of :meth:`XbergClient.cancel_job`."""
+        await self._request_json("DELETE", f"/v1/jobs/{_q(job_id)}")
 
     async def wait_for_job(
         self,
@@ -1185,13 +1276,17 @@ class AsyncXbergClient(_BaseClient):
         """Async equivalent of :meth:`XbergClient.get_rag_collection`."""
         return await self._request_json("GET", f"/v1/rag/collections/{_q(name)}")
 
-    async def delete_rag_collection(self, name: str) -> Any:
+    async def delete_rag_collection(self, name: str) -> None:
         """Async equivalent of :meth:`XbergClient.delete_rag_collection`."""
-        return await self._request_json("DELETE", f"/v1/rag/collections/{_q(name)}")
+        await self._request_json("DELETE", f"/v1/rag/collections/{_q(name)}")
 
     async def add_rag_documents(self, name: str, body: Mapping[str, Any]) -> Any:
         """Async equivalent of :meth:`XbergClient.add_rag_documents`."""
         return await self._request_json("POST", f"/v1/rag/collections/{_q(name)}/documents", json_body=body)
+
+    async def delete_rag_documents(self, name: str, body: Mapping[str, Any]) -> Any:
+        """Async equivalent of :meth:`XbergClient.delete_rag_documents`."""
+        return await self._request_json("DELETE", f"/v1/rag/collections/{_q(name)}/documents", json_body=body)
 
     async def reindex_rag_document(self, name: str, document_id: str, body: Mapping[str, Any] | None = None) -> Any:
         """Async equivalent of :meth:`XbergClient.reindex_rag_document`."""

@@ -1,4 +1,4 @@
-"""Tests for ``get_job`` / ``wait_for_job`` / ``wait_for_jobs`` covering polling and timeouts."""
+"""Tests for ``get_job`` / ``wait_for_job`` / ``wait_for_jobs`` / ``cancel_job`` (polling, timeouts, cancel)."""
 
 from __future__ import annotations
 
@@ -233,3 +233,44 @@ def test_extract_and_wait_sync_returns_completed_job(base_url: str, api_key: str
     assert job.status == "completed"
     assert job.result is not None
     assert job.result.content == "hi"  # type: ignore[union-attr]
+
+
+# -- cancel_job ------------------------------------------------------------------
+
+
+@respx.mock
+def test_cancel_job_sync_hits_delete_and_returns_none(base_url: str, api_key: str) -> None:
+    job_id = "dddddddd-4444-4444-4444-dddddddddddd"
+    route = respx.delete(f"{base_url}/v1/jobs/{job_id}").mock(return_value=httpx.Response(204))
+
+    with XbergClient(api_key=api_key, base_url=base_url) as client:
+        assert client.cancel_job(job_id) is None
+
+    assert route.calls.last.request.method == "DELETE"
+    assert route.calls.last.request.url.path == f"/v1/jobs/{job_id}"
+
+
+@respx.mock
+def test_cancel_job_sync_raises_not_found_for_unknown_job(base_url: str, api_key: str) -> None:
+    from xberg_io_sdk import NotFoundError
+
+    job_id = "eeeeeeee-5555-5555-5555-eeeeeeeeeeee"
+    respx.delete(f"{base_url}/v1/jobs/{job_id}").mock(
+        return_value=httpx.Response(404, json={"error": {"code": "job_not_found", "message": "Job not found"}}),
+    )
+
+    with XbergClient(api_key=api_key, base_url=base_url) as client, pytest.raises(NotFoundError):
+        client.cancel_job(job_id)
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_cancel_job_async_hits_delete_and_returns_none(base_url: str, api_key: str) -> None:
+    job_id = "ffffffff-6666-6666-6666-ffffffffffff"
+    route = respx.delete(f"{base_url}/v1/jobs/{job_id}").mock(return_value=httpx.Response(204))
+
+    async with AsyncXbergClient(api_key=api_key, base_url=base_url) as client:
+        assert await client.cancel_job(job_id) is None
+
+    assert route.calls.last.request.method == "DELETE"
+    assert route.calls.last.request.url.path == f"/v1/jobs/{job_id}"

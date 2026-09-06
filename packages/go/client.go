@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"sync"
 	"time"
+
+	"golang.org/x/sync/singleflight"
 )
 
 // DefaultEnterpriseBaseURL is the production endpoint of the Xberg Enterprise
@@ -99,6 +101,7 @@ type Client struct {
 	tierMu     sync.Mutex
 	tierProbed bool
 	probedTier string
+	tierGroup  singleflight.Group
 }
 
 // New constructs a Client. With no options it targets the Enterprise production
@@ -167,25 +170,77 @@ func (c *Client) authorize(_ context.Context, req *http.Request) error {
 
 // resolveTier returns the effective tier: an explicit [WithTarget] if set,
 // otherwise the value probed once from GET /healthz and cached thereafter.
+//
+// Concurrent callers racing an unset [WithTarget] share a single in-flight
+// probe via singleflight rather than serializing behind a mutex held across
+// the HTTP round trip. A probe is cached only once it observes a recognized
+// tier: a failed request, or a /healthz response with a missing or
+// unrecognized tier, returns an error and leaves the client retryable instead
+// of caching an unusable result for its lifetime.
 func (c *Client) resolveTier(ctx context.Context) (string, error) {
 	if c.cfg.target != "" {
 		return string(c.cfg.target), nil
 	}
+	if tier, ok := c.cachedTier(); ok {
+		return tier, nil
+	}
+	result, err, _ := c.tierGroup.Do("tier", func() (any, error) {
+		// Re-check: another goroutine may have completed a probe between our
+		// cachedTier miss above and acquiring the singleflight slot.
+		if tier, ok := c.cachedTier(); ok {
+			return tier, nil
+		}
+		return c.probeTier(ctx)
+	})
+	if err != nil {
+		return "", err
+	}
+	tier, ok := result.(string)
+	if !ok {
+		return "", fmt.Errorf("xberg: tier probe returned unexpected type %T", result)
+	}
+	return tier, nil
+}
+
+// cachedTier returns the previously probed tier, if any.
+func (c *Client) cachedTier() (string, bool) {
 	c.tierMu.Lock()
 	defer c.tierMu.Unlock()
-	if c.tierProbed {
-		return c.probedTier, nil
-	}
+	return c.probedTier, c.tierProbed
+}
+
+// probeTier issues GET /healthz and validates the reported tier. tierMu is
+// only held to read or write the cached fields, never across the request.
+func (c *Client) probeTier(ctx context.Context) (string, error) {
 	var health struct {
 		Tier string `json:"tier"`
 	}
 	spec := requestSpec{method: methodGet, path: "/healthz"}
 	if err := c.doJSON(ctx, spec, &health); err != nil {
-		return "", err
+		return "", fmt.Errorf("xberg: probing tier: %w", err)
 	}
+	if !isRecognisedTier(health.Tier) {
+		if health.Tier == "" {
+			return "", fmt.Errorf("xberg: healthz response did not report a tier")
+		}
+		return "", fmt.Errorf("xberg: healthz reported unrecognized tier %q", health.Tier)
+	}
+	c.tierMu.Lock()
 	c.tierProbed = true
 	c.probedTier = health.Tier
-	return c.probedTier, nil
+	c.tierMu.Unlock()
+	return health.Tier, nil
+}
+
+// isRecognisedTier reports whether tier is one of the values the Enterprise
+// and Pro healthz responses actually use.
+func isRecognisedTier(tier string) bool {
+	switch Target(tier) {
+	case TargetEnterprise, TargetPro:
+		return true
+	default:
+		return false
+	}
 }
 
 // requireTier returns a [TierError] when the connected tier does not match the

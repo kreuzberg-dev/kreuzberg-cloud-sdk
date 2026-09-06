@@ -80,6 +80,50 @@ func TestGetJob_NotFound(t *testing.T) {
 	}
 }
 
+func TestCancelJob_IssuesDeleteToJobPath(t *testing.T) {
+	t.Parallel()
+	var gotMethod, gotPath string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotMethod = r.Method
+		gotPath = r.URL.Path
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer server.Close()
+	client := mustClient(t, xberg.WithBaseURL(server.URL))
+	if err := client.CancelJob(context.Background(), jobUUID); err != nil {
+		t.Fatalf("CancelJob: %v", err)
+	}
+	if gotMethod != http.MethodDelete {
+		t.Errorf("method = %q, want DELETE", gotMethod)
+	}
+	if gotPath != "/v1/jobs/"+jobUUID {
+		t.Errorf("path = %q, want /v1/jobs/%s", gotPath, jobUUID)
+	}
+}
+
+func TestCancelJob_RejectsEmptyID(t *testing.T) {
+	t.Parallel()
+	client := mustClient(t, xberg.WithBaseURL("https://example.test"))
+	if err := client.CancelJob(context.Background(), ""); err == nil {
+		t.Errorf("CancelJob(\"\") returned nil error")
+	}
+}
+
+func TestCancelJob_NotFound(t *testing.T) {
+	t.Parallel()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		_, _ = w.Write([]byte(`{"error":"Job not found"}`))
+	}))
+	defer server.Close()
+	client := mustClient(t, xberg.WithBaseURL(server.URL))
+	err := client.CancelJob(context.Background(), "missing")
+	var notFound *xberg.NotFoundError
+	if !asError(err, &notFound) {
+		t.Fatalf("expected NotFoundError, got %T: %v", err, err)
+	}
+}
+
 // jobStatusHandler serves GET /v1/jobs/{id} returning the given status, adding
 // a result body on terminal-success statuses.
 func jobStatusHandler(status string) http.HandlerFunc {
@@ -449,9 +493,9 @@ func TestGetJobResult_SurfacesNotReadyConflict(t *testing.T) {
 	defer server.Close()
 	client := mustClient(t, xberg.WithBaseURL(server.URL), xberg.WithTarget(xberg.TargetPro))
 	_, err := client.GetJobResult(context.Background(), jobUUID)
-	var apiErr *xberg.APIError
+	var apiErr *xberg.XbergError
 	if !asError(err, &apiErr) {
-		t.Fatalf("expected APIError, got %T: %v", err, err)
+		t.Fatalf("expected XbergError, got %T: %v", err, err)
 	}
 	if apiErr.Status != http.StatusConflict {
 		t.Errorf("Status = %d, want 409", apiErr.Status)

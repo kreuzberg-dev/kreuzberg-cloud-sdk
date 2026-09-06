@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import asyncio
+import threading
+
 import httpx
 import pytest
 import respx
@@ -205,3 +208,104 @@ def test_capability_probe_gates_wrong_tier(base_url: str, api_key: str) -> None:
         pytest.raises(XbergError, match="not available on the 'pro' tier"),
     ):
         client.usage()
+
+
+@respx.mock
+def test_capability_probe_missing_tier_raises_and_does_not_poison_cache(base_url: str, api_key: str) -> None:
+    health = respx.get(f"{base_url}/healthz").mock(
+        side_effect=[
+            httpx.Response(200, json={"status": "ok"}),
+            httpx.Response(200, json={"status": "ok", "tier": "enterprise"}),
+        ],
+    )
+    respx.get(f"{base_url}/v1/usage").mock(return_value=httpx.Response(200, json={"pages": 1}))
+
+    with XbergClient(api_key=api_key, base_url=base_url) as client:
+        with pytest.raises(XbergError, match="unrecognized tier"):
+            client.usage()
+        assert client.usage() == {"pages": 1}
+
+    assert health.call_count == 2
+
+
+@respx.mock
+def test_capability_probe_null_tier_raises_and_does_not_poison_cache(base_url: str, api_key: str) -> None:
+    health = respx.get(f"{base_url}/healthz").mock(
+        side_effect=[
+            httpx.Response(200, json={"status": "ok", "tier": None}),
+            httpx.Response(200, json={"status": "ok", "tier": "pro"}),
+        ],
+    )
+    respx.get(f"{base_url}/v1/usage").mock(return_value=httpx.Response(200, json={"pages": 1}))
+
+    with XbergClient(api_key=api_key, base_url=base_url) as client:
+        with pytest.raises(XbergError, match="unrecognized tier"):
+            client.usage()
+        with pytest.raises(XbergError, match="not available on the 'pro' tier"):
+            client.usage()
+
+    assert health.call_count == 2
+
+
+@respx.mock
+def test_capability_probe_unknown_tier_raises_and_does_not_poison_cache(base_url: str, api_key: str) -> None:
+    health = respx.get(f"{base_url}/healthz").mock(
+        side_effect=[
+            httpx.Response(200, json={"status": "ok", "tier": "starter"}),
+            httpx.Response(200, json={"status": "ok", "tier": "enterprise"}),
+        ],
+    )
+    respx.get(f"{base_url}/v1/usage").mock(return_value=httpx.Response(200, json={"pages": 1}))
+
+    with XbergClient(api_key=api_key, base_url=base_url) as client:
+        with pytest.raises(XbergError, match="unrecognized tier 'starter'"):
+            client.usage()
+        assert client.usage() == {"pages": 1}
+
+    assert health.call_count == 2
+
+
+@respx.mock
+def test_capability_probe_concurrent_callers_share_one_probe_sync(base_url: str, api_key: str) -> None:
+    health = respx.get(f"{base_url}/healthz").mock(
+        return_value=httpx.Response(200, json={"status": "ok", "tier": "enterprise"}),
+    )
+    respx.get(f"{base_url}/v1/usage").mock(return_value=httpx.Response(200, json={"pages": 1}))
+
+    with XbergClient(api_key=api_key, base_url=base_url) as client:
+        thread_count = 8
+        barrier = threading.Barrier(thread_count)
+        results: list[object] = []
+        results_lock = threading.Lock()
+
+        def _call() -> None:
+            barrier.wait()
+            result = client.usage()
+            with results_lock:
+                results.append(result)
+
+        threads = [threading.Thread(target=_call) for _ in range(thread_count)]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+
+    assert health.call_count == 1
+    assert results == [{"pages": 1}] * thread_count
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_capability_probe_concurrent_callers_share_one_probe_async(base_url: str, api_key: str) -> None:
+    health = respx.get(f"{base_url}/healthz").mock(
+        return_value=httpx.Response(200, json={"status": "ok", "tier": "enterprise"}),
+    )
+    respx.get(f"{base_url}/v1/saved_presets").mock(
+        return_value=httpx.Response(200, json={"presets": [], "limit": 20, "page": 0, "total": 0}),
+    )
+
+    async with AsyncXbergClient(api_key=api_key, base_url=base_url) as client:
+        results = await asyncio.gather(*(client.list_saved_presets() for _ in range(8)))
+
+    assert health.call_count == 1
+    assert all(result.presets == [] for result in results)

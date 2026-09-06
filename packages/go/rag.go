@@ -27,14 +27,22 @@ func (c *Client) GetRagCollection(ctx context.Context, name string) (json.RawMes
 }
 
 // DeleteRagCollection deletes a RAG collection (DELETE /v1/rag/collections/{name}).
-func (c *Client) DeleteRagCollection(ctx context.Context, name string) (json.RawMessage, error) {
-	return c.ragSend(ctx, methodDelete, "/v1/rag/collections/"+url.PathEscape(name), nil)
+// The endpoint answers 204 with no body.
+func (c *Client) DeleteRagCollection(ctx context.Context, name string) error {
+	return c.callJSON(ctx, methodDelete, "/v1/rag/collections/"+url.PathEscape(name), nil, nil)
 }
 
 // AddRagDocuments adds documents to a RAG collection
 // (POST /v1/rag/collections/{name}/documents).
 func (c *Client) AddRagDocuments(ctx context.Context, name string, body any) (json.RawMessage, error) {
 	return c.ragSend(ctx, methodPost, "/v1/rag/collections/"+url.PathEscape(name)+"/documents", body)
+}
+
+// DeleteRagDocuments deletes documents from a RAG collection by ID or filter
+// expression (DELETE /v1/rag/collections/{name}/documents). The response
+// carries the deleted count.
+func (c *Client) DeleteRagDocuments(ctx context.Context, name string, body any) (json.RawMessage, error) {
+	return c.ragSend(ctx, methodDelete, "/v1/rag/collections/"+url.PathEscape(name)+"/documents", body)
 }
 
 // ReindexRagDocument reindexes a RAG document

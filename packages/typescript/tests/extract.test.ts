@@ -120,20 +120,19 @@ describe("extract", () => {
     });
   });
 
-  it("sends an empty webhook stub when none is provided", async () => {
-    let webhookField: string | null = null;
+  it("omits the webhook part entirely when none is provided", async () => {
+    let hasWebhookField = true;
     server.use(
       http.post(url("/v1/extract"), async ({ request }) => {
         const form = await request.formData();
-        const value = form.get("webhook");
-        webhookField = typeof value === "string" ? value : null;
+        hasWebhookField = form.has("webhook");
         return HttpResponse.json({ job_ids: ["job-w"], status: "pending" }, { status: 202 });
       }),
     );
 
     const client = makeClient();
     await client.extract({ file: new Blob(["hi"]) });
-    expect(webhookField).toBe(JSON.stringify({ url: "" }));
+    expect(hasWebhookField).toBe(false);
   });
 
   it("forwards an explicit webhook config in the multipart body", async () => {

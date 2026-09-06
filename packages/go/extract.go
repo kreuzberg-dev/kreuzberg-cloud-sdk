@@ -13,13 +13,15 @@ import (
 
 // Extract submits a single document for asynchronous extraction and returns the
 // queued [JobResponse]. Use [Client.WaitForJob] (or [Client.ExtractAndWait] for
-// a one-shot helper) to obtain the extraction result.
+// a one-shot helper) to obtain the extraction result. opts.Webhook, when set,
+// asks the server to deliver job-completion events to that URL instead of (or
+// in addition to) polling.
 //
 // Part of the shared surface (Enterprise + Pro).
 func (c *Client) Extract(
 	ctx context.Context,
 	file FileSource,
-	opts *ExtractionOptions,
+	opts *ExtractOptions,
 ) (*JobResponse, error) {
 	jobs, err := c.ExtractBatch(ctx, []FileSource{file}, opts)
 	if err != nil {
@@ -40,7 +42,7 @@ func (c *Client) Extract(
 func (c *Client) ExtractBatch(
 	ctx context.Context,
 	files []FileSource,
-	opts *ExtractionOptions,
+	opts *ExtractOptions,
 ) ([]*JobResponse, error) {
 	if len(files) == 0 {
 		return nil, fmt.Errorf("xberg: ExtractBatch requires at least one file")
@@ -86,21 +88,24 @@ func (c *Client) ExtractBatch(
 	return jobs, nil
 }
 
-// buildMultipartBody serializes files and optional ExtractionOptions into a
+// buildMultipartBody serializes files and an optional [ExtractOptions] into a
 // multipart/form-data body matching the API's documented wire format:
 //
-//	parts: file (one per document) + optional "options" (JSON string) + "webhook" (JSON string)
+//	parts: file (one per document) + optional "options" (JSON string) + optional "webhook" (JSON string)
+//
+// Both the "options" and "webhook" parts are omitted entirely when the
+// corresponding field is nil, rather than sending an empty placeholder.
 func buildMultipartBody(
 	files []FileSource,
-	opts *ExtractionOptions,
+	opts *ExtractOptions,
 ) ([]byte, string, error) {
 	var buf bytes.Buffer
 	writer := multipart.NewWriter(&buf)
 	if err := writeFileParts(writer, files); err != nil {
 		return nil, "", err
 	}
-	if opts != nil {
-		encoded, err := json.Marshal(opts)
+	if opts != nil && opts.Extraction != nil {
+		encoded, err := json.Marshal(opts.Extraction)
 		if err != nil {
 			return nil, "", fmt.Errorf("xberg: encoding options: %w", err)
 		}
@@ -108,8 +113,17 @@ func buildMultipartBody(
 			return nil, "", fmt.Errorf("xberg: writing options field: %w", err)
 		}
 	}
-	if err := writer.WriteField("webhook", `{"url":""}`); err != nil {
-		return nil, "", fmt.Errorf("xberg: writing webhook field: %w", err)
+	if opts != nil && opts.Webhook != nil {
+		// gosec flags WebhookConfig.Secret as a hardcoded-secret pattern match;
+		// it is a caller-supplied HMAC secret that belongs in the request body,
+		// not a leaked credential.
+		encoded, err := json.Marshal(opts.Webhook) //nolint:gosec
+		if err != nil {
+			return nil, "", fmt.Errorf("xberg: encoding webhook: %w", err)
+		}
+		if err := writer.WriteField("webhook", string(encoded)); err != nil {
+			return nil, "", fmt.Errorf("xberg: writing webhook field: %w", err)
+		}
 	}
 	if err := writer.Close(); err != nil {
 		return nil, "", fmt.Errorf("xberg: closing multipart writer: %w", err)

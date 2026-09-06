@@ -43,6 +43,35 @@ describe("shared RAG surface", () => {
     expect(result).toBeUndefined();
   });
 
+  it("deleteRagDocuments deletes documents by ID list and returns the deleted count", async () => {
+    let receivedMethod = "";
+    let receivedBody: unknown;
+    server.use(
+      http.delete(url("/v1/rag/collections/docs/documents"), async ({ request }) => {
+        receivedMethod = request.method;
+        receivedBody = await request.json();
+        return HttpResponse.json({ deleted_count: 2 }, { status: 200 });
+      }),
+    );
+    const result = await makeClient().deleteRagDocuments("docs", { ids: ["d1", "d2"] });
+    expect(result).toEqual({ deleted_count: 2 });
+    expect(receivedMethod).toBe("DELETE");
+    expect(receivedBody).toEqual({ ids: ["d1", "d2"] });
+  });
+
+  it("deleteRagDocuments deletes documents by metadata filter", async () => {
+    let receivedBody: unknown;
+    server.use(
+      http.delete(url("/v1/rag/collections/docs/documents"), async ({ request }) => {
+        receivedBody = await request.json();
+        return HttpResponse.json({ deleted_count: 5 }, { status: 200 });
+      }),
+    );
+    const result = await makeClient().deleteRagDocuments("docs", { filter: { source: "stale" } });
+    expect(result).toEqual({ deleted_count: 5 });
+    expect(receivedBody).toEqual({ filter: { source: "stale" } });
+  });
+
   it("exposes no listRagDocuments method because no spec declares GET on that path", () => {
     const client = makeClient() as unknown as Record<string, unknown>;
     expect(client["listRagDocuments"]).toBeUndefined();

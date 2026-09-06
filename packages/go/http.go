@@ -59,6 +59,13 @@ func (c *Client) doJSON(ctx context.Context, spec requestSpec, out any) error {
 		return nil
 	}
 	if err := json.NewDecoder(body).Decode(out); err != nil {
+		if errors.Is(err, io.EOF) {
+			// A 2xx response with an empty body (204 No Content, or a 200 that
+			// simply carries nothing) has nothing to decode into out. Leave out
+			// at its zero value rather than surfacing io.EOF as a decode error —
+			// any future no-content operation hits this same path.
+			return nil
+		}
 		return fmt.Errorf("xberg: decoding response: %w", err)
 	}
 	return nil

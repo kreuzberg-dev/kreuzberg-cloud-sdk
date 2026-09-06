@@ -2,11 +2,14 @@ package xberg_test
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	xberg "github.com/xberg-io/sdks/packages/go"
 )
@@ -188,5 +191,116 @@ func TestTierProbe_GatesWhenProbedTierMismatches(t *testing.T) {
 	}
 	if tierErr.Actual != "pro" {
 		t.Errorf("TierError.Actual = %q, want pro", tierErr.Actual)
+	}
+}
+
+// TestTierProbe_MissingTierIsRetryable proves a /healthz response that omits
+// (or empties) the tier field is treated as a failed probe rather than being
+// cached as an unusable "" tier: the first call errors, and the probe is
+// retried (and succeeds) once /healthz starts reporting a real tier.
+func TestTierProbe_MissingTierIsRetryable(t *testing.T) {
+	t.Parallel()
+	var reportedTier atomic.Value
+	reportedTier.Store("")
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/healthz":
+			fmt.Fprintf(w, `{"status":"ok","tier":%q}`, reportedTier.Load().(string))
+		case "/v1/usage":
+			_, _ = w.Write([]byte(`{"pages":1}`))
+		default:
+			t.Errorf("unexpected request %s", r.URL.Path)
+		}
+	}))
+	defer server.Close()
+	client := mustClient(t, xberg.WithBaseURL(server.URL))
+
+	if _, err := client.Usage(context.Background(), nil); err == nil {
+		t.Fatalf("Usage() with no tier in /healthz returned nil error, want an error")
+	}
+	reportedTier.Store("enterprise")
+	if _, err := client.Usage(context.Background(), nil); err != nil {
+		t.Fatalf("Usage() after /healthz reports a tier: %v, want the probe to retry and succeed", err)
+	}
+}
+
+// TestTierProbe_UnknownTierIsRetryable is the same shape as
+// TestTierProbe_MissingTierIsRetryable but for a /healthz response reporting a
+// tier value the specs do not define.
+func TestTierProbe_UnknownTierIsRetryable(t *testing.T) {
+	t.Parallel()
+	var reportedTier atomic.Value
+	reportedTier.Store("quantum")
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/healthz":
+			fmt.Fprintf(w, `{"status":"ok","tier":%q}`, reportedTier.Load().(string))
+		case "/v1/usage":
+			_, _ = w.Write([]byte(`{"pages":1}`))
+		default:
+			t.Errorf("unexpected request %s", r.URL.Path)
+		}
+	}))
+	defer server.Close()
+	client := mustClient(t, xberg.WithBaseURL(server.URL))
+
+	if _, err := client.Usage(context.Background(), nil); err == nil {
+		t.Fatalf("Usage() with an unrecognized tier returned nil error, want an error")
+	}
+	reportedTier.Store("enterprise")
+	if _, err := client.Usage(context.Background(), nil); err != nil {
+		t.Fatalf("Usage() after /healthz reports a recognized tier: %v, want the probe to retry and succeed", err)
+	}
+}
+
+// TestTierProbe_ConcurrentCallersIssueOneRequest proves concurrent resolveTier
+// callers racing an unset target share one in-flight /healthz probe instead of
+// each issuing their own request.
+func TestTierProbe_ConcurrentCallersIssueOneRequest(t *testing.T) {
+	t.Parallel()
+	var healthzCalls atomic.Int32
+	release := make(chan struct{})
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/healthz":
+			healthzCalls.Add(1)
+			<-release // hold the single request open so racing callers pile up
+			_, _ = w.Write([]byte(`{"status":"ok","tier":"enterprise"}`))
+		case "/v1/usage":
+			_, _ = w.Write([]byte(`{"pages":1}`))
+		default:
+			t.Errorf("unexpected request %s", r.URL.Path)
+		}
+	}))
+	defer server.Close()
+	client := mustClient(t, xberg.WithBaseURL(server.URL))
+
+	const goroutines = 20
+	start := make(chan struct{})
+	var waitGroup sync.WaitGroup
+	errs := make([]error, goroutines)
+	for i := 0; i < goroutines; i++ {
+		waitGroup.Add(1)
+		go func(idx int) {
+			defer waitGroup.Done()
+			<-start
+			_, err := client.Usage(context.Background(), nil)
+			errs[idx] = err
+		}(i)
+	}
+	close(start)
+	// Give every goroutine a chance to reach resolveTier before the single
+	// in-flight /healthz request is released, so the race window is real.
+	time.Sleep(50 * time.Millisecond)
+	close(release)
+	waitGroup.Wait()
+
+	for i, err := range errs {
+		if err != nil {
+			t.Errorf("goroutine %d: Usage() returned error: %v", i, err)
+		}
+	}
+	if got := healthzCalls.Load(); got != 1 {
+		t.Errorf("/healthz called %d times under concurrent callers, want exactly 1", got)
 	}
 }

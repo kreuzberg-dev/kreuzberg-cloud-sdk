@@ -51,7 +51,7 @@ describe("enterprise-only surface", () => {
     expect(result).toEqual([{ version_id: "v1" }]);
   });
 
-  it("diff fetches a diff without query params", async () => {
+  it("diff fetches a diff without query params, narrowed to the 200 arm", async () => {
     let receivedSearch = "";
     server.use(
       http.get(url("/v1/documents/doc-1/diff"), ({ request }) => {
@@ -60,7 +60,11 @@ describe("enterprise-only surface", () => {
       }),
     );
     const result = await makeClient().diff("doc-1");
-    expect(result).toEqual({ diff: "none" });
+    expect(result.status).toBe(200);
+    if (result.status !== 200) {
+      throw new Error("expected the 200 arm");
+    }
+    expect(result.body).toEqual({ diff: "none" });
     expect(receivedSearch).toBe("");
   });
 
@@ -73,16 +77,40 @@ describe("enterprise-only surface", () => {
       }),
     );
     const result = await makeClient().diff("doc-1", { from: "a", to: "b" });
-    expect(result).toEqual({ diff: "some" });
+    expect(result).toEqual({ status: 200, body: { diff: "some" } });
     expect(receivedSearch).toBe("?from=a&to=b");
   });
 
-  it("getDiffJob polls a diff job", async () => {
+  it("diff narrows to the 202 arm when the server queues the diff for async computation", async () => {
+    server.use(
+      http.get(url("/v1/documents/doc-1/diff"), () =>
+        HttpResponse.json({ diff_job_id: "job-1", status: "pending" }, { status: 202 }),
+      ),
+    );
+    const result = await makeClient().diff("doc-1");
+    expect(result.status).toBe(202);
+    if (result.status !== 202) {
+      throw new Error("expected the 202 arm");
+    }
+    expect(result.body).toEqual({ diff_job_id: "job-1", status: "pending" });
+  });
+
+  it("getDiffJob polls a diff job, narrowed to the 200 arm once it has finished", async () => {
     server.use(
       http.get(url("/v1/documents/doc-1/diff/job-1"), () => HttpResponse.json({ diff: "done" }, { status: 200 })),
     );
     const result = await makeClient().getDiffJob("doc-1", "job-1");
-    expect(result).toEqual({ diff: "done" });
+    expect(result).toEqual({ status: 200, body: { diff: "done" } });
+  });
+
+  it("getDiffJob narrows to the 202 arm while the job is still pending", async () => {
+    server.use(
+      http.get(url("/v1/documents/doc-1/diff/job-1"), () =>
+        HttpResponse.json({ diff_job_id: "job-1", status: "pending" }, { status: 202 }),
+      ),
+    );
+    const result = await makeClient().getDiffJob("doc-1", "job-1");
+    expect(result).toEqual({ status: 202, body: { diff_job_id: "job-1", status: "pending" } });
   });
 
   it("presignUpload requests a presigned upload URL", async () => {

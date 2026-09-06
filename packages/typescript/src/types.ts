@@ -61,6 +61,23 @@ export type TuningProfileDetail = components["schemas"]["TuningProfileDetail"];
 // -- Enterprise-only surface (api schema) --
 export type UsageResponse = components["schemas"]["UsageResponse"];
 export type DiffResponse = components["schemas"]["DiffResponse"];
+/** The async-pending envelope `diff`/`getDiffJob` return in place of {@link DiffResponse} while a diff is still computing. */
+export type DiffAsyncAccepted = components["schemas"]["DiffAsyncAccepted"];
+
+/**
+ * Result of {@link XbergClient.diff} and {@link XbergClient.getDiffJob}.
+ *
+ * Both operations answer `200` with the computed {@link DiffResponse} or
+ * `202` with the {@link DiffAsyncAccepted} polling envelope when the server
+ * falls back to async computation — the same fallback `getDiffJob` exists to
+ * poll. The two schemas share no field to discriminate on, so `status` here
+ * is not part of either wire schema: it is the HTTP status code the response
+ * actually carried, reattached so callers can narrow with a plain
+ * `if (result.status === 200)` / `else` instead of a type assertion.
+ */
+export type DiffResult =
+  | { readonly status: 200; readonly body: DiffResponse }
+  | { readonly status: 202; readonly body: DiffAsyncAccepted };
 export type DocumentVersionEntry = components["schemas"]["DocumentVersionEntry"];
 export type PresignUploadRequest = components["schemas"]["PresignUploadRequest"];
 export type PresignUploadResponse = components["schemas"]["PresignUploadResponse"];

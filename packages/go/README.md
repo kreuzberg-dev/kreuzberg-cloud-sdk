@@ -53,15 +53,16 @@ pro, _ := xberg.New(
 )
 ```
 
-Shared methods: `Extract`, `ExtractBatch`, `GetJob`, `GetJobResult`, `ListJobs`,
-`WaitForJob`, `WaitForJobs`, `ExtractAndWait`, `Audit`, the curated preset registry
-(`Presets`, `GetPreset`, `GetPresetSample`), saved presets (`ListSavedPresets`,
-`CreateSavedPreset`, `GetSavedPreset`, `UpdateSavedPreset`, `DeleteSavedPreset`),
-auto-tune (`ListAutoTuneJobs`, `SubmitAutoTune`, `GetAutoTuneCapabilities`,
-`GetAutoTuneStatus`, `DeleteAutoTuneJob`, `PromoteAutoTuneProfile`,
-`GetAutoTuneResult`) and its tuning-profile registry (`ListTuningProfiles`,
-`GetTuningProfile`, `DeleteTuningProfile`), and the RAG surface
-(`ListRagCollections`, `RagRetrieve`, …). Pro-only: `AuthConfig`, `Login`,
+Shared methods: `Extract`, `ExtractBatch`, `GetJob`, `GetJobResult`, `CancelJob`,
+`ListJobs`, `WaitForJob`, `WaitForJobs`, `ExtractAndWait`, `Audit`, the curated
+preset registry (`Presets`, `GetPreset`, `GetPresetSample`), saved presets
+(`ListSavedPresets`, `CreateSavedPreset`, `GetSavedPreset`, `UpdateSavedPreset`,
+`DeleteSavedPreset`), auto-tune (`ListAutoTuneJobs`, `SubmitAutoTune`,
+`GetAutoTuneCapabilities`, `GetAutoTuneStatus`, `DeleteAutoTuneJob`,
+`PromoteAutoTuneProfile`, `GetAutoTuneResult`) and its tuning-profile registry
+(`ListTuningProfiles`, `GetTuningProfile`, `DeleteTuningProfile`), and the RAG
+surface (`ListRagCollections`, `RagRetrieve`, `DeleteRagCollection`,
+`DeleteRagDocuments`, …). Pro-only: `AuthConfig`, `Login`,
 `GetRagConfig`/`SetRagConfig`, and the control plane — projects
 (`ListProjects`, `CreateProject`), API keys (`ListAPIKeys`, `CreateAPIKey`,
 `RevokeAPIKey`) and integrations (`ListIntegrations`, `CreateIntegration`,
@@ -201,10 +202,13 @@ if errors.As(err, &rateLimited) {
 }
 ```
 
-The full hierarchy is `APIError` (base) plus `AuthError`, `ValidationError`,
+The full hierarchy is `XbergError` (base) plus `AuthError`, `ValidationError`,
 `NotFoundError`, `RateLimitError`, `ServerError`, `TimeoutError` (for
 `WaitForJob` deadline expiry, distinct from context cancellation), and
 `TierError` (a tier-specific method called against the wrong product tier).
+Every subtype — including `TimeoutError` and `TierError`, which do not
+originate from an HTTP response — embeds `XbergError`, so a single
+`errors.As(err, &xberg.XbergError{})` catches any error this package raises.
 
 ## Documentation
 

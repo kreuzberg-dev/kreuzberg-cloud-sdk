@@ -39,10 +39,20 @@ type WaitOptions struct {
 	Backoff      BackoffKind
 }
 
+// ExtractOptions configures a single call to [Client.Extract] or
+// [Client.ExtractBatch]: the extraction pipeline configuration and an
+// optional webhook for async delivery of job-completion events. Either field
+// may be nil; a nil Webhook omits the multipart "webhook" part entirely,
+// rather than sending an empty one.
+type ExtractOptions struct {
+	Extraction *ExtractionOptions
+	Webhook    *WebhookConfig
+}
+
 // ExtractAndWaitOptions configures [Client.ExtractAndWait].
 type ExtractAndWaitOptions struct {
-	Extraction *ExtractionOptions
-	Wait       *WaitOptions
+	Extract *ExtractOptions
+	Wait    *WaitOptions
 }
 
 // FileSource describes a file to upload as a multipart part. Reader is read

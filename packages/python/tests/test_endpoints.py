@@ -42,13 +42,22 @@ def test_get_rag_collection_sync(base_url: str, api_key: str) -> None:
 
 
 @respx.mock
-def test_delete_rag_collection_sync(base_url: str, api_key: str) -> None:
-    route = respx.delete(f"{base_url}/v1/rag/collections/docs").mock(
-        return_value=httpx.Response(200, json={"deleted": True}),
+def test_delete_rag_collection_sync_returns_none_on_204(base_url: str, api_key: str) -> None:
+    route = respx.delete(f"{base_url}/v1/rag/collections/docs").mock(return_value=httpx.Response(204))
+    with XbergClient(api_key=api_key, base_url=base_url) as client:
+        assert client.delete_rag_collection("docs") is None
+    assert route.called
+
+
+@respx.mock
+def test_delete_rag_documents_sync_sends_body(base_url: str, api_key: str) -> None:
+    route = respx.delete(f"{base_url}/v1/rag/collections/docs/documents").mock(
+        return_value=httpx.Response(200, json={"deleted_count": 2}),
     )
     with XbergClient(api_key=api_key, base_url=base_url) as client:
-        assert client.delete_rag_collection("docs") == {"deleted": True}
-    assert route.called
+        result = client.delete_rag_documents("docs", {"ids": ["a", "b"]})
+    assert result == {"deleted_count": 2}
+    assert json.loads(route.calls.last.request.content) == {"ids": ["a", "b"]}
 
 
 def test_rag_document_listing_method_does_not_exist() -> None:
@@ -242,12 +251,22 @@ async def test_get_rag_collection_async(base_url: str, api_key: str) -> None:
 
 @pytest.mark.asyncio
 @respx.mock
-async def test_delete_rag_collection_async(base_url: str, api_key: str) -> None:
-    respx.delete(f"{base_url}/v1/rag/collections/docs").mock(
-        return_value=httpx.Response(200, json={"deleted": True}),
+async def test_delete_rag_collection_async_returns_none_on_204(base_url: str, api_key: str) -> None:
+    respx.delete(f"{base_url}/v1/rag/collections/docs").mock(return_value=httpx.Response(204))
+    async with AsyncXbergClient(api_key=api_key, base_url=base_url) as client:
+        assert await client.delete_rag_collection("docs") is None
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_delete_rag_documents_async_sends_body(base_url: str, api_key: str) -> None:
+    route = respx.delete(f"{base_url}/v1/rag/collections/docs/documents").mock(
+        return_value=httpx.Response(200, json={"deleted_count": 1}),
     )
     async with AsyncXbergClient(api_key=api_key, base_url=base_url) as client:
-        assert await client.delete_rag_collection("docs") == {"deleted": True}
+        result = await client.delete_rag_documents("docs", {"filter": {"tag": "stale"}})
+    assert result == {"deleted_count": 1}
+    assert json.loads(route.calls.last.request.content) == {"filter": {"tag": "stale"}}
 
 
 @pytest.mark.asyncio

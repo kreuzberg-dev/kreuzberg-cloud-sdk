@@ -10,7 +10,24 @@ import pytest
 import respx
 
 from tests.conftest import TEST_API_KEY, make_extract_response, make_job_payload
-from xberg_io_sdk import AsyncXbergClient, ExtractionOptions, XbergClient
+from xberg_io_sdk import AsyncXbergClient, ExtractionOptions, XbergClient, XbergError
+
+
+class _NonSeekableStream:
+    """A read-only stream that cannot report or restore its position, unlike ``io.BytesIO``."""
+
+    def __init__(self, data: bytes) -> None:
+        self._data = data
+        self._pos = 0
+
+    def read(self, size: int = -1) -> bytes:
+        end = len(self._data) if size < 0 else self._pos + size
+        chunk = self._data[self._pos : end]
+        self._pos = end
+        return chunk
+
+    def seekable(self) -> bool:
+        return False
 
 
 @respx.mock
@@ -33,7 +50,7 @@ def test_extract_sync_happy_path_with_bytes(base_url: str, api_key: str) -> None
 
 
 @respx.mock
-def test_extract_sync_sends_multipart_with_file_and_webhook_fields(base_url: str, api_key: str) -> None:
+def test_extract_sync_sends_multipart_with_file_and_no_webhook_field(base_url: str, api_key: str) -> None:
     job_id = "22222222-2222-2222-2222-222222222222"
     route = respx.post(f"{base_url}/v1/extract").mock(
         return_value=httpx.Response(202, json=make_extract_response(job_ids=[job_id])),
@@ -51,9 +68,26 @@ def test_extract_sync_sends_multipart_with_file_and_webhook_fields(base_url: str
     assert content_type.startswith("multipart/form-data")
     body = request.content
     assert b'name="file"' in body
-    assert b'name="webhook"' in body
-    assert b'{"url": ""}' in body
+    assert b'name="webhook"' not in body
     assert b"data" in body
+
+
+@respx.mock
+def test_extract_sync_sends_webhook_field_when_provided(base_url: str, api_key: str) -> None:
+    job_id = "23232323-2323-2323-2323-232323232323"
+    route = respx.post(f"{base_url}/v1/extract").mock(
+        return_value=httpx.Response(202, json=make_extract_response(job_ids=[job_id])),
+    )
+    respx.get(f"{base_url}/v1/jobs/{job_id}").mock(
+        return_value=httpx.Response(200, json=make_job_payload(job_id=job_id, status="pending")),
+    )
+
+    with XbergClient(api_key=api_key, base_url=base_url) as client:
+        client.extract(file=b"data", webhook={"url": "https://hooks.example/cb"})
+
+    body = route.calls.last.request.content
+    assert b'name="webhook"' in body
+    assert b"https://hooks.example/cb" in body
 
 
 @respx.mock
@@ -249,3 +283,110 @@ def test_extract_options_dict_round_trip_is_correct_json(base_url: str, api_key:
     end = body.index("\r\n", start)
     parsed = json.loads(body[start:end])
     assert parsed == options
+
+
+# -- retry rewinds a file-handle upload -------------------------------------------
+
+
+@respx.mock
+def test_retrying_a_seekable_upload_resends_the_body_because_httpx_rewinds_it(
+    base_url: str, api_key: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from xberg_io_sdk import client as client_module
+
+    monkeypatch.setattr(client_module.time, "sleep", lambda _seconds: None)
+
+    job_id = "99999999-1111-1111-1111-999999999999"
+    route = respx.post(f"{base_url}/v1/extract").mock(
+        side_effect=[
+            httpx.Response(503, json={"message": "unavailable"}),
+            httpx.Response(202, json=make_extract_response(job_ids=[job_id])),
+        ],
+    )
+    respx.get(f"{base_url}/v1/jobs/{job_id}").mock(
+        return_value=httpx.Response(200, json=make_job_payload(job_id=job_id, status="pending")),
+    )
+
+    payload = b"%PDF-1.4 " + b"x" * 5000
+    stream = io.BytesIO(payload)
+    stream.name = "big.pdf"
+
+    with XbergClient(api_key=api_key, base_url=base_url, retries=1) as client:
+        client.extract(file=stream)
+
+    assert route.call_count == 2
+    first_attempt_body = route.calls[0].request.content
+    second_attempt_body = route.calls[1].request.content
+    # This pins a dependency behaviour rather than our own code: httpx seeks every
+    # seekable file part back to 0 before rendering (`_multipart.py`, render_data),
+    # on every attempt, so the SDK needs no rewind of its own here. If httpx ever
+    # stops doing that, this fails and `_reject_unretryable_files` is no longer a
+    # sufficient guard -- which is the whole reason to keep the assertion.
+    #
+    # httpx mints a fresh random multipart boundary per request, so the raw bytes
+    # differ -- compare on content (present) and size (unchanged) instead.
+    assert payload in first_attempt_body
+    assert payload in second_attempt_body
+    assert len(second_attempt_body) == len(first_attempt_body)
+
+
+@respx.mock
+def test_extract_retry_with_non_seekable_stream_raises_clear_error(
+    base_url: str, api_key: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from xberg_io_sdk import client as client_module
+
+    monkeypatch.setattr(client_module.time, "sleep", lambda _seconds: None)
+    respx.post(f"{base_url}/v1/extract").mock(return_value=httpx.Response(503, json={"message": "unavailable"}))
+
+    with (
+        XbergClient(api_key=api_key, base_url=base_url, retries=1) as client,
+        pytest.raises(XbergError, match="not seekable"),
+    ):
+        client.extract(file=_NonSeekableStream(b"data"))
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_async_retrying_a_seekable_upload_resends_the_body_because_httpx_rewinds_it(
+    base_url: str, api_key: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from xberg_io_sdk import client as client_module
+
+    async def _fake_sleep(_seconds: float) -> None:
+        return None
+
+    monkeypatch.setattr(client_module.asyncio, "sleep", _fake_sleep)
+
+    job_id = "99999999-2222-2222-2222-999999999999"
+    route = respx.post(f"{base_url}/v1/extract").mock(
+        side_effect=[
+            httpx.Response(503, json={"message": "unavailable"}),
+            httpx.Response(202, json=make_extract_response(job_ids=[job_id])),
+        ],
+    )
+    respx.get(f"{base_url}/v1/jobs/{job_id}").mock(
+        return_value=httpx.Response(200, json=make_job_payload(job_id=job_id, status="pending")),
+    )
+
+    payload = b"%PDF-1.4 " + b"y" * 5000
+    stream = io.BytesIO(payload)
+    stream.name = "big.pdf"
+
+    async with AsyncXbergClient(api_key=api_key, base_url=base_url, retries=1) as client:
+        await client.extract(file=stream)
+
+    assert route.call_count == 2
+    first_attempt_body = route.calls[0].request.content
+    second_attempt_body = route.calls[1].request.content
+    # This pins a dependency behaviour rather than our own code: httpx seeks every
+    # seekable file part back to 0 before rendering (`_multipart.py`, render_data),
+    # on every attempt, so the SDK needs no rewind of its own here. If httpx ever
+    # stops doing that, this fails and `_reject_unretryable_files` is no longer a
+    # sufficient guard -- which is the whole reason to keep the assertion.
+    #
+    # httpx mints a fresh random multipart boundary per request, so the raw bytes
+    # differ -- compare on content (present) and size (unchanged) instead.
+    assert payload in first_attempt_body
+    assert payload in second_attempt_body
+    assert len(second_attempt_body) == len(first_attempt_body)

@@ -45,7 +45,9 @@ import type {
   CreateProjectRequest,
   CreateSavedPresetRequest,
   CreateSavedPresetResponse,
+  DiffAsyncAccepted,
   DiffResponse,
+  DiffResult,
   DocumentVersionEntry,
   EnrichJobStatus,
   EnrichJobSubmitted,
@@ -211,7 +213,9 @@ export class XbergClient {
   private readonly retryBackoff: BackoffStrategy;
   private readonly sleep: (ms: number) => Promise<void>;
   private readonly target?: Target;
-  private probedTier: string | undefined;
+  private probedTier: Target | undefined;
+  /** In-flight `/healthz` probe, memoised so concurrent callers share one request (single-flight). */
+  private tierProbe: Promise<Target> | undefined;
   /** Underlying `openapi-fetch` client — exposed for advanced use. */
   public readonly raw: XbergRawClient;
 
@@ -278,8 +282,9 @@ export class XbergClient {
     if (params.options !== undefined) {
       form.append("options", JSON.stringify(params.options));
     }
-    const webhookPayload: WebhookConfig = params.webhook ?? { url: "" };
-    form.append("webhook", JSON.stringify(webhookPayload));
+    if (params.webhook !== undefined) {
+      form.append("webhook", JSON.stringify(params.webhook));
+    }
 
     const body = await this.requestJson<ExtractResponse>("POST", "/v1/extract", { body: form });
     const jobIds = body.job_ids ?? [];
@@ -317,6 +322,15 @@ export class XbergClient {
     return await this.requestJson<ListJobsResponse>("GET", JOBS_PATH, {
       params: { limit: params.limit, offset: params.offset },
     });
+  }
+
+  /**
+   * Cancel a job (`DELETE /v1/jobs/{id}`). Idempotent: both a successful
+   * cancellation and a job that already reached a terminal status answer
+   * `204`.
+   */
+  public async cancelJob(jobId: string): Promise<void> {
+    await this.requestJson("DELETE", `${JOBS_PATH}/${encodeURIComponent(jobId)}`);
   }
 
   /**
@@ -420,14 +434,26 @@ export class XbergClient {
     return await this.requestJson("GET", `/v1/rag/collections/${encodeURIComponent(name)}`);
   }
 
-  /** Delete a RAG collection (`DELETE /v1/rag/collections/{name}`). */
-  public async deleteRagCollection(name: string): Promise<unknown> {
-    return await this.requestJson("DELETE", `/v1/rag/collections/${encodeURIComponent(name)}`);
+  /** Delete a RAG collection (`DELETE /v1/rag/collections/{name}`). The spec documents a 204 with no content. */
+  public async deleteRagCollection(name: string): Promise<void> {
+    await this.requestJson("DELETE", `/v1/rag/collections/${encodeURIComponent(name)}`);
   }
 
   /** Add documents to a RAG collection (`POST /v1/rag/collections/{name}/documents`). */
   public async addRagDocuments(name: string, body: Record<string, unknown>): Promise<unknown> {
     return await this.requestJson("POST", `/v1/rag/collections/${encodeURIComponent(name)}/documents`, { json: body });
+  }
+
+  /**
+   * Delete documents from a RAG collection, by ID list or metadata filter
+   * (`DELETE /v1/rag/collections/{name}/documents`). Unlike
+   * {@link deleteRagCollection}, this answers `200` with a body reporting how
+   * many documents were removed.
+   */
+  public async deleteRagDocuments(name: string, body: Record<string, unknown>): Promise<unknown> {
+    return await this.requestJson("DELETE", `/v1/rag/collections/${encodeURIComponent(name)}/documents`, {
+      json: body,
+    });
   }
 
   /** Reindex a RAG document (`POST /v1/rag/collections/{name}/documents/{id}/reindex`). */
@@ -731,18 +757,47 @@ export class XbergClient {
     return this.requestJson<DocumentVersionEntry[]>("GET", `${this.documentPath(documentId)}/versions`);
   }
 
-  /** Enterprise only: diff document versions (`GET /v1/documents/{id}/diff`). */
-  public async diff(documentId: string, params?: QueryParams): Promise<DiffResponse> {
+  /**
+   * Enterprise only: diff document versions (`GET /v1/documents/{id}/diff`).
+   *
+   * Computed inline when the server can afford it (`200`, {@link DiffResponse}
+   * in `result.body`), or queued for async computation when it can't (`202`,
+   * a {@link DiffAsyncAccepted} job envelope in `result.body`) — the same
+   * fallback {@link getDiffJob} polls. Narrow on `result.status`:
+   *
+   * ```ts
+   * const result = await client.diff(documentId);
+   * if (result.status === 200) {
+   *   // result.body: DiffResponse
+   * } else {
+   *   // result.body: DiffAsyncAccepted — poll getDiffJob(documentId, result.body.diff_job_id)
+   * }
+   * ```
+   */
+  public async diff(documentId: string, params?: QueryParams): Promise<DiffResult> {
     await this.requireTier("enterprise", "diff");
     const init: RequestParts = params !== undefined ? { params } : {};
-    return this.requestJson<DiffResponse>("GET", `${this.documentPath(documentId)}/diff`, init);
+    const { status, body } = await this.requestJsonWithStatus<DiffResponse | DiffAsyncAccepted>(
+      "GET",
+      `${this.documentPath(documentId)}/diff`,
+      init,
+    );
+    return toDiffResult(status, body);
   }
 
-  /** Enterprise only: poll a diff job (`GET /v1/documents/{id}/diff/{diffJobId}`). */
-  public async getDiffJob(documentId: string, diffJobId: string): Promise<DiffResponse> {
+  /**
+   * Enterprise only: poll a diff job (`GET /v1/documents/{id}/diff/{diffJobId}`).
+   *
+   * Returns the same {@link DiffResult} union as {@link diff}: `200` once the
+   * job has finished (`result.body`: {@link DiffResponse}), `202` while it is
+   * still pending (`result.body`: {@link DiffAsyncAccepted}). Narrow on
+   * `result.status` as shown in {@link diff}'s TSDoc.
+   */
+  public async getDiffJob(documentId: string, diffJobId: string): Promise<DiffResult> {
     await this.requireTier("enterprise", "getDiffJob");
     const path = `${this.documentPath(documentId)}/diff/${encodeURIComponent(diffJobId)}`;
-    return this.requestJson<DiffResponse>("GET", path);
+    const { status, body } = await this.requestJsonWithStatus<DiffResponse | DiffAsyncAccepted>("GET", path);
+    return toDiffResult(status, body);
   }
 
   /** Enterprise only: list the project's extraction events (`GET /v1/extractions`). */
@@ -835,39 +890,82 @@ export class XbergClient {
 
   /**
    * Return the effective tier — an explicit `target` if set, else probed from
-   * `/healthz` (cached after the first probe).
+   * `/healthz` and cached after the first *successful* probe. A probe that
+   * fails (missing, `null`, or unrecognised `tier`) is not cached, so the
+   * next call retries instead of being stuck with a poisoned result for the
+   * client's lifetime. Concurrent callers share a single in-flight probe.
    */
-  private async resolveTier(): Promise<string> {
+  private async resolveTier(): Promise<Target> {
     if (this.target !== undefined) {
       return this.target;
     }
-    if (this.probedTier === undefined) {
-      const body = await this.requestJson<{ tier?: unknown }>("GET", "/healthz");
-      this.probedTier = typeof body?.tier === "string" ? body.tier : "";
+    if (this.probedTier !== undefined) {
+      return this.probedTier;
     }
-    return this.probedTier;
+    if (this.tierProbe === undefined) {
+      this.tierProbe = this.probeTier();
+    }
+    try {
+      const tier = await this.tierProbe;
+      this.probedTier = tier;
+      return tier;
+    } finally {
+      this.tierProbe = undefined;
+    }
+  }
+
+  /**
+   * Issue the `/healthz` capability probe. Only `"enterprise"` and `"pro"` —
+   * the tier values the specs actually declare — are accepted; anything else
+   * (missing `tier`, `null`, or an unrecognised string) throws instead of
+   * being treated as a usable result.
+   */
+  private async probeTier(): Promise<Target> {
+    const body = await this.requestJson<{ tier?: unknown }>("GET", "/healthz");
+    const tier = body?.tier;
+    if (tier === "enterprise" || tier === "pro") {
+      return tier;
+    }
+    throw new XbergError(
+      `/healthz returned an unrecognised tier (${JSON.stringify(tier ?? null)}); expected "enterprise" or "pro"`,
+      { status: 0, body },
+    );
   }
 
   /** Throw a clear error when the connected tier does not match the required one. */
   private async requireTier(required: Target, methodName: string): Promise<void> {
     const tier = await this.resolveTier();
     if (tier !== required) {
-      const actual = tier || "unknown";
-      throw new XbergError(
-        `${methodName}() is not available on the '${actual}' tier (requires the '${required}' tier)`,
-        { status: 0, body: null },
-      );
+      throw new XbergError(`${methodName}() is not available on the '${tier}' tier (requires the '${required}' tier)`, {
+        status: 0,
+        body: null,
+      });
     }
   }
 
   /** Issue a request, raise on non-2xx, and decode the JSON body (undefined for empty bodies). */
   private async requestJson<T = unknown>(method: string, path: string, init: RequestParts = {}): Promise<T> {
+    const { body } = await this.requestJsonWithStatus<T>(method, path, init);
+    return body;
+  }
+
+  /**
+   * Like {@link requestJson}, but also returns the response's status code.
+   * Used by endpoints whose 2xx responses carry different schemas per status
+   * (currently only `diff`/`getDiffJob`'s `200`/`202` split).
+   */
+  private async requestJsonWithStatus<T = unknown>(
+    method: string,
+    path: string,
+    init: RequestParts = {},
+  ): Promise<{ status: number; body: T }> {
     const response = await this.requestWithRetry(method, path, init);
     if (response.status === 204) {
-      return undefined as T;
+      return { status: response.status, body: undefined as T };
     }
     const text = await response.text();
-    return (text.length > 0 ? JSON.parse(text) : undefined) as T;
+    const body = (text.length > 0 ? JSON.parse(text) : undefined) as T;
+    return { status: response.status, body };
   }
 
   /** Issue a request, raise on non-2xx, and return the response body as raw bytes. */
@@ -945,6 +1043,19 @@ interface RequestParts {
   json?: unknown;
   headers?: Record<string, string>;
   params?: QueryParams;
+}
+
+/**
+ * Pair a diff response's status code with its body to build the
+ * {@link DiffResult} union `diff`/`getDiffJob` return. `202` is the only
+ * status carrying {@link DiffAsyncAccepted}; everything else (in practice
+ * only `200`) carries the computed {@link DiffResponse}.
+ */
+function toDiffResult(status: number, body: DiffResponse | DiffAsyncAccepted): DiffResult {
+  if (status === 202) {
+    return { status: 202, body: body as DiffAsyncAccepted };
+  }
+  return { status: 200, body: body as DiffResponse };
 }
 
 /** Backwards-compatible factory returning the low-level `openapi-fetch` client. */

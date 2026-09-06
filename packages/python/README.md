@@ -122,7 +122,9 @@ Shared methods (both tiers):
 | `extract_and_wait(file=..., ...)` | Submit + wait in one call. |
 | `get_job_result(job_id)` | Fetch a job's stored `JobResult` envelope. |
 | `list_jobs(...)`, `audit(...)` | List jobs / read the audit log. |
+| `cancel_job(job_id)` | Cancel a job (idempotent — also 204s if already terminal). |
 | `list_rag_collections()`, `rag_retrieve(name, body)`, `get_rag_job(job_id)`, … | RAG collections/documents/retrieval. |
+| `delete_rag_documents(name, body)` | Delete documents from a collection by ID list or metadata filter. |
 | `presets()`, `get_preset(id)`, `get_preset_sample(id, name)` | Curated managed presets. |
 | `list_saved_presets(...)`, `create_saved_preset(body)`, `get_saved_preset(id)`, `update_saved_preset(id, body)`, `delete_saved_preset(id)` | Project-owned saved presets (path spelling follows the tier). |
 | `list_auto_tune_jobs(...)`, `submit_auto_tune(request, files)`, `get_auto_tune_status(id)`, `get_auto_tune_result(id)`, `delete_auto_tune_job(id)` | Auto-tune runs (`submit_auto_tune` is multipart). |

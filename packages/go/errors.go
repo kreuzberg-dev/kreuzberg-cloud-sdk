@@ -9,18 +9,24 @@ import (
 	"time"
 )
 
-// APIError is the base error type returned for any non-2xx HTTP response. It
+// XbergError is the base error type returned for any non-2xx HTTP response. It
 // carries the HTTP status code, a human-readable message extracted from the
 // response body when possible, and the raw body for callers that need
 // programmatic access to vendor-specific error fields.
-type APIError struct {
+//
+// [TimeoutError] and [TierError] also embed XbergError (with a zero Status,
+// since neither originates from an HTTP response) so that a single
+// errors.As(err, &XbergError{}) reaches every error the SDK raises — matching
+// the base-class catch used by the Python and TypeScript SDKs
+// (`except XbergError`, `instanceof XbergError`).
+type XbergError struct {
 	Status  int
 	Message string
 	Body    json.RawMessage
 }
 
 // Error implements the error interface.
-func (e *APIError) Error() string {
+func (e *XbergError) Error() string {
 	if e.Message != "" {
 		return fmt.Sprintf("xberg: HTTP %d: %s", e.Status, e.Message)
 	}
@@ -28,73 +34,76 @@ func (e *APIError) Error() string {
 }
 
 // AuthError wraps 401 Unauthorized responses.
-type AuthError struct{ APIError }
+type AuthError struct{ XbergError }
 
-// Error overrides the embedded APIError.Error to surface the error type.
+// Error overrides the embedded XbergError.Error to surface the error type.
 func (e *AuthError) Error() string {
-	return "xberg: authentication failed: " + e.APIError.Error()
+	return "xberg: authentication failed: " + e.XbergError.Error()
 }
 
-// Unwrap exposes the embedded APIError so errors.As(err, &apiErr) works.
-func (e *AuthError) Unwrap() error { return &e.APIError }
+// Unwrap exposes the embedded XbergError so errors.As(err, &xbergErr) works.
+func (e *AuthError) Unwrap() error { return &e.XbergError }
 
 // ValidationError wraps 400 Bad Request and 422 Unprocessable Entity responses.
-type ValidationError struct{ APIError }
+type ValidationError struct{ XbergError }
 
-// Error overrides APIError.Error for type clarity in stack traces.
+// Error overrides XbergError.Error for type clarity in stack traces.
 func (e *ValidationError) Error() string {
-	return "xberg: validation failed: " + e.APIError.Error()
+	return "xberg: validation failed: " + e.XbergError.Error()
 }
 
-// Unwrap exposes the embedded APIError.
-func (e *ValidationError) Unwrap() error { return &e.APIError }
+// Unwrap exposes the embedded XbergError.
+func (e *ValidationError) Unwrap() error { return &e.XbergError }
 
 // NotFoundError wraps 404 Not Found responses.
-type NotFoundError struct{ APIError }
+type NotFoundError struct{ XbergError }
 
-// Error overrides APIError.Error.
+// Error overrides XbergError.Error.
 func (e *NotFoundError) Error() string {
-	return "xberg: not found: " + e.APIError.Error()
+	return "xberg: not found: " + e.XbergError.Error()
 }
 
-// Unwrap exposes the embedded APIError.
-func (e *NotFoundError) Unwrap() error { return &e.APIError }
+// Unwrap exposes the embedded XbergError.
+func (e *NotFoundError) Unwrap() error { return &e.XbergError }
 
 // RateLimitError wraps 429 Too Many Requests responses. RetryAfter is parsed
 // from the Retry-After header when present (zero duration otherwise).
 type RateLimitError struct {
-	APIError
+	XbergError
 	RetryAfter time.Duration
 }
 
-// Error overrides APIError.Error.
+// Error overrides XbergError.Error.
 func (e *RateLimitError) Error() string {
 	if e.RetryAfter > 0 {
 		return fmt.Sprintf("xberg: rate limited (retry after %s): %s",
-			e.RetryAfter, e.APIError.Error())
+			e.RetryAfter, e.XbergError.Error())
 	}
-	return "xberg: rate limited: " + e.APIError.Error()
+	return "xberg: rate limited: " + e.XbergError.Error()
 }
 
-// Unwrap exposes the embedded APIError.
-func (e *RateLimitError) Unwrap() error { return &e.APIError }
+// Unwrap exposes the embedded XbergError.
+func (e *RateLimitError) Unwrap() error { return &e.XbergError }
 
 // ServerError wraps 5xx responses.
-type ServerError struct{ APIError }
+type ServerError struct{ XbergError }
 
-// Error overrides APIError.Error.
+// Error overrides XbergError.Error.
 func (e *ServerError) Error() string {
-	return "xberg: server error: " + e.APIError.Error()
+	return "xberg: server error: " + e.XbergError.Error()
 }
 
-// Unwrap exposes the embedded APIError.
-func (e *ServerError) Unwrap() error { return &e.APIError }
+// Unwrap exposes the embedded XbergError.
+func (e *ServerError) Unwrap() error { return &e.XbergError }
 
 // TimeoutError is returned by [Client.WaitForJob] when the configured
 // [WaitOptions.Timeout] elapses before the job reaches a terminal status. It
 // is distinct from a context cancellation: callers should use errors.Is or
-// errors.As to disambiguate.
+// errors.As to disambiguate. It embeds [XbergError] (see that type's doc
+// comment) purely so errors.As(err, &XbergError{}) also matches it; the
+// embedded Status is always 0 since no HTTP response backs this error.
 type TimeoutError struct {
+	XbergError
 	JobID   string
 	Elapsed time.Duration
 }
@@ -107,11 +116,19 @@ func (e *TimeoutError) Error() string {
 	)
 }
 
+// Unwrap exposes the embedded XbergError.
+func (e *TimeoutError) Unwrap() error { return &e.XbergError }
+
 // TierError is returned when a tier-specific method is invoked against the
 // wrong product tier — e.g. calling a Pro-only method on an Enterprise
 // instance. It is raised before the underlying request is issued, so callers
-// get a clear, typed failure instead of a raw 404.
+// get a clear, typed failure instead of a raw 404. Python and TypeScript have
+// no equivalent — they raise their bare base error for a tier mismatch — so
+// this type is strictly more specific than either; it embeds [XbergError] (see
+// that type's doc comment) for the same errors.As parity, with Status always
+// 0 since no HTTP response backs this error either.
 type TierError struct {
+	XbergError
 	// Method is the SDK method that was called (e.g. "Login").
 	Method string
 	// Required is the tier the method needs ("enterprise" or "pro").
@@ -128,6 +145,9 @@ func (e *TierError) Error() string {
 	)
 }
 
+// Unwrap exposes the embedded XbergError.
+func (e *TierError) Unwrap() error { return &e.XbergError }
+
 // errorBody is the canonical error envelope used by the API service.
 type errorBody struct {
 	Error   string `json:"error,omitempty"`
@@ -141,19 +161,19 @@ type errorBody struct {
 func classifyHTTPError(status int, body []byte, header http.Header) error {
 	rawBody := json.RawMessage(body)
 	message := extractMessage(body)
-	base := APIError{Status: status, Message: message, Body: rawBody}
+	base := XbergError{Status: status, Message: message, Body: rawBody}
 
 	switch {
 	case status == http.StatusUnauthorized || status == http.StatusForbidden:
-		return &AuthError{APIError: base}
+		return &AuthError{XbergError: base}
 	case status == http.StatusBadRequest || status == http.StatusUnprocessableEntity:
-		return &ValidationError{APIError: base}
+		return &ValidationError{XbergError: base}
 	case status == http.StatusNotFound:
-		return &NotFoundError{APIError: base}
+		return &NotFoundError{XbergError: base}
 	case status == http.StatusTooManyRequests:
-		return &RateLimitError{APIError: base, RetryAfter: parseRetryAfter(header)}
+		return &RateLimitError{XbergError: base, RetryAfter: parseRetryAfter(header)}
 	case status >= 500:
-		return &ServerError{APIError: base}
+		return &ServerError{XbergError: base}
 	default:
 		return &base
 	}

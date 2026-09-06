@@ -120,12 +120,14 @@ func TestExtract_MultipartBodyShape(t *testing.T) {
 			{Name: "a.pdf", Reader: strings.NewReader("aaaa")},
 			{Name: "b.png", Reader: strings.NewReader("bbbb")},
 		},
-		&xberg.ExtractionOptions{
-			// A pointer now that the spec types the property as an object
-			// instead of leaving it untyped.
-			ExtractionConfig: &map[string]any{
-				"output_format": "markdown",
-				"disable_ocr":   false,
+		&xberg.ExtractOptions{
+			Extraction: &xberg.ExtractionOptions{
+				// A pointer now that the spec types the property as an object
+				// instead of leaving it untyped.
+				ExtractionConfig: &map[string]any{
+					"output_format": "markdown",
+					"disable_ocr":   false,
+				},
 			},
 		},
 	)
@@ -150,8 +152,58 @@ func TestExtract_MultipartBodyShape(t *testing.T) {
 	if !strings.Contains(got.options, `"disable_ocr":false`) {
 		t.Errorf("options = %q, missing disable_ocr=false", got.options)
 	}
-	if got.webhook != `{"url":""}` {
-		t.Errorf("webhook = %q, want empty webhook stub", got.webhook)
+	if got.webhook != "" {
+		t.Errorf("webhook = %q, want no webhook part sent when unset", got.webhook)
+	}
+}
+
+func TestExtractBatch_SendsWebhookWhenSet(t *testing.T) {
+	t.Parallel()
+	var webhookBody string
+	var sawWebhookPart bool
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			id := strings.TrimPrefix(r.URL.Path, "/v1/jobs/")
+			_, _ = w.Write([]byte(jobBody(id, "a.pdf", "pending")))
+			return
+		}
+		_, params, _ := mime.ParseMediaType(r.Header.Get("Content-Type"))
+		reader := multipart.NewReader(r.Body, params["boundary"])
+		for {
+			part, err := reader.NextPart()
+			if err == io.EOF {
+				break
+			}
+			if err != nil {
+				t.Fatalf("read multipart: %v", err)
+			}
+			if part.FormName() == "webhook" {
+				sawWebhookPart = true
+				body, _ := io.ReadAll(part)
+				webhookBody = string(body)
+			}
+		}
+		w.WriteHeader(http.StatusAccepted)
+		fmt.Fprintf(w, `{"job_ids":[%q],"status":"pending"}`, extractJobA)
+	}))
+	defer server.Close()
+
+	client := mustClient(t, xberg.WithBaseURL(server.URL))
+	_, err := client.Extract(
+		context.Background(),
+		xberg.FileSource{Name: "a.pdf", Reader: strings.NewReader("a")},
+		&xberg.ExtractOptions{
+			Webhook: &xberg.WebhookConfig{Url: "https://example.test/webhook"},
+		},
+	)
+	if err != nil {
+		t.Fatalf("Extract: %v", err)
+	}
+	if !sawWebhookPart {
+		t.Fatalf("server did not receive a webhook part when one was supplied")
+	}
+	if !strings.Contains(webhookBody, `"url":"https://example.test/webhook"`) {
+		t.Errorf("webhook = %q, want it to carry the supplied URL", webhookBody)
 	}
 }
 
@@ -293,7 +345,7 @@ func TestExtract_OptionsAreOptional(t *testing.T) {
 	}
 }
 
-func TestExtract_PropagatesAPIError(t *testing.T) {
+func TestExtract_PropagatesValidationError(t *testing.T) {
 	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)

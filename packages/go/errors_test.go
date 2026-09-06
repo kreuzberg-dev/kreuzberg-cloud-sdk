@@ -111,9 +111,9 @@ func TestError_BasePropertiesAccessibleViaUnwrap(t *testing.T) {
 	defer server.Close()
 	client := mustClient(t, xberg.WithBaseURL(server.URL))
 	_, err := client.GetJob(context.Background(), "any")
-	var apiErr *xberg.APIError
+	var apiErr *xberg.XbergError
 	if !asError(err, &apiErr) {
-		t.Fatalf("errors.As to *APIError failed: %v", err)
+		t.Fatalf("errors.As to *XbergError failed: %v", err)
 	}
 	if apiErr.Status != 400 {
 		t.Errorf("Status = %d, want 400", apiErr.Status)
@@ -129,8 +129,28 @@ func TestError_TimeoutErrorIsDistinctFromContextCancel(t *testing.T) {
 	if !strings.Contains(timeoutErr.Error(), "timed out") {
 		t.Errorf("TimeoutError.Error() = %q, want to mention 'timed out'", timeoutErr.Error())
 	}
-	if asError(timeoutErr, new(*xberg.APIError)) {
-		t.Errorf("TimeoutError should not unwrap to *APIError")
+}
+
+// TestError_AllTypesReachXbergErrorViaErrorsAs asserts that every error type
+// this package raises — including TimeoutError and TierError, which do not
+// originate from an HTTP response — unwraps to the shared [xberg.XbergError]
+// base, matching the single base-class catch Python and TypeScript offer.
+func TestError_AllTypesReachXbergErrorViaErrorsAs(t *testing.T) {
+	t.Parallel()
+	errs := []error{
+		&xberg.AuthError{},
+		&xberg.ValidationError{},
+		&xberg.NotFoundError{},
+		&xberg.RateLimitError{},
+		&xberg.ServerError{},
+		&xberg.TimeoutError{JobID: "j", Elapsed: time.Second},
+		&xberg.TierError{Method: "Login", Required: "pro", Actual: "enterprise"},
+	}
+	for _, err := range errs {
+		var base *xberg.XbergError
+		if !asError(err, &base) {
+			t.Errorf("errors.As(%T, &XbergError{}) = false, want true", err)
+		}
 	}
 }
 

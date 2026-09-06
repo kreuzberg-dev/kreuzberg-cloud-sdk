@@ -1,7 +1,7 @@
 import { HttpResponse, http } from "msw";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { XbergClient } from "../src/client.js";
-import { TimeoutError } from "../src/errors.js";
+import { NotFoundError, TimeoutError } from "../src/errors.js";
 import type { Job, JobResult } from "../src/types.js";
 import { TEST_BASE_URL, createTestServer, url } from "./_helpers.js";
 
@@ -60,6 +60,46 @@ describe("getJob", () => {
     const client = makeClient();
     await client.getJob("a/b c");
     expect(receivedPath).toBe("/v1/jobs/a%2Fb%20c");
+  });
+});
+
+describe("cancelJob", () => {
+  it("issues DELETE /v1/jobs/{id} and resolves to undefined on 204", async () => {
+    let receivedMethod = "";
+    let receivedPath: string | null = null;
+    server.use(
+      http.delete(url("/v1/jobs/:id"), ({ request }) => {
+        receivedMethod = request.method;
+        receivedPath = new URL(request.url).pathname;
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    const result = await makeClient().cancelJob("job-1");
+    expect(result).toBeUndefined();
+    expect(receivedMethod).toBe("DELETE");
+    expect(receivedPath).toBe("/v1/jobs/job-1");
+  });
+
+  it("URL-encodes the job ID path segment", async () => {
+    let receivedPath: string | null = null;
+    server.use(
+      http.delete(url("/v1/jobs/:id"), ({ request }) => {
+        receivedPath = new URL(request.url).pathname;
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    await makeClient().cancelJob("a/b c");
+    expect(receivedPath).toBe("/v1/jobs/a%2Fb%20c");
+  });
+
+  it("resolves to undefined even when the job is already terminal (idempotent 204)", async () => {
+    server.use(http.delete(url("/v1/jobs/job-2"), () => new HttpResponse(null, { status: 204 })));
+    await expect(makeClient().cancelJob("job-2")).resolves.toBeUndefined();
+  });
+
+  it("throws NotFoundError when the job does not exist", async () => {
+    server.use(http.delete(url("/v1/jobs/missing"), () => HttpResponse.json({ error: "not found" }, { status: 404 })));
+    await expect(makeClient().cancelJob("missing")).rejects.toBeInstanceOf(NotFoundError);
   });
 });
 

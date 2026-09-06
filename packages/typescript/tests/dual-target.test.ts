@@ -127,3 +127,70 @@ describe("tier gating via the /healthz capability probe", () => {
     await expect(client.usage()).rejects.toThrow(/not available on the 'pro' tier/);
   });
 });
+
+// -- tier probe hardening (missing/unrecognised tier, single-flight) ---------
+
+describe("tier probe hardening", () => {
+  it("throws instead of caching a permanent '' when /healthz omits tier, and a later call retries", async () => {
+    let healthzCalls = 0;
+    server.use(
+      http.get(`${ENTERPRISE_URL}/healthz`, () => {
+        healthzCalls += 1;
+        const body = healthzCalls === 1 ? { status: "ok" } : { status: "ok", tier: "enterprise" };
+        return HttpResponse.json(body, { status: 200 });
+      }),
+      http.get(`${ENTERPRISE_URL}/v1/usage`, () => HttpResponse.json({ pages: 1 }, { status: 200 })),
+    );
+    const client = new XbergClient({ apiKey: "k", baseUrl: ENTERPRISE_URL });
+    await expect(client.usage()).rejects.toThrow(XbergError);
+    expect(await client.usage()).toEqual({ pages: 1 });
+    expect(healthzCalls).toBe(2);
+  });
+
+  it("throws when /healthz returns tier: null, and a later call retries", async () => {
+    let healthzCalls = 0;
+    server.use(
+      http.get(`${ENTERPRISE_URL}/healthz`, () => {
+        healthzCalls += 1;
+        const body = healthzCalls === 1 ? { status: "ok", tier: null } : { status: "ok", tier: "enterprise" };
+        return HttpResponse.json(body, { status: 200 });
+      }),
+      http.get(`${ENTERPRISE_URL}/v1/usage`, () => HttpResponse.json({ pages: 2 }, { status: 200 })),
+    );
+    const client = new XbergClient({ apiKey: "k", baseUrl: ENTERPRISE_URL });
+    await expect(client.usage()).rejects.toThrow(XbergError);
+    expect(await client.usage()).toEqual({ pages: 2 });
+    expect(healthzCalls).toBe(2);
+  });
+
+  it("throws when /healthz returns an unrecognised tier value, and a later call retries", async () => {
+    let healthzCalls = 0;
+    server.use(
+      http.get(`${ENTERPRISE_URL}/healthz`, () => {
+        healthzCalls += 1;
+        const body = healthzCalls === 1 ? { status: "ok", tier: "trial" } : { status: "ok", tier: "enterprise" };
+        return HttpResponse.json(body, { status: 200 });
+      }),
+      http.get(`${ENTERPRISE_URL}/v1/usage`, () => HttpResponse.json({ pages: 3 }, { status: 200 })),
+    );
+    const client = new XbergClient({ apiKey: "k", baseUrl: ENTERPRISE_URL });
+    await expect(client.usage()).rejects.toThrow(XbergError);
+    expect(await client.usage()).toEqual({ pages: 3 });
+    expect(healthzCalls).toBe(2);
+  });
+
+  it("single-flights concurrent probes into exactly one /healthz request", async () => {
+    let healthzCalls = 0;
+    server.use(
+      http.get(`${ENTERPRISE_URL}/healthz`, () => {
+        healthzCalls += 1;
+        return HttpResponse.json({ status: "ok", tier: "enterprise" }, { status: 200 });
+      }),
+      http.get(`${ENTERPRISE_URL}/v1/usage`, () => HttpResponse.json({ pages: 4 }, { status: 200 })),
+    );
+    const client = new XbergClient({ apiKey: "k", baseUrl: ENTERPRISE_URL });
+    const results = await Promise.all([client.usage(), client.usage(), client.usage()]);
+    expect(results).toEqual([{ pages: 4 }, { pages: 4 }, { pages: 4 }]);
+    expect(healthzCalls).toBe(1);
+  });
+});
