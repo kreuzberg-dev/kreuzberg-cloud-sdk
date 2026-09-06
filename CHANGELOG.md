@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-09-06
+
 ### Changed
 
 - **Breaking, saved presets.** `list_saved_presets` takes `limit`/`offset`; Go's
@@ -58,9 +60,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Enterprise. The path is now rendered from the resolved tier and the gate is gone. The premise is
   asserted against a live Pro instance by `task pro:verify`, which confirms Pro 404s the underscore
   form.
+- **Go never retried a transport failure.** `httpClient.Do` returning an error — DNS failure,
+  refused connection, TLS handshake, dial timeout — was wrapped in a bare error the retry engine
+  could not classify, so `WithRetries` was inert for every failure that never reached a response,
+  while Python retries `httpx.TransportError` and TypeScript retries a thrown `fetch`. The new
+  `ConnectionError` embeds `XbergError` for the base catch and unwraps to the transport cause for
+  `errors.Is`.
+- **An event-stream frame could grow without bound in all three clients.** The per-line cap does
+  not bound an endless *succession* of ordinary `data:` lines that never reach the blank line
+  closing the frame; the cap now applies to the running frame total as well as the pending line.
+- **A malformed crawl frame raised a different type in each language** — `XbergError` in
+  TypeScript, a bare `ValueError` in Python, a bare error in Go — so `except XbergError` and
+  `errors.As(err, &XbergError{})` both missed a stream that went wrong mid-flight, contradicting
+  the base-error contract Go's own `XbergError` documents. Python's other response-shape checks
+  raised `ValueError` for the same reason and are converted with them.
+- **Go treated an explicitly empty `Configs` slice as "no overrides"**, where Python and TypeScript
+  treat `[]` against a non-empty file list as the length mismatch it is; only `nil` skips now.
+- **Go double-escaped a quote in the multipart filename**, replacing `"` with `\"` before
+  rendering with `%q`, which escapes it again.
 
 ### Added
 
+- **Crawl-event streaming.** `stream_crawl_events` / `streamCrawlEvents` / `StreamCrawlEvents`
+  (returning an `iter.Seq2[CrawlEvent, error]`) subscribe to
+  `GET /v1/crawl-jobs/{id}/events`, the one Enterprise operation answering `text/event-stream`.
+  Each client decodes real WHATWG framing — a frame is closed by a blank line, not a newline, so a
+  payload may span several `data:` fields, and heartbeat comments and `event:`/`id:`/`retry:` are
+  tolerated — rather than parsing one JSON object per line, which passes a friendly server and
+  fails a real one. Nothing is requested until iteration begins, and the response body is released
+  on exhaustion, `break` and exception alike.
 - **Per-file extraction configs on the extract convenience methods.** `extract`/`extract_and_wait`
   take a `config` (Go: `ExtractOptions.Configs`) and `extract_batch` takes a list parallel to the
   files, sent as the `config-<filename>` multipart part; precedence against
@@ -73,7 +101,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   secondary Go schema set rather than only Pro's. Each client gains a
   `control_plane_base_url` / `controlPlaneBaseUrl` / `WithControlPlaneBaseURL` option, defaulting to
   the data-plane base URL so Pro — which serves both planes from one binary — is unaffected. No
-  control-plane methods yet.
+  method routes to it yet: it records the origin the control-plane operations will use when they
+  land, and reads back so a two-origin client can be inspected.
 - **The Pro control plane** — projects, api-keys and integrations (13 operations) — in all three
   languages. Without these a Pro user could not create a project or mint an API key, so the client
   could not reach an instance it had not been handed a key for out of band.
@@ -81,9 +110,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   tuning-profiles (3) on both tiers, and enrich (2), `GET /v1/documents/{id}`, `GET /v1/extractions`
   and `GET /v1/jobs/{id}/pages/{n}` on Enterprise, plus the missing `get_saved_preset` and
   `update_saved_preset`, `cancel_job` and `delete_rag_documents`. Enterprise coverage goes from 27
-  of 49 operations to 47, Pro from 42 of 56 to 53 — Pro is now complete, the three uncovered
-  operations being deliberate exclusions. The one remaining Enterprise gap is the crawl-event SSE
-  stream. These counts are measured by `task spec:coverage` rather than asserted; the previous
+  of 49 operations to 48, Pro from 42 of 56 to 53 — both tiers are now complete, the remaining
+  operations on each being deliberate exclusions. These counts are measured by `task spec:coverage`
+  rather than asserted, and its list of tracked gaps is empty; the previous
   edition of this entry claimed numbers nothing checked, and two of them were wrong. auto-tune is
   the notable addition: a licensed Pro instance advertises `auto_tune` as enabled, so the SDK named
   a feature it could not call.
@@ -208,7 +237,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - All three packages generated from `services/api`'s public extraction OpenAPI spec.
 - Comprehensive test coverage: 53 tests (Python), 57 tests (TypeScript), ~44 tests (Go).
 
-[Unreleased]: https://github.com/xberg-io/sdks/compare/v0.3.1...HEAD
+[Unreleased]: https://github.com/xberg-io/sdks/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/xberg-io/sdks/compare/v0.3.1...v0.4.0
 [0.3.1]: https://github.com/xberg-io/sdks/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/xberg-io/sdks/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/xberg-io/sdks/compare/v0.1.1...v0.2.0
