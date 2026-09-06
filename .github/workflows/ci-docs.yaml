@@ -26,7 +26,11 @@ permissions:
 
 concurrency:
   group: ci-docs-${{ github.ref }}
-  cancel-in-progress: false
+  # Pull-request builds only render the site, so a superseded one is waste and is
+  # cancelled. A push to main runs the reusable workflow with `deploy: true`, and
+  # cancelling an in-flight Pages deployment can leave it wedged part-published --
+  # those always run to completion.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   docs:

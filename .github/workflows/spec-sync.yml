@@ -15,6 +15,14 @@ permissions:
   contents: write
   pull-requests: write
 
+concurrency:
+  # The weekly cron, a release-driven repository_dispatch and a manual run can all
+  # fire close together; without a group two syncs race on the same regenerate
+  # branch. Never cancelled: a run that is interrupted after committing but before
+  # opening its PR leaves the branch half-written, so a second run queues instead.
+  group: spec-sync
+  cancel-in-progress: false
+
 jobs:
   sync:
     name: refresh vendored OpenAPI specs
