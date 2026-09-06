@@ -71,6 +71,38 @@ assert "Pro serves /v1/tuning-profiles" serves /v1/tuning-profiles
 assert "Pro does not serve /v1/enrich" does_not_serve /v1/enrich
 assert "Pro does not serve /v1/extractions" does_not_serve /v1/extractions
 
+echo "== extract accepts what Enterprise accepts"
+# Pro used to answer 415 to multipart and 400 to a second document, so the
+# SDKs' primary method did not work against Pro at all. Both are asserted
+# against the server rather than against a fixture, because the mocked suites
+# were written from the same misreading as the client and agreed with it.
+extract_status() { # content-type, body-file, extra curl args
+  curl -o /tmp/pro-extract-probe.json -s -w '%{http_code}' -X POST "$api/v1/extract" \
+    -H "Authorization: Bearer $key" "$@"
+}
+
+multipart_is_accepted() {
+  printf 'multipart contract sample\n' > /tmp/pro-multipart-sample.txt
+  [ "$(extract_status -F 'file=@/tmp/pro-multipart-sample.txt')" = "202" ]
+}
+
+batch_is_accepted() {
+  python3 -c 'import base64,json;d=lambda n,t:{"filename":n,"mime_type":"text/plain","data":base64.b64encode(t).decode()};print(json.dumps({"documents":[d("a.txt",b"first"),d("b.txt",b"second")]}))' \
+    > /tmp/pro-batch-request.json
+  [ "$(extract_status -H 'Content-Type: application/json' --data @/tmp/pro-batch-request.json)" = "202" ] &&
+    [ "$(python3 -c 'import json;print(len(json.load(open("/tmp/pro-extract-probe.json"))["job_ids"]))')" = "2" ]
+}
+
+over_cap_is_rejected() {
+  python3 -c 'import base64,json;d=lambda n:{"filename":n,"mime_type":"text/plain","data":base64.b64encode(b"x").decode()};print(json.dumps({"documents":[d(f"{i}.txt") for i in range(11)]}))' \
+    > /tmp/pro-overcap-request.json
+  [ "$(extract_status -H 'Content-Type: application/json' --data @/tmp/pro-overcap-request.json)" = "400" ]
+}
+
+assert "Pro accepts multipart/form-data on /v1/extract" multipart_is_accepted
+assert "Pro accepts a two-document batch and returns two job ids" batch_is_accepted
+assert "Pro still rejects more than ten documents" over_cap_is_rejected
+
 echo "== JobResult"
 # /v1/extract is application/json only: an ExtractRequest carrying base64
 # document bytes. A multipart POST here returns 415.
