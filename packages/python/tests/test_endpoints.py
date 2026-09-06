@@ -122,11 +122,11 @@ def test_get_rag_migration_job_sync(base_url: str, api_key: str) -> None:
 
 @respx.mock
 def test_get_rag_job_sync(base_url: str, api_key: str) -> None:
-    respx.get(f"{base_url}/v1/rag/jobs/job-1").mock(
+    respx.get(f"{base_url}/v1/rag/jobs/aaaaaaaa-0000-4000-8000-000000000001").mock(
         return_value=httpx.Response(200, json={"status": "processing"}),
     )
     with XbergClient(api_key=api_key, base_url=base_url) as client:
-        assert client.get_rag_job("job-1") == {"status": "processing"}
+        assert client.get_rag_job("aaaaaaaa-0000-4000-8000-000000000001") == {"status": "processing"}
 
 
 # -- Pro-only surface — sync ----------------------------------------------------
@@ -311,11 +311,11 @@ async def test_get_rag_migration_job_async(base_url: str, api_key: str) -> None:
 @pytest.mark.asyncio
 @respx.mock
 async def test_get_rag_job_async(base_url: str, api_key: str) -> None:
-    respx.get(f"{base_url}/v1/rag/jobs/job-1").mock(
+    respx.get(f"{base_url}/v1/rag/jobs/aaaaaaaa-0000-4000-8000-000000000001").mock(
         return_value=httpx.Response(200, json={"status": "pending"}),
     )
     async with AsyncXbergClient(api_key=api_key, base_url=base_url) as client:
-        assert await client.get_rag_job("job-1") == {"status": "pending"}
+        assert await client.get_rag_job("aaaaaaaa-0000-4000-8000-000000000001") == {"status": "pending"}
 
 
 # -- Pro-only surface — async ----------------------------------------------------

@@ -351,8 +351,8 @@ func TestGetJobResult_ParsesJobResultEnvelope(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetJobResult: %v", err)
 	}
-	if result.JobId != jobUUID {
-		t.Errorf("JobId = %q, want %s", result.JobId, jobUUID)
+	if result.JobId.String() != jobUUID {
+		t.Errorf("JobId = %q, want %s", result.JobId.String(), jobUUID)
 	}
 	if result.Status != xberg.JobStatusPartialSuccess {
 		t.Errorf("Status = %q, want partial_success", result.Status)
@@ -424,8 +424,8 @@ func TestGetJobResult_IsNotTierGated(t *testing.T) {
 			if !called.Load() {
 				t.Errorf("server was never called on target %s", target)
 			}
-			if result.JobId != jobUUID {
-				t.Errorf("JobId = %q, want %s", result.JobId, jobUUID)
+			if result.JobId.String() != jobUUID {
+				t.Errorf("JobId = %q, want %s", result.JobId.String(), jobUUID)
 			}
 		})
 	}

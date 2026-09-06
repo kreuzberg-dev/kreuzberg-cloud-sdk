@@ -209,9 +209,11 @@ def test_request_json_returns_none_for_204(base_url: str, api_key: str) -> None:
 
 @respx.mock
 def test_request_json_returns_none_for_empty_body(base_url: str, api_key: str) -> None:
-    respx.get(f"{base_url}/v1/rag/jobs/job-1").mock(return_value=httpx.Response(200, content=b""))
+    respx.get(f"{base_url}/v1/rag/jobs/aaaaaaaa-0000-4000-8000-000000000001").mock(
+        return_value=httpx.Response(200, content=b"")
+    )
     with XbergClient(api_key=api_key, base_url=base_url) as client:
-        assert client.get_rag_job("job-1") is None
+        assert client.get_rag_job("aaaaaaaa-0000-4000-8000-000000000001") is None
 
 
 @pytest.mark.asyncio

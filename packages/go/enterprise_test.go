@@ -14,7 +14,7 @@ const (
 	testDocumentID    = "doc-1"
 	testEnrichJobID   = "01JENRICHJOB0000000000000"
 	enrichStatusBody  = `{"status":"completed","result":{"keywords":["invoice","acme"]}}`
-	extractionsResult = `{"events":[{"job_id":"j1","filename":"a.pdf","status":"completed",
+	extractionsResult = `{"events":[{"job_id":"aaaaaaaa-0000-4000-8000-000000000011","filename":"a.pdf","status":"completed",
 		"pages":3,"created_at":"2025-01-01T00:00:00Z"}],"total":1,"limit":50,"page":0}`
 )
 

@@ -107,7 +107,7 @@ func TestProMethod_LoginReachesEndpoint(t *testing.T) {
 		}
 		called.Store(true)
 		_, _ = w.Write([]byte(`{"token":"session-jwt","pending_invitations":0,` +
-			`"user":{"id":"u1","email":"a@b.test"}}`))
+			`"user":{"id":"ffffffff-0000-4000-8000-000000000001","email":"a@b.test"}}`))
 	}))
 	defer server.Close()
 	client := mustClient(t, xberg.WithBaseURL(server.URL), xberg.WithTarget(xberg.TargetPro))

@@ -3829,6 +3829,7 @@ components:
       properties:
         created_at:
           type: string
+          format: date-time
           description: ISO 8601 creation timestamp.
         expires_at:
           type:
@@ -3839,6 +3840,7 @@ components:
             `None` on Pro.
         id:
           type: string
+          format: uuid
           description: Unique API key identifier.
         key_prefix:
           type: string
@@ -3893,12 +3895,18 @@ components:
           description: Actor that performed the action (e.g. an API key prefix or user id).
         created_at:
           type: string
+          format: date-time
           description: ISO 8601 event timestamp.
         id:
           type: string
+          format: uuid
           description: Unique event identifier.
         metadata:
+          type: object
           description: Additional structured metadata describing the event.
+          additionalProperties: {}
+          propertyNames:
+            type: string
         resource_id:
           type:
             - string
@@ -4027,7 +4035,7 @@ components:
       properties:
         auto_tune_job_id:
           type: string
-          description: Unique ID of the auto-tune job.
+          description: Unique ID of the auto-tune job (ULID).
         best_score:
           type:
             - number
@@ -4068,7 +4076,7 @@ components:
       properties:
         auto_tune_job_id:
           type: string
-          description: Unique ID of the auto-tune job.
+          description: Unique ID of the auto-tune job (ULID).
         best_score:
           type:
             - number
@@ -4077,6 +4085,7 @@ components:
           description: Best primary score observed, if any trial has completed.
         created_at:
           type: string
+          format: date-time
           description: ISO 8601 creation timestamp.
         status:
           type: string
@@ -4125,7 +4134,7 @@ components:
       properties:
         auto_tune_job_id:
           type: string
-          description: Unique ID of the auto-tune job.
+          description: Unique ID of the auto-tune job (ULID).
         held_out_confidence:
           type:
             - number
@@ -4140,6 +4149,7 @@ components:
             $ref: '#/components/schemas/LeaderboardEntry'
           description: Ranked leaderboard of trialed configurations.
         profile:
+          type: object
           description: |-
             The winning tuning profile artifact. The concrete `TuningProfile`
             shape is defined in `autotune-core`; here it is opaque JSON.
@@ -4157,13 +4167,12 @@ components:
           description: Maximum number of trials to run during the search.
           minimum: 0
         search_params:
-          oneOf:
-            - type: "null"
-            - $ref: '#/components/schemas/AutoTuneSearchParams'
-              description: |-
-                Structured, wizard-friendly alternative to `search_space`. Ignored when `search_space` is
-                also set.
+          $ref: '#/components/schemas/AutoTuneSearchParams'
+          description: |-
+            Structured, wizard-friendly alternative to `search_space`. Ignored when `search_space` is
+            also set.
         search_space:
+          type: object
           description: |-
             Which knobs/axes to tune, and their candidate values. The concrete
             `SearchSpace` shape is defined in `autotune-core`; here it is
@@ -4270,10 +4279,8 @@ components:
         - index_method
       properties:
         chunking_config:
-          oneOf:
-            - type: "null"
-            - $ref: '#/components/schemas/CollectionChunkingConfig'
-              description: Per-collection text chunking configuration
+          $ref: '#/components/schemas/CollectionChunkingConfig'
+          description: Per-collection text chunking configuration
         distance_metric:
           type: string
           description: Distance metric
@@ -4289,6 +4296,7 @@ components:
           description: Embedding source for this collection
         id:
           type: string
+          format: uuid
           description: Collection unique identifier
         index_method:
           type: string
@@ -4304,18 +4312,14 @@ components:
           description: Maximum documents quota
           minimum: 0
         rerank_default:
-          oneOf:
-            - type: "null"
-            - $ref: '#/components/schemas/RerankerSpec'
-              description: Default reranker spec for retrieve operations on this collection
+          $ref: '#/components/schemas/RerankerSpec'
+          description: Default reranker spec for retrieve operations on this collection
         stats:
-          oneOf:
-            - type: "null"
-            - $ref: '#/components/schemas/CollectionStatsResponse'
-              description: |-
-                Collection statistics. Populated on the single-collection detail view
-                (`GET /v1/rag/collections/{name}`); omitted from the list view, which is
-                intentionally lightweight and does not run per-collection counts.
+          $ref: '#/components/schemas/CollectionStatsResponse'
+          description: |-
+            Collection statistics. Populated on the single-collection detail view
+            (`GET /v1/rag/collections/{name}`); omitted from the list view, which is
+            intentionally lightweight and does not run per-collection counts.
     CollectionStatsResponse:
       type: object
       description: Collection statistics response
@@ -4357,12 +4361,10 @@ components:
             Descriptive name for the API key. Optional on Pro (unnamed keys are
             allowed); Enterprise requires a non-empty name at the handler level.
         scope:
-          oneOf:
-            - type: "null"
-            - $ref: '#/components/schemas/ApiKeyScope'
-              description: |-
-                What the key may do. `read` keys are refused on POST, PUT, PATCH and
-                DELETE. Omitted means `write`.
+          $ref: '#/components/schemas/ApiKeyScope'
+          description: |-
+            What the key may do. `read` keys are refused on POST, PUT, PATCH and
+            DELETE. Omitted means `write`.
     CreateApiKeyResponse:
       type: object
       description: |-
@@ -4377,6 +4379,7 @@ components:
       properties:
         created_at:
           type: string
+          format: date-time
           description: ISO 8601 creation timestamp.
         expires_at:
           type:
@@ -4387,6 +4390,7 @@ components:
             `None` on Pro.
         id:
           type: string
+          format: uuid
           description: Unique API key identifier.
         key:
           type: string
@@ -4417,10 +4421,8 @@ components:
         - documents
       properties:
         budget:
-          oneOf:
-            - type: "null"
-            - $ref: '#/components/schemas/AutoTuneBudget'
-              description: Optional budget limits; falls back to defaults when omitted.
+          $ref: '#/components/schemas/AutoTuneBudget'
+          description: Optional budget limits; falls back to defaults when omitted.
         documents:
           type: array
           items:
@@ -4434,10 +4436,8 @@ components:
             Whether to tune per-document routing in addition to global
             configuration. `None`/`false` tunes global-only.
         search:
-          oneOf:
-            - type: "null"
-            - $ref: '#/components/schemas/AutoTuneSearchConfig'
-              description: Optional search configuration; falls back to defaults when omitted.
+          $ref: '#/components/schemas/AutoTuneSearchConfig'
+          description: Optional search configuration; falls back to defaults when omitted.
     CreateAutoTuneJobResponse:
       type: object
       description: Response from submitting a new auto-tune job.
@@ -4447,7 +4447,7 @@ components:
       properties:
         auto_tune_job_id:
           type: string
-          description: Unique ID of the newly created auto-tune job.
+          description: Unique ID of the newly created auto-tune job (ULID).
         status:
           type: string
           description: Initial job status (e.g. `queued`).
@@ -4459,14 +4459,12 @@ components:
         - embedding_dim
       properties:
         chunking_config:
-          oneOf:
-            - type: "null"
-            - $ref: '#/components/schemas/CollectionChunkingConfig'
-              description: |-
-                Per-collection text chunking configuration.
+          $ref: '#/components/schemas/CollectionChunkingConfig'
+          description: |-
+            Per-collection text chunking configuration.
 
-                Omit any field to inherit the ingest pipeline's built-in default
-                (max 1000 characters, 200-character overlap, text chunker).
+            Omit any field to inherit the ingest pipeline's built-in default
+            (max 1000 characters, 200-character overlap, text chunker).
         distance_metric:
           type: string
           description: Distance metric for similarity search ("cosine", "l2", "inner_product")
@@ -4524,15 +4522,13 @@ components:
           description: Maximum documents quota for this collection
           minimum: 0
         rerank_default:
-          oneOf:
-            - type: "null"
-            - $ref: '#/components/schemas/RerankerSpec'
-              description: |-
-                Default reranker spec for retrieve operations on this collection.
+          $ref: '#/components/schemas/RerankerSpec'
+          description: |-
+            Default reranker spec for retrieve operations on this collection.
 
-                When present, this reranker is used as the default unless the
-                retrieve request overrides it. Can be a Preset (ONNX cross-encoder)
-                or Llm (platform-managed LLM).
+            When present, this reranker is used as the default unless the
+            retrieve request overrides it. Can be a Preset (ONNX cross-encoder)
+            or Llm (platform-managed LLM).
       additionalProperties: false
     CreateCollectionResponse:
       type: object
@@ -4545,10 +4541,8 @@ components:
         - index_method
       properties:
         chunking_config:
-          oneOf:
-            - type: "null"
-            - $ref: '#/components/schemas/CollectionChunkingConfig'
-              description: Per-collection text chunking configuration
+          $ref: '#/components/schemas/CollectionChunkingConfig'
+          description: Per-collection text chunking configuration
         distance_metric:
           type: string
           description: Distance metric
@@ -4564,6 +4558,7 @@ components:
           description: Embedding source for this collection
         id:
           type: string
+          format: uuid
           description: Collection unique identifier
         index_method:
           type: string
@@ -4579,10 +4574,8 @@ components:
           description: Maximum documents quota
           minimum: 0
         rerank_default:
-          oneOf:
-            - type: "null"
-            - $ref: '#/components/schemas/RerankerSpec'
-              description: Default reranker spec for retrieve operations on this collection
+          $ref: '#/components/schemas/RerankerSpec'
+          description: Default reranker spec for retrieve operations on this collection
     CreateDocumentAsyncResponse:
       type: object
       description: Response for asynchronous document creation
@@ -4598,7 +4591,7 @@ components:
           description: The pending document ID (for reference)
         job_id:
           type: string
-          description: Job identifier for polling
+          description: Job identifier for polling (ULID)
         poll:
           type: string
           description: Polling endpoint
@@ -4631,7 +4624,11 @@ components:
             - "null"
           description: External identifier for this chunk (optional)
         metadata:
+          type: object
           description: Metadata attached to this chunk
+          additionalProperties: {}
+          propertyNames:
+            type: string
         ordinal:
           type:
             - integer
@@ -4658,6 +4655,7 @@ components:
             $ref: '#/components/schemas/CreateDocumentChunkInput'
           description: 'Pre-split chunks for `kind: "chunks"`'
         enrichment_overrides:
+          $ref: '#/components/schemas/EnrichmentOverridesRequest'
           description: Pre-computed enrichments to skip the server's pass
         external_id:
           type:
@@ -4668,7 +4666,13 @@ components:
           type: string
           description: 'Source variant: `"text"` or `"chunks"`'
         metadata:
+          type:
+            - object
+            - "null"
           description: Caller-supplied metadata stored alongside the document
+          additionalProperties: {}
+          propertyNames:
+            type: string
         mime:
           type:
             - string
@@ -4690,10 +4694,8 @@ components:
             - "null"
           description: Human-readable document title
         webhook:
-          oneOf:
-            - type: "null"
-            - $ref: '#/components/schemas/WebhookConfig'
-              description: Optional webhook for ingest completion/failure delivery
+          $ref: '#/components/schemas/WebhookConfig'
+          description: Optional webhook for ingest completion/failure delivery
     CreateDocumentResponse:
       type: object
       description: Response for synchronous document creation (BYO-vector fast path)
@@ -4726,6 +4728,7 @@ components:
           description: Caller-supplied external ID (if provided)
         ingested_at:
           type: string
+          format: date-time
           description: Ingestion timestamp (RFC3339)
     CreateDocumentSource:
       oneOf:
@@ -4736,6 +4739,7 @@ components:
             - kind
           properties:
             enrichment_overrides:
+              $ref: '#/components/schemas/EnrichmentOverridesRequest'
               description: Pre-computed enrichments (keywords, entities, labels) to skip server's pass
             kind:
               type: string
@@ -4756,6 +4760,7 @@ components:
                 $ref: '#/components/schemas/CreateDocumentChunkInput'
               description: List of pre-split chunks
             enrichment_overrides:
+              $ref: '#/components/schemas/EnrichmentOverridesRequest'
               description: Pre-computed enrichments to skip server's pass
             kind:
               type: string
@@ -4775,12 +4780,15 @@ components:
         - name
         - kind
         - auth_type
+        - credentials
       properties:
         auth_type:
           type: string
         config:
+          type: object
           description: Additional configuration as a JSON object (optional; mirrors the backend).
         credentials:
+          type: object
           description: BYO client credentials (client_id, client_secret for OAuth2/OIDC).
         kind:
           type: string
@@ -4876,6 +4884,7 @@ components:
             Pro a saved preset contributes its `schema`, `system_prompt` and
             `context_template`, and nothing else.
         schema:
+          type: object
           description: JSON Schema (Draft 2020-12) for the extraction result.
         system_prompt:
           type:
@@ -4893,6 +4902,7 @@ components:
       properties:
         id:
           type: string
+          format: uuid
           description: The newly created preset's id.
         message:
           type: string
@@ -4908,6 +4918,7 @@ components:
       description: OpenAPI schema for [`DeleteDocumentsRequest`].
       properties:
         filter:
+          type: object
           description: Vectorstore filter expression.
         ids:
           type:
@@ -4965,12 +4976,10 @@ components:
           type: string
           description: Original filename.
         integration:
-          oneOf:
-            - type: "null"
-            - $ref: '#/components/schemas/IntegrationInput'
-              description: |-
-                Reference to a document in a connected integration. Mutually exclusive
-                with `data`.
+          $ref: '#/components/schemas/IntegrationInput'
+          description: |-
+            Reference to a document in a connected integration. Mutually exclusive
+            with `data`.
         mime_type:
           type: string
           description: |-
@@ -4987,7 +4996,9 @@ components:
       properties:
         id:
           type: string
-          description: Source-specific stable document identifier.
+          description: |-
+            Source-specific stable document identifier (opaque; format depends on
+            the connected integration, e.g. a Google Drive file id).
         mime_type:
           type: string
           description: MIME type of the document.
@@ -5021,6 +5032,7 @@ components:
             or one was minted server-side. `None` for non-lineage jobs.
         job_id:
           type: string
+          format: uuid
           description: Job ID created for this document.
         version_sequence:
           type:
@@ -5030,6 +5042,42 @@ components:
           description: |-
             Version sequence number within the document's lineage, when lineage
             tracking applies.
+    EnrichmentOverridesRequest:
+      type: object
+      description: |-
+        Request shape of `enrichment_overrides`.
+
+        The NATS message type stays lenient so an older publisher's payload still
+        decodes, but the request boundary is strict: an unknown key is a typo the
+        caller must see, and `entities` and `labels` carry typed shapes so a
+        malformed value fails at parse rather than reaching the pipeline as an
+        opaque blob that no later step can reject.
+      properties:
+        entities:
+          type:
+            - array
+            - "null"
+          items:
+            type: object
+            additionalProperties: {}
+            propertyNames:
+              type: string
+          description: Pre-computed entities, as a list of objects.
+        keywords:
+          type:
+            - array
+            - "null"
+          items:
+            type: string
+          description: Pre-computed keywords.
+        labels:
+          type:
+            - array
+            - "null"
+          items:
+            type: string
+          description: Pre-computed labels, as a list of strings.
+      additionalProperties: false
     ErrorBody:
       type: object
       description: Error body containing code, message, and optional details.
@@ -5042,6 +5090,7 @@ components:
           description: Stable string error code (e.g., "rag.vector.dim_mismatch", "not_found")
           example: rag.vector.dim_mismatch
         details:
+          type: object
           description: Optional detailed error information (context-specific)
         message:
           type: string
@@ -5090,17 +5139,13 @@ components:
             the document MIME type.
           contentMediaType: application/octet-stream
         options:
-          oneOf:
-            - type: "null"
-            - $ref: '#/components/schemas/ExtractionOptions'
-              description: Optional `options` part — a JSON-encoded [`ExtractionOptions`].
+          $ref: '#/components/schemas/ExtractionOptions'
+          description: Optional `options` part — a JSON-encoded [`ExtractionOptions`].
         webhook:
-          oneOf:
-            - type: "null"
-            - $ref: '#/components/schemas/WebhookConfig'
-              description: |-
-                Optional `webhook` part — a JSON-encoded [`api_types::WebhookConfig`]
-                for async result delivery.
+          $ref: '#/components/schemas/WebhookConfig'
+          description: |-
+            Optional `webhook` part — a JSON-encoded [`api_types::WebhookConfig`]
+            for async result delivery.
     ExtractRequest:
       type: object
       description: |-
@@ -5113,6 +5158,7 @@ components:
         apply to every document/URL in the request.
       properties:
         crawl_config:
+          type: object
           description: |-
             Crawl configuration applied to all `urls` (overridable per-URL).
             Enterprise-only; Pro leaves this unset. Kept as opaque JSON — see
@@ -5123,10 +5169,8 @@ components:
             $ref: '#/components/schemas/DocumentInput'
           description: Documents to extract inline or via an integration reference.
         options:
-          oneOf:
-            - type: "null"
-            - $ref: '#/components/schemas/ExtractionOptions'
-              description: Extraction options shared by every document/URL in this request.
+          $ref: '#/components/schemas/ExtractionOptions'
+          description: Extraction options shared by every document/URL in this request.
         project_id:
           type:
             - string
@@ -5152,10 +5196,8 @@ components:
             URLs to crawl and extract documents from. Enterprise-only; Pro leaves
             this empty.
         webhook:
-          oneOf:
-            - type: "null"
-            - $ref: '#/components/schemas/WebhookConfig'
-              description: Webhook configuration for async result delivery.
+          $ref: '#/components/schemas/WebhookConfig'
+          description: Webhook configuration for async result delivery.
       additionalProperties: false
     ExtractResponse:
       type: object
@@ -5208,6 +5250,7 @@ components:
           propertyNames:
             type: string
         extraction_config:
+          type: object
           description: |-
             Extraction configuration as opaque JSON. Kept untyped here: the
             concrete schema (`services/api::rest::types::ExtractionConfig` on
@@ -5261,6 +5304,7 @@ components:
             - "null"
         created_at:
           type: string
+          format: date-time
         error:
           type:
             - string
@@ -5270,6 +5314,7 @@ components:
           type: string
         id:
           type: string
+          format: uuid
         images_extracted:
           type:
             - integer
@@ -5349,9 +5394,11 @@ components:
       properties:
         integration_id:
           type: string
+          format: uuid
           description: The `integrations.id` (hyphenated UUID) the document is fetched through.
         resource_id:
           type: string
+          format: uuid
           description: Connector-specific document identifier (e.g. a Google Drive file id).
     IntegrationResponse:
       type: object
@@ -5370,6 +5417,7 @@ components:
           description: Authentication type.
         id:
           type: string
+          format: uuid
           description: Unique integration identifier.
         kind:
           type: string
@@ -5428,6 +5476,7 @@ components:
           description: Non-fatal per-document errors.
         job_id:
           type: string
+          format: uuid
           description: The job this result belongs to.
         results:
           type: array
@@ -5445,6 +5494,29 @@ components:
         status:
           $ref: '#/components/schemas/JobStatus'
           description: Job status at the time the result was read.
+    JobResultCounts:
+      type: object
+      description: Structural counts for a [`JobResultDocument`], always present.
+      required:
+        - pages
+        - tables
+        - images
+      properties:
+        images:
+          type: integer
+          format: int32
+          description: Number of images extracted.
+          minimum: 0
+        pages:
+          type: integer
+          format: int32
+          description: Number of pages. `0` for formats that are not page-addressable.
+          minimum: 0
+        tables:
+          type: integer
+          format: int32
+          description: Number of tables extracted.
+          minimum: 0
     JobResultDocument:
       type: object
       description: |-
@@ -5478,6 +5550,7 @@ components:
             Plain-text (or Markdown, per the requested output format) rendering of
             the document.
         counts:
+          $ref: '#/components/schemas/JobResultCounts'
           description: |-
             Structural counts, always present: `{"pages": n, "tables": n,
             "images": n}`. `pages` is `0` for formats that are not page-addressable.
@@ -5499,9 +5572,13 @@ components:
             extractor cannot distinguish them — a client must not read absence as
             "no OCR".
         metadata:
+          type: object
           description: |-
             Document-level metadata (title, authors, dates, page structure,
             format-specific fields). Opaque here; the engine type is `Metadata`.
+          additionalProperties: {}
+          propertyNames:
+            type: string
         mime_type:
           type: string
           description: MIME type the engine resolved for the source document.
@@ -5525,6 +5602,7 @@ components:
             retained. Not a completeness score: read `processing_warnings` to learn
             what was dropped.
         structured_output:
+          type: object
           description: |-
             LLM-extracted JSON matching the requested schema, present only when the
             job supplied one (`options.preset`, an explicit
@@ -5641,12 +5719,14 @@ components:
             terminal state.
         created_at:
           type: string
+          format: date-time
           description: ISO 8601 creation timestamp.
         filename:
           type: string
           description: Original filename.
         id:
           type: string
+          format: uuid
           description: Unique job identifier.
         mime_type:
           type: string
@@ -5691,11 +5771,13 @@ components:
         - tied_with_winner
       properties:
         breakdown:
+          type: object
           description: |-
             Per-dimension score breakdown (e.g. per-document or per-metric
             scores). The concrete shape is defined in `autotune-core`; here it
             is opaque JSON.
         config:
+          type: object
           description: |-
             The extraction configuration trialed for this entry. The concrete
             shape is defined in `autotune-core`; here it is opaque JSON.
@@ -5999,13 +6081,11 @@ components:
           description: Always `0` for Pro — there is no invitation system to defer against.
           example: 0
         project:
-          oneOf:
-            - type: "null"
-            - $ref: '#/components/schemas/ProjectInfo'
-              description: |-
-                The user's active project. Always present for Pro (unlike Enterprise,
-                Pro has no pending-invitation state — every login has an active project
-                by the time this response is built, auto-provisioning one if needed).
+          $ref: '#/components/schemas/ProjectInfo'
+          description: |-
+            The user's active project. Always present for Pro (unlike Enterprise,
+            Pro has no pending-invitation state — every login has an active project
+            by the time this response is built, auto-provisioning one if needed).
         token:
           type: string
           description: Session JWT (valid for `jwt_expiration_secs`, default 7 days).
@@ -6034,10 +6114,8 @@ components:
           description: Target embedding version (must be > collection's current embedding_version).
           minimum: 0
         webhook:
-          oneOf:
-            - type: "null"
-            - $ref: '#/components/schemas/WebhookConfig'
-              description: Optional webhook for migration completion/failure delivery.
+          $ref: '#/components/schemas/WebhookConfig'
+          description: Optional webhook for migration completion/failure delivery.
       additionalProperties: false
     MigrateEmbeddingsResponse:
       type: object
@@ -6068,7 +6146,7 @@ components:
           minimum: 0
         job_id:
           type: string
-          description: Job ID for polling progress.
+          description: Job ID for polling progress (ULID).
         poll:
           type: string
           description: 'Poll endpoint: `/v1/rag/collections/{name}/migrate-embeddings/{job_id}`.'
@@ -6133,12 +6211,10 @@ components:
           description: Error message (only when failed).
         job_id:
           type: string
-          description: Job ID.
+          description: Job ID (ULID).
         progress:
-          oneOf:
-            - type: "null"
-            - $ref: '#/components/schemas/MigrateProgress'
-              description: Progress details (only available when running or completed).
+          $ref: '#/components/schemas/MigrateProgress'
+          description: Progress details (only available when running or completed).
         status:
           $ref: '#/components/schemas/MigrateStatus'
           description: Current status.
@@ -6234,13 +6310,13 @@ components:
           type: string
         id:
           type: string
+          description: Stable, URL-safe preset identifier (lowercase snake_case slug, not a UUID).
         preferred_call_mode:
           $ref: '#/components/schemas/PresetCallMode'
         sample:
-          oneOf:
-            - type: "null"
-            - $ref: '#/components/schemas/PresetSampleRef'
+          $ref: '#/components/schemas/PresetSampleRef'
         schema:
+          type: object
           description: JSON Schema (Draft 2020-12) describing the structured output shape.
         schema_name:
           type: string
@@ -6289,6 +6365,7 @@ components:
           description: Stable sha256 fingerprint used by clients to detect updates.
         id:
           type: string
+          description: Stable, URL-safe preset identifier (lowercase snake_case slug, not a UUID).
         preferred_call_mode:
           $ref: '#/components/schemas/PresetCallMode'
         schema_name:
@@ -6412,9 +6489,11 @@ components:
           description: Number of active (non-revoked) API keys.
         created_at:
           type: string
+          format: date-time
           description: ISO 8601 creation timestamp.
         id:
           type: string
+          format: uuid
           description: Unique project identifier.
         name:
           type: string
@@ -6434,6 +6513,7 @@ components:
           description: Total billable pages extracted (excluding cancelled jobs).
         updated_at:
           type: string
+          format: date-time
           description: ISO 8601 last update timestamp.
         webhook_count:
           type: integer
@@ -6547,6 +6627,7 @@ components:
           description: Associated collection ID (for migrate only; absent for ingest/reindex)
         created_at:
           type: string
+          format: date-time
           description: Timestamp when job was submitted (RFC3339)
         document_id:
           type:
@@ -6566,17 +6647,13 @@ components:
           $ref: '#/components/schemas/RagJobKind'
           description: 'Operation type: "ingest", "reindex", or "migrate"'
         pending_reason:
-          oneOf:
-            - type: "null"
-            - $ref: '#/components/schemas/RagJobPendingReason'
-              description: |-
-                Why the job has not started yet. Absent unless state = pending, and
-                absent when the job is simply queued.
+          $ref: '#/components/schemas/RagJobPendingReason'
+          description: |-
+            Why the job has not started yet. Absent unless state = pending, and
+            absent when the job is simply queued.
         progress:
-          oneOf:
-            - type: "null"
-            - $ref: '#/components/schemas/RagJobProgress'
-              description: Progress details (only for migrate operations; null for ingest/reindex)
+          $ref: '#/components/schemas/RagJobProgress'
+          description: Progress details (only for migrate operations; null for ingest/reindex)
         state:
           $ref: '#/components/schemas/RagJobState'
           description: Current job state
@@ -6620,10 +6697,8 @@ components:
           type: boolean
           description: If true, re-extract from source object via xberg before re-chunking
         webhook:
-          oneOf:
-            - type: "null"
-            - $ref: '#/components/schemas/WebhookConfig'
-              description: Optional webhook for reindex completion/failure delivery.
+          $ref: '#/components/schemas/WebhookConfig'
+          description: Optional webhook for reindex completion/failure delivery.
       additionalProperties: false
     RerankerKind:
       type: string
@@ -6693,6 +6768,7 @@ components:
             primary stage so the reranker has more to choose from.
           minimum: 0
         filter:
+          type: object
           description: Filter expression (deserialized by the vectorstore Filter IR).
         group_by_document:
           type: boolean
@@ -6755,14 +6831,12 @@ components:
           $ref: '#/components/schemas/RetrieveMode'
           description: Mode used.
         rerank_applied:
-          oneOf:
-            - type: "null"
-            - $ref: '#/components/schemas/RerankerKind'
-              description: |-
-                Which reranker (if any) was actually applied. `None` if rerank
-                was off; also `None` if rerank was active but fell back to the
-                primary order — in that case `chunks[i].score_breakdown.rerank_fallback`
-                records the reason.
+          $ref: '#/components/schemas/RerankerKind'
+          description: |-
+            Which reranker (if any) was actually applied. `None` if rerank
+            was off; also `None` if rerank was active but fell back to the
+            primary order — in that case `chunks[i].score_breakdown.rerank_fallback`
+            records the reason.
     RetrievedChunk:
       type: object
       description: Single retrieved chunk in the response.
@@ -6774,13 +6848,18 @@ components:
         - chunk_metadata
       properties:
         chunk_metadata:
+          type: object
           description: Chunk-level metadata.
+          additionalProperties: {}
+          propertyNames:
+            type: string
         content:
           type:
             - string
             - "null"
           description: Chunk content. Present iff `include.content`.
         document:
+          $ref: '#/components/schemas/RetrievedDocumentSummary'
           description: Parent document summary. Present iff `include.document`.
         document_id:
           type: string
@@ -6805,10 +6884,67 @@ components:
           format: float
           description: Effective score after rerank (or primary score when rerank off).
         score_breakdown:
-          oneOf:
-            - type: "null"
-            - $ref: '#/components/schemas/ScoreBreakdown'
-              description: Score detail. Present iff `include.score_breakdown`.
+          $ref: '#/components/schemas/ScoreBreakdown'
+          description: Score detail. Present iff `include.score_breakdown`.
+    RetrievedDocumentSummary:
+      type: object
+      description: |-
+        Wire shape of [`RetrievedChunk::document`] — the parent document summary
+        returned when `include.document` is set.
+
+        Mirrors `vectorstore::DocumentSummary`'s wire shape for documentation
+        purposes only, without adding a dependency on `crates/vectorstore` (see
+        the module-level doc on the `api-types`/`vectorstore` boundary above).
+        [`RetrievedChunk::document`] stays `serde_json::Value` at rest; this type
+        is used solely via `#[schema(value_type = ...)]` to give it a shape.
+      required:
+        - id
+        - keywords
+        - labels
+        - entities
+        - metadata
+        - ingested_at
+      properties:
+        entities:
+          type: array
+          items: {}
+          description: |-
+            Named entities. Opaque item shape here; the engine type is
+            enrichment-pipeline output.
+        external_id:
+          type: string
+          description: Caller-supplied external identifier, if any.
+        id:
+          type: string
+          format: uuid
+          description: Document ID.
+        ingested_at:
+          type: string
+          format: date-time
+          description: Timestamp when the document was ingested.
+        keywords:
+          type: array
+          items:
+            type: string
+          description: Extracted keywords.
+        labels:
+          type: array
+          items: {}
+          description: |-
+            Labels matched from the collection's label vocabulary. Opaque item
+            shape here; the engine type is per-collection configuration.
+        metadata:
+          type: object
+          description: Document-level metadata.
+          additionalProperties: {}
+          propertyNames:
+            type: string
+        mime:
+          type: string
+          description: MIME type.
+        title:
+          type: string
+          description: Document title.
     SavedPresetDetail:
       type: object
       description: Response when retrieving a saved preset.
@@ -6828,6 +6964,7 @@ components:
           description: Optional context template.
         created_at:
           type: string
+          format: date-time
           description: ISO 8601 creation timestamp.
         description:
           type:
@@ -6844,6 +6981,7 @@ components:
             citations regardless of this value.
         id:
           type: string
+          format: uuid
           description: Unique preset ID.
         name:
           type: string
@@ -6861,6 +6999,7 @@ components:
             Pro a saved preset contributes its `schema`, `system_prompt` and
             `context_template`, and nothing else.
         schema:
+          type: object
           description: JSON Schema for the extraction result.
         system_prompt:
           type:
@@ -6869,6 +7008,7 @@ components:
           description: Optional custom system prompt.
         updated_at:
           type: string
+          format: date-time
           description: ISO 8601 last update timestamp.
     SavedPresetSummary:
       type: object
@@ -6881,6 +7021,7 @@ components:
       properties:
         created_at:
           type: string
+          format: date-time
           description: ISO 8601 creation timestamp.
         description:
           type:
@@ -6889,6 +7030,7 @@ components:
           description: Optional description.
         id:
           type: string
+          format: uuid
           description: Unique preset ID.
         name:
           type: string
@@ -6980,18 +7122,21 @@ components:
       properties:
         created_at:
           type: string
+          format: date-time
           description: ISO 8601 creation timestamp.
         id:
           type: string
-          description: Unique tuning profile ID.
+          description: Unique tuning profile ID (ULID).
         name:
           type: string
           description: Tuning profile name.
         profile:
+          type: object
           description: |-
             The tuning profile artifact. The concrete `TuningProfile` shape is
             defined in `autotune-core`; here it is opaque JSON.
         scores:
+          type: object
           description: |-
             Scores recorded for this profile at promotion time. The concrete
             shape is defined in `autotune-core`; here it is opaque JSON.
@@ -7005,10 +7150,11 @@ components:
       properties:
         created_at:
           type: string
+          format: date-time
           description: ISO 8601 creation timestamp.
         id:
           type: string
-          description: Unique tuning profile ID.
+          description: Unique tuning profile ID (ULID).
         name:
           type: string
           description: Tuning profile name.
@@ -7055,6 +7201,7 @@ components:
             Pro a saved preset contributes its `schema`, `system_prompt` and
             `context_template`, and nothing else.
         schema:
+          type: object
           description: JSON Schema (Draft 2020-12) for the extraction result.
         system_prompt:
           type:
@@ -7083,6 +7230,7 @@ components:
         - url
       properties:
         crawl_config:
+          type: object
           description: |-
             Per-URL crawl configuration override, merged with the request-level
             `crawl_config`. Kept as opaque JSON here: the concrete crawl
@@ -7169,10 +7317,8 @@ components:
         - timestamp
       properties:
         error:
-          oneOf:
-            - type: "null"
-            - $ref: '#/components/schemas/WebhookEventError'
-              description: Error details, present only on `job.failed`.
+          $ref: '#/components/schemas/WebhookEventError'
+          description: Error details, present only on `job.failed`.
         event:
           $ref: '#/components/schemas/WebhookEventType'
           description: Which terminal status the job reached.
@@ -7184,7 +7330,9 @@ components:
             carries the same id, so a receiver deduplicates on it.
         job_id:
           type: string
-          description: The job that reached the terminal status.
+          description: |-
+            The job that reached the terminal status. UUID for an extraction job,
+            ULID for a RAG ingest/reindex/migrate job.
         metadata:
           type:
             - object
@@ -7198,11 +7346,13 @@ components:
           propertyNames:
             type: string
         results:
+          type: object
           description: |-
             The extraction result, present only on `job.completed` and only when it
             fits in the body. The shape is the `result` of `GET /v1/jobs/{id}`.
         timestamp:
           type: string
+          format: date-time
           description: RFC 3339 time at which the job reached the terminal status.
     WebhookEventError:
       type: object

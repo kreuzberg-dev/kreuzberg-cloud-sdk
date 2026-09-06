@@ -93,7 +93,7 @@ def test_create_project_sync_accepts_mapping_body(api_key: str) -> None:
     with _pro_client(api_key) as client:
         project = client.create_project({"name": "Acme", "slug": "acme"})
 
-    assert project.id == PROJECT_ID
+    assert str(project.id) == PROJECT_ID
     assert project.name == "Acme"
     assert json.loads(route.calls.last.request.content) == {"name": "Acme", "slug": "acme"}
 
@@ -182,7 +182,7 @@ def test_create_integration_sync(api_key: str) -> None:
             {"name": "Team Drive", "kind": "google_drive", "auth_type": "oauth2"},
         )
 
-    assert integration.id == INTEGRATION_ID
+    assert str(integration.id) == INTEGRATION_ID
     assert integration.provider == "google"
     assert json.loads(route.calls.last.request.content)["kind"] == "google_drive"
 
@@ -318,7 +318,7 @@ async def test_list_projects_async(api_key: str) -> None:
         response = await client.list_projects(limit=5, offset=10)
 
     assert response.offset == 10
-    assert [project.id for project in response.projects] == [PROJECT_ID]
+    assert [str(project.id) for project in response.projects] == [PROJECT_ID]
     assert dict(route.calls.last.request.url.params) == {"limit": "5", "offset": "10"}
 
 
@@ -419,7 +419,7 @@ async def test_get_integration_async(api_key: str) -> None:
         return_value=httpx.Response(200, json=INTEGRATION),
     )
     async with _async_pro_client(api_key) as client:
-        assert (await client.get_integration(PROJECT_ID, INTEGRATION_ID)).id == INTEGRATION_ID
+        assert str((await client.get_integration(PROJECT_ID, INTEGRATION_ID)).id) == INTEGRATION_ID
 
 
 @pytest.mark.asyncio

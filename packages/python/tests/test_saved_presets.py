@@ -17,6 +17,9 @@ import respx
 
 from xberg_io_sdk import AsyncXbergClient, XbergClient
 from xberg_io_sdk._generated_api.models.create_saved_preset_request import CreateSavedPresetRequest
+from xberg_io_sdk._generated_api.models.create_saved_preset_request_schema import (
+    CreateSavedPresetRequestSchema,
+)
 
 if TYPE_CHECKING:
     from xberg_io_sdk.client import Target
@@ -109,7 +112,7 @@ def test_saved_preset_path_follows_the_healthz_probe_reporting_pro(api_key: str)
         return_value=httpx.Response(200, json=PRESET_DETAIL),
     )
     with XbergClient(api_key=api_key, base_url=PRO_URL) as client:
-        assert client.get_saved_preset(PRESET_ID).id == PRESET_ID
+        assert str(client.get_saved_preset(PRESET_ID).id) == PRESET_ID
 
     assert route.calls.last.request.url.path == f"{PRO_PRESETS_PATH}/{PRESET_ID}"
 
@@ -154,7 +157,7 @@ def test_create_saved_preset_sync(base_url: str, api_key: str) -> None:
     with _client(api_key, base_url, "enterprise") as client:
         response = client.create_saved_preset(CREATE_BODY)
 
-    assert response.id == PRESET_ID
+    assert str(response.id) == PRESET_ID
     assert response.success is True
     assert route.calls.last.request.method == "POST"
     assert route.calls.last.request.url.path == ENTERPRISE_PRESETS_PATH
@@ -166,7 +169,12 @@ def test_create_saved_preset_sync_accepts_generated_request_model(api_key: str) 
     route = respx.post(f"{PRO_URL}{PRO_PRESETS_PATH}").mock(return_value=httpx.Response(201, json=CREATE_RESPONSE))
     with _client(api_key, PRO_URL, "pro") as client:
         response = client.create_saved_preset(
-            CreateSavedPresetRequest(name="invoices", preferred_call_mode="text_only", schema={"type": "object"}),
+            CreateSavedPresetRequest(
+                name="invoices",
+                preferred_call_mode="text_only",
+                # `schema` is a generated model now that the spec types it, not a bare dict.
+                schema=CreateSavedPresetRequestSchema.from_dict({"type": "object"}),
+            ),
         )
 
     assert response.name == "invoices"
@@ -181,9 +189,9 @@ def test_get_saved_preset_sync(base_url: str, api_key: str) -> None:
     with _client(api_key, base_url, "enterprise") as client:
         preset = client.get_saved_preset(PRESET_ID)
 
-    assert preset.id == PRESET_ID
+    assert str(preset.id) == PRESET_ID
     assert preset.emit_citations is True
-    assert preset.schema == {"type": "object", "properties": {"total": {"type": "number"}}}
+    assert preset.schema.to_dict() == {"type": "object", "properties": {"total": {"type": "number"}}}
     assert route.calls.last.request.method == "GET"
 
 
@@ -231,7 +239,7 @@ async def test_list_saved_presets_async_on_enterprise(base_url: str, api_key: st
     async with _async_client(api_key, base_url, "enterprise") as client:
         response = await client.list_saved_presets(limit=5)
 
-    assert response.presets[0].id == PRESET_ID
+    assert str(response.presets[0].id) == PRESET_ID
     assert route.calls.last.request.url.path == ENTERPRISE_PRESETS_PATH
     assert dict(route.calls.last.request.url.params) == {"limit": "5"}
 
@@ -253,7 +261,7 @@ async def test_create_saved_preset_async(api_key: str) -> None:
     async with _async_client(api_key, PRO_URL, "pro") as client:
         response = await client.create_saved_preset(CREATE_BODY)
 
-    assert response.id == PRESET_ID
+    assert str(response.id) == PRESET_ID
     assert route.calls.last.request.method == "POST"
     assert json.loads(route.calls.last.request.content) == CREATE_BODY
 

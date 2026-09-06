@@ -9,10 +9,10 @@ import (
 )
 
 const (
-	savedPresetID       = "sp-1"
-	savedPresetListBody = `{"presets":[{"id":"sp-1","name":"Invoice","preferred_call_mode":"tool_use",
+	savedPresetID       = "cccccccc-0000-4000-8000-000000000001"
+	savedPresetListBody = `{"presets":[{"id":"cccccccc-0000-4000-8000-000000000001","name":"Invoice","preferred_call_mode":"tool_use",
 		"created_at":"2025-01-01T00:00:00Z"}],"total":1,"limit":50,"page":0}`
-	savedPresetDetailBody = `{"id":"sp-1","name":"Invoice","preferred_call_mode":"tool_use",
+	savedPresetDetailBody = `{"id":"cccccccc-0000-4000-8000-000000000001","name":"Invoice","preferred_call_mode":"tool_use",
 		"emit_citations":true,"schema":{"type":"object"},
 		"created_at":"2025-01-01T00:00:00Z","updated_at":"2025-01-02T00:00:00Z"}`
 )
@@ -69,7 +69,7 @@ func TestCreateSavedPreset_UsesTierSpecificPath(t *testing.T) {
 			t.Parallel()
 			var seen recordedRequest
 			client := targetClient(t, target, http.StatusCreated,
-				`{"id":"sp-1","message":"created"}`, &seen)
+				`{"id":"cccccccc-0000-4000-8000-000000000001","message":"created"}`, &seen)
 
 			emitCitations := true
 			created, err := client.CreateSavedPreset(context.Background(), xberg.CreateSavedPresetRequest{
@@ -84,8 +84,8 @@ func TestCreateSavedPreset_UsesTierSpecificPath(t *testing.T) {
 			if seen.method != http.MethodPost || seen.path != base {
 				t.Errorf("request = %s %s, want POST %s", seen.method, seen.path, base)
 			}
-			if created.Id != savedPresetID {
-				t.Errorf("Id = %q, want %s", created.Id, savedPresetID)
+			if created.Id.String() != savedPresetID {
+				t.Errorf("Id = %q, want %s", created.Id.String(), savedPresetID)
 			}
 		})
 	}

@@ -31,14 +31,14 @@ PRO_URL = "https://pro.example.test"
 
 @respx.mock
 def test_get_job_result_parses_into_job_result_shape(base_url: str, api_key: str) -> None:
-    respx.get(f"{base_url}/v1/jobs/job-1/result").mock(
+    respx.get(f"{base_url}/v1/jobs/aaaaaaaa-0000-4000-8000-000000000001/result").mock(
         return_value=httpx.Response(
             200,
             json=make_job_result_payload(
-                job_id="job-1",
+                job_id="aaaaaaaa-0000-4000-8000-000000000001",
                 status="partial_success",
                 results=[make_extraction_result(content="page one"), make_extraction_result(content="page two")],
-                child_job_ids=["job-1-a"],
+                child_job_ids=["aaaaaaaa-0000-4000-8000-00000000000a"],
                 errors=[
                     {
                         "error_type": "unsupported_mime_type",
@@ -52,13 +52,13 @@ def test_get_job_result_parses_into_job_result_shape(base_url: str, api_key: str
         ),
     )
     with XbergClient(api_key=api_key, base_url=base_url, target="enterprise") as client:
-        result = client.get_job_result("job-1")
+        result = client.get_job_result("aaaaaaaa-0000-4000-8000-000000000001")
 
     assert isinstance(result, JobResult)
-    assert result.job_id == "job-1"
+    assert str(result.job_id) == "aaaaaaaa-0000-4000-8000-000000000001"
     assert result.status == "partial_success"
     assert result.completed_at == "2026-05-09T10:05:00Z"
-    assert result.child_job_ids == ["job-1-a"]
+    assert [str(j) for j in result.child_job_ids] == ["aaaaaaaa-0000-4000-8000-00000000000a"]
     assert [document.content for document in result.results] == ["page one", "page two"]
     assert len(result.errors) == 1
     assert result.errors[0].error_type == "unsupported_mime_type"
@@ -70,62 +70,72 @@ def test_get_job_result_parses_into_job_result_shape(base_url: str, api_key: str
 
 @respx.mock
 def test_get_job_result_on_pro_is_not_gated(api_key: str) -> None:
-    respx.get(f"{PRO_URL}/v1/jobs/job-2/result").mock(
-        return_value=httpx.Response(200, json=make_job_result_payload(job_id="job-2")),
+    respx.get(f"{PRO_URL}/v1/jobs/aaaaaaaa-0000-4000-8000-000000000002/result").mock(
+        return_value=httpx.Response(200, json=make_job_result_payload(job_id="aaaaaaaa-0000-4000-8000-000000000002")),
     )
     with XbergClient(api_key=api_key, base_url=PRO_URL, target="pro") as client:
-        result = client.get_job_result("job-2")
+        result = client.get_job_result("aaaaaaaa-0000-4000-8000-000000000002")
 
-    assert result.job_id == "job-2"
+    assert str(result.job_id) == "aaaaaaaa-0000-4000-8000-000000000002"
     assert result.status == "completed"
     assert len(result.results) == 1
 
 
 @respx.mock
 def test_get_job_result_without_target_does_not_probe_healthz(base_url: str, api_key: str) -> None:
-    result_route = respx.get(f"{base_url}/v1/jobs/job-3/result").mock(
-        return_value=httpx.Response(200, json=make_job_result_payload(job_id="job-3")),
+    result_route = respx.get(f"{base_url}/v1/jobs/aaaaaaaa-0000-4000-8000-000000000003/result").mock(
+        return_value=httpx.Response(200, json=make_job_result_payload(job_id="aaaaaaaa-0000-4000-8000-000000000003")),
     )
     with XbergClient(api_key=api_key, base_url=base_url) as client:
-        assert client.get_job_result("job-3").job_id == "job-3"
+        assert (
+            str(client.get_job_result("aaaaaaaa-0000-4000-8000-000000000003").job_id)
+            == "aaaaaaaa-0000-4000-8000-000000000003"
+        )
     assert result_route.call_count == 1
 
 
 @respx.mock
 def test_get_job_result_rejects_non_object_body(base_url: str, api_key: str) -> None:
-    respx.get(f"{base_url}/v1/jobs/job-4/result").mock(return_value=httpx.Response(200, json=["nope"]))
+    respx.get(f"{base_url}/v1/jobs/aaaaaaaa-0000-4000-8000-000000000004/result").mock(
+        return_value=httpx.Response(200, json=["nope"])
+    )
     with (
         XbergClient(api_key=api_key, base_url=base_url, target="pro") as client,
         pytest.raises(ValueError, match="unexpected job result response shape"),
     ):
-        client.get_job_result("job-4")
+        client.get_job_result("aaaaaaaa-0000-4000-8000-000000000004")
 
 
 @pytest.mark.asyncio
 @respx.mock
 async def test_get_job_result_async_parses_into_job_result_shape(api_key: str) -> None:
-    respx.get(f"{PRO_URL}/v1/jobs/job-5/result").mock(
+    respx.get(f"{PRO_URL}/v1/jobs/aaaaaaaa-0000-4000-8000-000000000005/result").mock(
         return_value=httpx.Response(
             200,
-            json=make_job_result_payload(job_id="job-5", results=[make_extraction_result(content="async body")]),
+            json=make_job_result_payload(
+                job_id="aaaaaaaa-0000-4000-8000-000000000005", results=[make_extraction_result(content="async body")]
+            ),
         ),
     )
     async with AsyncXbergClient(api_key=api_key, base_url=PRO_URL, target="pro") as client:
-        result = await client.get_job_result("job-5")
+        result = await client.get_job_result("aaaaaaaa-0000-4000-8000-000000000005")
 
     assert isinstance(result, JobResult)
-    assert result.job_id == "job-5"
+    assert str(result.job_id) == "aaaaaaaa-0000-4000-8000-000000000005"
     assert [document.content for document in result.results] == ["async body"]
 
 
 @pytest.mark.asyncio
 @respx.mock
 async def test_get_job_result_async_on_enterprise_is_not_gated(base_url: str, api_key: str) -> None:
-    respx.get(f"{base_url}/v1/jobs/job-6/result").mock(
-        return_value=httpx.Response(200, json=make_job_result_payload(job_id="job-6")),
+    respx.get(f"{base_url}/v1/jobs/aaaaaaaa-0000-4000-8000-000000000006/result").mock(
+        return_value=httpx.Response(200, json=make_job_result_payload(job_id="aaaaaaaa-0000-4000-8000-000000000006")),
     )
     async with AsyncXbergClient(api_key=api_key, base_url=base_url, target="enterprise") as client:
-        assert (await client.get_job_result("job-6")).job_id == "job-6"
+        assert (
+            str((await client.get_job_result("aaaaaaaa-0000-4000-8000-000000000006")).job_id)
+            == "aaaaaaaa-0000-4000-8000-000000000006"
+        )
 
 
 # -- GET /v1/presets, /v1/presets/{id}, /v1/presets/{id}/sample/{name}  ~keep
@@ -141,7 +151,7 @@ def test_presets_on_pro(api_key: str) -> None:
 
     assert len(summaries) == 1
     assert isinstance(summaries[0], PresetSummary)
-    assert summaries[0].id == "invoice-v1"
+    assert str(summaries[0].id) == "invoice-v1"
     assert summaries[0].category == "finance"
     assert summaries[0].preferred_call_mode == "text_only"
 
@@ -174,9 +184,9 @@ def test_get_preset_on_pro(api_key: str) -> None:
         detail = client.get_preset("invoice-v1")
 
     assert isinstance(detail, PresetDetail)
-    assert detail.id == "invoice-v1"
+    assert str(detail.id) == "invoice-v1"
     assert detail.system_prompt == "Extract the invoice fields."
-    assert detail.schema == {"type": "object", "properties": {"total": {"type": "number"}}}
+    assert detail.schema.to_dict() == {"type": "object", "properties": {"total": {"type": "number"}}}
 
 
 @respx.mock

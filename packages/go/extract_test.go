@@ -121,7 +121,9 @@ func TestExtract_MultipartBodyShape(t *testing.T) {
 			{Name: "b.png", Reader: strings.NewReader("bbbb")},
 		},
 		&xberg.ExtractionOptions{
-			ExtractionConfig: map[string]any{
+			// A pointer now that the spec types the property as an object
+			// instead of leaving it untyped.
+			ExtractionConfig: &map[string]any{
 				"output_format": "markdown",
 				"disable_ocr":   false,
 			},

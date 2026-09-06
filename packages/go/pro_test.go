@@ -10,8 +10,8 @@ import (
 )
 
 const (
-	testProjectID     = "proj-1"
-	testIntegrationID = "int-1"
+	testProjectID     = "bbbbbbbb-0000-4000-8000-000000000001"
+	testIntegrationID = "dddddddd-0000-4000-8000-000000000001"
 )
 
 // proClient spins up a Pro-targeted client whose transport records the method,
@@ -27,8 +27,8 @@ func TestListProjects_ReturnsTypedPage(t *testing.T) {
 	t.Parallel()
 	var seen recordedRequest
 	client := proClient(t, http.StatusOK, `{
-		"projects":[{"id":"p1","name":"Acme","slug":"acme","status":"ACTIVE",
-			"owner_user_id":"u1","created_at":"2025-01-01T00:00:00Z",
+		"projects":[{"id":"bbbbbbbb-0000-4000-8000-000000000001","name":"Acme","slug":"acme","status":"ACTIVE",
+			"owner_user_id":"ffffffff-0000-4000-8000-000000000001","created_at":"2025-01-01T00:00:00Z",
 			"updated_at":"2025-01-02T00:00:00Z","api_key_count":2,
 			"webhook_count":0,"total_pages_extracted":1200}],
 		"total":1,"limit":50,"offset":0
@@ -58,8 +58,8 @@ func TestListProjects_ReturnsTypedPage(t *testing.T) {
 func TestCreateProject_PostsRequestBody(t *testing.T) {
 	t.Parallel()
 	var seen recordedRequest
-	client := proClient(t, http.StatusCreated, `{"id":"p1","name":"Acme","slug":"acme",
-		"status":"ACTIVE","owner_user_id":"u1","created_at":"2025-01-01T00:00:00Z",
+	client := proClient(t, http.StatusCreated, `{"id":"bbbbbbbb-0000-4000-8000-000000000001","name":"Acme","slug":"acme",
+		"status":"ACTIVE","owner_user_id":"ffffffff-0000-4000-8000-000000000001","created_at":"2025-01-01T00:00:00Z",
 		"updated_at":"2025-01-01T00:00:00Z","api_key_count":0,"webhook_count":0,
 		"total_pages_extracted":0}`, &seen)
 
@@ -77,7 +77,7 @@ func TestCreateProject_PostsRequestBody(t *testing.T) {
 	if seen.body != `{"name":"Acme","slug":"acme"}` {
 		t.Errorf("body = %s, want the name+slug payload", seen.body)
 	}
-	if project.Id != "p1" {
+	if project.Id.String() != "bbbbbbbb-0000-4000-8000-000000000001" {
 		t.Errorf("Id = %q, want p1", project.Id)
 	}
 }
@@ -88,7 +88,7 @@ func TestListApiKeys_ReturnsTypedPage(t *testing.T) {
 	t.Parallel()
 	var seen recordedRequest
 	client := proClient(t, http.StatusOK, `{
-		"api_keys":[{"id":"k1","key_prefix":"kz_abcdefgh","scope":"read",
+		"api_keys":[{"id":"eeeeeeee-0000-4000-8000-000000000001","key_prefix":"kz_abcdefgh","scope":"read",
 			"created_at":"2025-01-01T00:00:00Z"}],
 		"total":1,"limit":100,"offset":0
 	}`, &seen)
@@ -97,8 +97,8 @@ func TestListApiKeys_ReturnsTypedPage(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ListAPIKeys: %v", err)
 	}
-	if seen.path != "/v1/projects/proj-1/api-keys" {
-		t.Errorf("path = %q, want /v1/projects/proj-1/api-keys", seen.path)
+	if seen.path != "/v1/projects/bbbbbbbb-0000-4000-8000-000000000001/api-keys" {
+		t.Errorf("path = %q, want /v1/projects/bbbbbbbb-0000-4000-8000-000000000001/api-keys", seen.path)
 	}
 	if seen.query != "" {
 		t.Errorf("query = %q, want empty when limit and offset are unset", seen.query)
@@ -114,7 +114,7 @@ func TestListApiKeys_ReturnsTypedPage(t *testing.T) {
 func TestCreateApiKey_ReturnsPlaintextKeyOnce(t *testing.T) {
 	t.Parallel()
 	var seen recordedRequest
-	client := proClient(t, http.StatusCreated, `{"id":"k1","key":"kz_secret_value",
+	client := proClient(t, http.StatusCreated, `{"id":"eeeeeeee-0000-4000-8000-000000000001","key":"kz_secret_value",
 		"key_prefix":"kz_secret","scope":"write","created_at":"2025-01-01T00:00:00Z"}`, &seen)
 
 	scope := xberg.Write
@@ -126,8 +126,8 @@ func TestCreateApiKey_ReturnsPlaintextKeyOnce(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateAPIKey: %v", err)
 	}
-	if seen.method != http.MethodPost || seen.path != "/v1/projects/proj-1/api-keys" {
-		t.Errorf("request = %s %s, want POST /v1/projects/proj-1/api-keys", seen.method, seen.path)
+	if seen.method != http.MethodPost || seen.path != "/v1/projects/bbbbbbbb-0000-4000-8000-000000000001/api-keys" {
+		t.Errorf("request = %s %s, want POST /v1/projects/bbbbbbbb-0000-4000-8000-000000000001/api-keys", seen.method, seen.path)
 	}
 	if seen.body != `{"name":"ci","scope":"write"}` {
 		t.Errorf("body = %s, want the name+scope payload", seen.body)
@@ -142,14 +142,14 @@ func TestRevokeApiKey_HandlesNoContent(t *testing.T) {
 	var seen recordedRequest
 	client := proClient(t, http.StatusNoContent, "", &seen)
 
-	if err := client.RevokeAPIKey(context.Background(), testProjectID, "k1"); err != nil {
+	if err := client.RevokeAPIKey(context.Background(), testProjectID, "eeeeeeee-0000-4000-8000-000000000001"); err != nil {
 		t.Fatalf("RevokeAPIKey: %v", err)
 	}
 	if seen.method != http.MethodDelete {
 		t.Errorf("method = %q, want DELETE", seen.method)
 	}
-	if seen.path != "/v1/projects/proj-1/api-keys/k1" {
-		t.Errorf("path = %q, want /v1/projects/proj-1/api-keys/k1", seen.path)
+	if seen.path != "/v1/projects/bbbbbbbb-0000-4000-8000-000000000001/api-keys/eeeeeeee-0000-4000-8000-000000000001" {
+		t.Errorf("path = %q, want /v1/projects/bbbbbbbb-0000-4000-8000-000000000001/api-keys/eeeeeeee-0000-4000-8000-000000000001", seen.path)
 	}
 }
 
@@ -159,8 +159,8 @@ func TestListIntegrations_ReturnsTypedPage(t *testing.T) {
 	t.Parallel()
 	var seen recordedRequest
 	client := proClient(t, http.StatusOK, `{
-		"integrations":[{"id":"int-1","name":"Drive","kind":"google_drive",
-			"auth_type":"oauth2","provider":"google","project_id":"proj-1"}],
+		"integrations":[{"id":"dddddddd-0000-4000-8000-000000000001","name":"Drive","kind":"google_drive",
+			"auth_type":"oauth2","provider":"google","project_id":"bbbbbbbb-0000-4000-8000-000000000001"}],
 		"total":1,"limit":50,"offset":10
 	}`, &seen)
 
@@ -168,8 +168,8 @@ func TestListIntegrations_ReturnsTypedPage(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ListIntegrations: %v", err)
 	}
-	if seen.path != "/v1/projects/proj-1/integrations" {
-		t.Errorf("path = %q, want /v1/projects/proj-1/integrations", seen.path)
+	if seen.path != "/v1/projects/bbbbbbbb-0000-4000-8000-000000000001/integrations" {
+		t.Errorf("path = %q, want /v1/projects/bbbbbbbb-0000-4000-8000-000000000001/integrations", seen.path)
 	}
 	if seen.query != "limit=50&offset=10" {
 		t.Errorf("query = %q, want limit=50&offset=10", seen.query)
@@ -182,7 +182,7 @@ func TestListIntegrations_ReturnsTypedPage(t *testing.T) {
 func TestCreateIntegration_PostsRequestBody(t *testing.T) {
 	t.Parallel()
 	var seen recordedRequest
-	client := proClient(t, http.StatusCreated, `{"id":"int-1","name":"Drive",
+	client := proClient(t, http.StatusCreated, `{"id":"dddddddd-0000-4000-8000-000000000001","name":"Drive",
 		"kind":"google_drive","auth_type":"oauth2","provider":"google"}`, &seen)
 
 	integration, err := client.CreateIntegration(context.Background(), testProjectID,
@@ -190,13 +190,17 @@ func TestCreateIntegration_PostsRequestBody(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateIntegration: %v", err)
 	}
-	if seen.method != http.MethodPost || seen.path != "/v1/projects/proj-1/integrations" {
-		t.Errorf("request = %s %s, want POST /v1/projects/proj-1/integrations", seen.method, seen.path)
+	if seen.method != http.MethodPost || seen.path != "/v1/projects/bbbbbbbb-0000-4000-8000-000000000001/integrations" {
+		t.Errorf("request = %s %s, want POST /v1/projects/bbbbbbbb-0000-4000-8000-000000000001/integrations", seen.method, seen.path)
 	}
-	if seen.body != `{"auth_type":"oauth2","kind":"google_drive","name":"Drive"}` {
-		t.Errorf("body = %s, want the auth_type+kind+name payload", seen.body)
+	// `credentials` is required by Pro's CreateIntegrationRequest -- it carries no
+	// `#[serde(default)]`, so the key must be present even when it is null, which is
+	// what Pro's own integration tests send. The client used to omit it, which Pro
+	// would have rejected; the spec typing the property is what surfaced that.
+	if seen.body != `{"auth_type":"oauth2","credentials":null,"kind":"google_drive","name":"Drive"}` {
+		t.Errorf("body = %s, want the payload including a null credentials", seen.body)
 	}
-	if integration.Id != testIntegrationID {
+	if integration.Id.String() != testIntegrationID {
 		t.Errorf("Id = %q, want %s", integration.Id, testIntegrationID)
 	}
 }
@@ -204,14 +208,14 @@ func TestCreateIntegration_PostsRequestBody(t *testing.T) {
 func TestGetIntegration_ReturnsTypedIntegration(t *testing.T) {
 	t.Parallel()
 	var seen recordedRequest
-	client := proClient(t, http.StatusOK, `{"id":"int-1","name":"Drive",
+	client := proClient(t, http.StatusOK, `{"id":"dddddddd-0000-4000-8000-000000000001","name":"Drive",
 		"kind":"google_drive","auth_type":"oauth2","provider":"google"}`, &seen)
 
 	integration, err := client.GetIntegration(context.Background(), testProjectID, testIntegrationID)
 	if err != nil {
 		t.Fatalf("GetIntegration: %v", err)
 	}
-	if seen.method != http.MethodGet || seen.path != "/v1/projects/proj-1/integrations/int-1" {
+	if seen.method != http.MethodGet || seen.path != "/v1/projects/bbbbbbbb-0000-4000-8000-000000000001/integrations/dddddddd-0000-4000-8000-000000000001" {
 		t.Errorf("request = %s %s, want GET the integration route", seen.method, seen.path)
 	}
 	if integration.Kind != "google_drive" {
@@ -227,7 +231,7 @@ func TestDeleteIntegration_HandlesNoContent(t *testing.T) {
 	if err := client.DeleteIntegration(context.Background(), testProjectID, testIntegrationID); err != nil {
 		t.Fatalf("DeleteIntegration: %v", err)
 	}
-	if seen.method != http.MethodDelete || seen.path != "/v1/projects/proj-1/integrations/int-1" {
+	if seen.method != http.MethodDelete || seen.path != "/v1/projects/bbbbbbbb-0000-4000-8000-000000000001/integrations/dddddddd-0000-4000-8000-000000000001" {
 		t.Errorf("request = %s %s, want DELETE the integration route", seen.method, seen.path)
 	}
 }
@@ -241,7 +245,7 @@ func TestConnectIntegration_ReturnsAuthorizeURL(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ConnectIntegration: %v", err)
 	}
-	if seen.method != http.MethodPost || seen.path != "/v1/projects/proj-1/integrations/int-1/connect" {
+	if seen.method != http.MethodPost || seen.path != "/v1/projects/bbbbbbbb-0000-4000-8000-000000000001/integrations/dddddddd-0000-4000-8000-000000000001/connect" {
 		t.Errorf("request = %s %s, want POST the connect route", seen.method, seen.path)
 	}
 	if seen.body != "" {
@@ -260,7 +264,7 @@ func TestDisconnectIntegration_HandlesNoContent(t *testing.T) {
 	if err := client.DisconnectIntegration(context.Background(), testProjectID, testIntegrationID); err != nil {
 		t.Fatalf("DisconnectIntegration: %v", err)
 	}
-	if seen.method != http.MethodPost || seen.path != "/v1/projects/proj-1/integrations/int-1/disconnect" {
+	if seen.method != http.MethodPost || seen.path != "/v1/projects/bbbbbbbb-0000-4000-8000-000000000001/integrations/dddddddd-0000-4000-8000-000000000001/disconnect" {
 		t.Errorf("request = %s %s, want POST the disconnect route", seen.method, seen.path)
 	}
 }
@@ -279,7 +283,7 @@ func TestListIntegrationDocuments_EncodesFilters(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ListIntegrationDocuments: %v", err)
 	}
-	if seen.path != "/v1/projects/proj-1/integrations/int-1/documents" {
+	if seen.path != "/v1/projects/bbbbbbbb-0000-4000-8000-000000000001/integrations/dddddddd-0000-4000-8000-000000000001/documents" {
 		t.Errorf("path = %q, want the documents route", seen.path)
 	}
 	want := "max_results=25&mime_types=application%2Fpdf%2Ctext%2Fplain"
@@ -318,7 +322,7 @@ func TestFetchIntegrationDocument_ReturnsRawBytes(t *testing.T) {
 	if err != nil {
 		t.Fatalf("FetchIntegrationDocument: %v", err)
 	}
-	if seen.path != "/v1/projects/proj-1/integrations/int-1/documents/d 1" {
+	if seen.path != "/v1/projects/bbbbbbbb-0000-4000-8000-000000000001/integrations/dddddddd-0000-4000-8000-000000000001/documents/d 1" {
 		t.Errorf("decoded path = %q, want the escaped document route", seen.path)
 	}
 	if string(got) != "\x89PNG\r\n\x1a\nbinary" {
@@ -348,7 +352,7 @@ func TestControlPlane_IsGatedToPro(t *testing.T) {
 			_, err := client.CreateAPIKey(ctx, testProjectID, xberg.CreateApiKeyRequest{})
 			return err
 		},
-		"RevokeAPIKey": func() error { return client.RevokeAPIKey(ctx, testProjectID, "k1") },
+		"RevokeAPIKey": func() error { return client.RevokeAPIKey(ctx, testProjectID, "eeeeeeee-0000-4000-8000-000000000001") },
 		"ListIntegrations": func() error {
 			_, err := client.ListIntegrations(ctx, testProjectID, 0, 0)
 			return err

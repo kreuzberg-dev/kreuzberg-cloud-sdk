@@ -94,7 +94,7 @@ def test_list_auto_tune_jobs_sync_forwards_pagination(base_url: str, api_key: st
         response = client.list_auto_tune_jobs(limit=5, offset=10)
 
     assert response.total == 1
-    assert response.jobs[0].auto_tune_job_id == JOB_ID
+    assert str(response.jobs[0].auto_tune_job_id) == JOB_ID
     assert response.jobs[0].trials_total == 12
     assert route.calls.last.request.method == "GET"
     assert route.calls.last.request.url.path == AUTO_TUNE_PATH
@@ -115,7 +115,7 @@ def test_submit_auto_tune_sync_sends_multipart_request_and_file_parts(
     with XbergClient(api_key=api_key, base_url=base_url) as client:
         response = client.submit_auto_tune(SUBMIT_REQUEST, [document])
 
-    assert response.auto_tune_job_id == JOB_ID
+    assert str(response.auto_tune_job_id) == JOB_ID
     assert response.status == "queued"
     request = route.calls.last.request
     assert request.method == "POST"
@@ -169,7 +169,7 @@ def test_get_auto_tune_status_sync(base_url: str, api_key: str) -> None:
     with XbergClient(api_key=api_key, base_url=base_url) as client:
         status = client.get_auto_tune_status(JOB_ID)
 
-    assert status.auto_tune_job_id == JOB_ID
+    assert str(status.auto_tune_job_id) == JOB_ID
     assert status.trials_completed == 3
     assert status.budget_spent == 1200
     assert route.calls.last.request.method == "GET"
@@ -194,7 +194,7 @@ def test_promote_auto_tune_profile_sync(base_url: str, api_key: str) -> None:
     with XbergClient(api_key=api_key, base_url=base_url) as client:
         profile = client.promote_auto_tune_profile(JOB_ID, PromoteProfileRequest(name="invoices-tuned"))
 
-    assert profile.id == PROFILE_ID
+    assert str(profile.id) == PROFILE_ID
     assert profile.name == "invoices-tuned"
     assert route.calls.last.request.method == "POST"
     assert route.calls.last.request.url.path == f"{AUTO_TUNE_PATH}/{JOB_ID}/promote"
@@ -209,7 +209,7 @@ def test_get_auto_tune_result_sync(base_url: str, api_key: str) -> None:
     with XbergClient(api_key=api_key, base_url=base_url) as client:
         result = client.get_auto_tune_result(JOB_ID)
 
-    assert result.auto_tune_job_id == JOB_ID
+    assert str(result.auto_tune_job_id) == JOB_ID
     assert result.held_out_confidence == 0.88
     assert result.leaderboard[0].primary_score == 0.91
     assert result.leaderboard[0].tied_with_winner is True
@@ -241,8 +241,8 @@ def test_get_tuning_profile_sync(base_url: str, api_key: str) -> None:
     with XbergClient(api_key=api_key, base_url=base_url) as client:
         profile = client.get_tuning_profile(PROFILE_ID)
 
-    assert profile.id == PROFILE_ID
-    assert profile.scores == {"primary": 0.91}
+    assert str(profile.id) == PROFILE_ID
+    assert profile.scores.to_dict() == {"primary": 0.91}
     assert route.calls.last.request.method == "GET"
     assert route.calls.last.request.url.path == f"{TUNING_PROFILES_PATH}/{PROFILE_ID}"
 
@@ -309,7 +309,7 @@ async def test_submit_auto_tune_async_sends_multipart(base_url: str, api_key: st
     async with AsyncXbergClient(api_key=api_key, base_url=base_url) as client:
         response = await client.submit_auto_tune(SUBMIT_REQUEST, [b"payload"])
 
-    assert response.auto_tune_job_id == JOB_ID
+    assert str(response.auto_tune_job_id) == JOB_ID
     request = route.calls.last.request
     assert request.method == "POST"
     assert request.headers["content-type"].startswith("multipart/form-data")
@@ -380,7 +380,7 @@ async def test_get_auto_tune_result_async(base_url: str, api_key: str) -> None:
     async with AsyncXbergClient(api_key=api_key, base_url=base_url) as client:
         result = await client.get_auto_tune_result(JOB_ID)
 
-    assert result.profile == {"ocr_backend": "tesseract"}
+    assert result.profile.to_dict() == {"ocr_backend": "tesseract"}
     assert route.calls.last.request.url.path == f"{AUTO_TUNE_PATH}/{JOB_ID}/result"
 
 
@@ -394,7 +394,7 @@ async def test_list_tuning_profiles_async(base_url: str, api_key: str) -> None:
     async with AsyncXbergClient(api_key=api_key, base_url=base_url) as client:
         response = await client.list_tuning_profiles()
 
-    assert response.profiles[0].id == PROFILE_ID
+    assert str(response.profiles[0].id) == PROFILE_ID
     assert route.calls.last.request.url.path == TUNING_PROFILES_PATH
 
 
@@ -407,7 +407,7 @@ async def test_get_tuning_profile_async(base_url: str, api_key: str) -> None:
     async with AsyncXbergClient(api_key=api_key, base_url=base_url) as client:
         profile = await client.get_tuning_profile(PROFILE_ID)
 
-    assert profile.created_at == "2026-05-03T09:00:00Z"
+    assert profile.created_at.isoformat() == "2026-05-03T09:00:00+00:00"
     assert route.calls.last.request.url.path == f"{TUNING_PROFILES_PATH}/{PROFILE_ID}"
 
 

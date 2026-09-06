@@ -56,7 +56,7 @@ def test_submit_enrich_sync(base_url: str, api_key: str) -> None:
     with XbergClient(api_key=api_key, base_url=base_url, target="enterprise") as client:
         response = client.submit_enrich(EnrichTextRequest(text="Acme Corp invoiced 42 EUR."))
 
-    assert response.job_id == ENRICH_JOB_ID
+    assert str(response.job_id) == ENRICH_JOB_ID
     assert route.calls.last.request.method == "POST"
     assert route.calls.last.request.url.path == ENRICH_PATH
     assert json.loads(route.calls.last.request.content) == {"text": "Acme Corp invoiced 42 EUR."}
@@ -69,7 +69,7 @@ def test_submit_enrich_sync_accepts_mapping_body(base_url: str, api_key: str) ->
     )
     body = {"text": "hello", "options": {"keywords": True}}
     with XbergClient(api_key=api_key, base_url=base_url, target="enterprise") as client:
-        assert client.submit_enrich(body).job_id == ENRICH_JOB_ID
+        assert str(client.submit_enrich(body).job_id) == ENRICH_JOB_ID
 
     assert json.loads(route.calls.last.request.content) == body
 
@@ -212,7 +212,7 @@ async def test_submit_enrich_async(base_url: str, api_key: str) -> None:
     async with AsyncXbergClient(api_key=api_key, base_url=base_url, target="enterprise") as client:
         response = await client.submit_enrich({"text": "async text"})
 
-    assert response.job_id == ENRICH_JOB_ID
+    assert str(response.job_id) == ENRICH_JOB_ID
     assert route.calls.last.request.method == "POST"
     assert route.calls.last.request.url.path == ENRICH_PATH
 

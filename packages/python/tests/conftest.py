@@ -61,7 +61,7 @@ def make_extraction_result(*, content: str = "hello world") -> dict[str, Any]:
 
 def make_job_result_payload(
     *,
-    job_id: str = "job-1",
+    job_id: str = "aaaaaaaa-0000-4000-8000-000000000001",
     status: str = "completed",
     results: list[dict[str, Any]] | None = None,
     child_job_ids: list[str] | None = None,
