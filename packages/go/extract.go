@@ -244,10 +244,10 @@ func writeFileParts(writer *multipart.Writer, files []FileSource) error {
 		header := textproto.MIMEHeader{}
 		header.Set(
 			"Content-Disposition",
-			fmt.Sprintf(
-				`form-data; name="file"; filename=%q`,
-				strings.ReplaceAll(file.Name, `"`, `\"`),
-			),
+			// %q escapes the quotes and control characters a filename could
+			// carry into this header on its own; pre-replacing them first only
+			// escapes them twice.
+			fmt.Sprintf(`form-data; name="file"; filename=%q`, file.Name),
 		)
 		header.Set("Content-Type", sniffContentType(file.Name))
 		part, err := writer.CreatePart(header)
