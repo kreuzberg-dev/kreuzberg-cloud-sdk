@@ -18,6 +18,8 @@ includes:
     taskfile: ./tasks/version.yml
   pro:
     taskfile: ./tasks/pro.yml
+  docs:
+    taskfile: ./tasks/docs.yml
 
 tasks:
   default:

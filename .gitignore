@@ -66,3 +66,8 @@ Thumbs.db
 
 # polylint cache
 .polylint/
+
+# Astro docs-site
+docs-site/dist/
+docs-site/.astro/
+docs-site/node_modules/

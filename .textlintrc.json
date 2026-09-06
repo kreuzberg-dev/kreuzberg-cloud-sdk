@@ -1,0 +1,69 @@
+{
+  "plugins": {
+    "mdx": true
+  },
+  "filters": {
+    "comments": true,
+    "node-types": {
+      "nodeTypes": ["CodeBlock", "Code"]
+    }
+  },
+  "rules": {
+    "no-todo": false,
+    "no-start-duplicated-conjunction": {
+      "severity": "warning"
+    },
+    "no-empty-section": {
+      "severity": "warning"
+    },
+    "terminology": {
+      "defaultTerms": false,
+      "terms": ["Xberg"]
+    },
+    "no-zero-width-spaces": true,
+    "@textlint-rule/no-invalid-control-character": true,
+    "no-surrogate-pair": true,
+    "@textlint-rule/no-unmatched-pair": false,
+    "write-good": {
+      "passive": false,
+      "weasel": false,
+      "tooWordy": false,
+      "adverb": false,
+      "so": false,
+      "illusion": false,
+      "severity": "warning"
+    },
+    "common-misspellings": true,
+    "stop-words": {
+      "severity": "warning",
+      "exclude": [
+        "all of",
+        "and/or",
+        "consult",
+        "cumulative",
+        "currently",
+        "demonstrate",
+        "e.g.",
+        "empower",
+        "Empower",
+        "etc",
+        "failed to",
+        "leverage",
+        "on request",
+        "particularly",
+        "promptly",
+        "proximity",
+        "redaction",
+        "relative to",
+        "simply",
+        "specifically",
+        "subsequent",
+        "there are"
+      ]
+    },
+    "en-capitalization": {
+      "severity": "warning",
+      "allowWords": ["curl", "go", "npm", "pnpm", "python", "typescript", "uv"]
+    }
+  }
+}

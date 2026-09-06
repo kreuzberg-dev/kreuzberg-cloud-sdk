@@ -1,0 +1,71 @@
+---
+title: Xberg SDKs
+description: >-
+  Official Python, TypeScript and Go clients for the Xberg extraction API — one dual-target
+  client per language, covering both Xberg Enterprise and Xberg Pro.
+template: splash
+hero:
+  tagline: >-
+    One client per language, two products. Point it at an Xberg Enterprise or an Xberg Pro
+    deployment and it exposes the shared surface plus the operations that tier actually serves.
+  image:
+    dark: ../../assets/hero-logo.svg
+    light: ../../assets/hero-logo-light.svg
+  actions:
+    - text: Installation
+      link: /getting-started/installation/
+      icon: download
+      variant: primary
+    - text: Quickstart
+      link: /getting-started/quickstart/
+      icon: right-arrow
+      variant: minimal
+    - text: View on GitHub
+      link: https://github.com/xberg-io/sdks
+      icon: external
+      variant: minimal
+---
+
+import { Card, CardGrid } from "@astrojs/starlight/components";
+
+## Why these clients
+
+<CardGrid>
+    <Card title="One client, both products" icon="random">
+        Xberg Enterprise and Xberg Pro serve an overlapping API. A single client covers both: pass a
+        `target`, or let the client read the tier from `/healthz` and gate the tier-specific methods
+        for you.
+    </Card>
+    <Card title="Extraction is asynchronous" icon="seti:clock">
+        Submitting returns job ids, not a document. The clients poll for you with a bounded wait and
+        optional backoff, so a large file never rides on one long-lived HTTP request.
+    </Card>
+    <Card title="Generated from the served spec" icon="approve-check">
+        Models come from the same OpenAPI documents the services emit, vendored into this repo and
+        checked for drift, so the types describe what the server actually sends.
+    </Card>
+    <Card title="The same surface in three languages" icon="translate">
+        Python, TypeScript and Go expose the same operations under each language's own naming
+        conventions, so a behaviour documented once holds everywhere.
+    </Card>
+</CardGrid>
+
+## Install
+
+<CardGrid>
+    <Card title="Python" icon="seti:python">
+        ```sh
+        pip install xberg-io-sdk
+        ```
+    </Card>
+    <Card title="TypeScript" icon="seti:typescript">
+        ```sh
+        pnpm add @xberg-io/sdk
+        ```
+    </Card>
+    <Card title="Go" icon="seti:go">
+        ```sh
+        go get github.com/xberg-io/sdks/packages/go
+        ```
+    </Card>
+</CardGrid>

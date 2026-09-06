@@ -1,0 +1,47 @@
+version: "3"
+
+# ~keep The reference pages under docs-site/src/content/docs/reference/api-*.md
+# are generated from the client sources by scripts/generate-reference.py, not
+# hand-written. A hand-maintained list of 65 methods per language drifts the
+# first time one is added, which is also why .textlintignore excludes
+# reference/**. Run `task docs:reference` after changing a client's surface.
+
+tasks:
+  reference:
+    desc: "Regenerate the per-language API reference from the client sources"
+    cmds:
+      - python3 scripts/generate-reference.py
+
+  reference:check:
+    desc: "Fail if the generated API reference is stale"
+    cmds:
+      - |
+        python3 scripts/generate-reference.py
+        if [ -n "$(git status --porcelain docs-site/src/content/docs/reference)" ]; then
+          echo "generated API reference is stale — run 'task docs:reference' and commit" >&2
+          git --no-pager diff --stat docs-site/src/content/docs/reference >&2
+          exit 1
+        fi
+        echo "generated API reference is up to date"
+
+  install:
+    desc: "Install docs-site dependencies"
+    cmds:
+      - pnpm --dir docs-site install --frozen-lockfile
+
+  build:
+    desc: "Build the documentation site"
+    cmds:
+      - task: install
+      - pnpm --dir docs-site build
+
+  serve:
+    desc: "Serve the documentation locally with live reload"
+    cmds:
+      - pnpm --dir docs-site install
+      - pnpm --dir docs-site dev
+
+  lint:prose:
+    desc: "Lint documentation prose with textlint"
+    cmds:
+      - npx textlint 'docs-site/src/content/docs/**/*.{md,mdx}'

@@ -6,6 +6,9 @@ trim_trailing_whitespace = true
 
 [discovery]
 exclude = [
+  "docs-site/dist/**",
+  "docs-site/.astro/**",
+  "docs-site/src/content/docs/reference/**",
   "**/*.lock",
   "**/Cargo.lock",
   "**/go.sum",
@@ -214,6 +217,9 @@ stages = ["pre-commit"]
 
 [hooks.builtin]
 lint = { exclude = [
+  "docs-site/dist/**",
+  "docs-site/.astro/**",
+  "docs-site/src/content/docs/reference/**",
   "**/*.lock",
   "**/Cargo.lock",
   "**/go.sum",
@@ -236,6 +242,9 @@ lint = { exclude = [
   "packages/go/include/*.h",
 ] }
 fmt = { exclude = [
+  "docs-site/dist/**",
+  "docs-site/.astro/**",
+  "docs-site/src/content/docs/reference/**",
   "**/*.lock",
   "**/Cargo.lock",
   "**/go.sum",
@@ -259,6 +268,9 @@ fmt = { exclude = [
 ] }
 commit = { stages = ["commit-msg"] }
 file_safety = { exclude = [
+  "docs-site/dist/**",
+  "docs-site/.astro/**",
+  "docs-site/src/content/docs/reference/**",
   "**/*.lock",
   "**/Cargo.lock",
   "**/go.sum",

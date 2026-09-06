@@ -1,0 +1,50 @@
+---
+title: Quickstart
+description: Submit a document, wait for the job, read the extraction result.
+---
+
+import { Tabs, TabItem } from "@astrojs/starlight/components";
+import { Content as Snip_python_quickstart_single } from "../../../snippets/python/quickstart_single.md";
+import { Content as Snip_typescript_quickstart_single } from "../../../snippets/typescript/quickstart_single.md";
+import { Content as Snip_go_quickstart_single } from "../../../snippets/go/quickstart_single.md";
+
+Extraction is asynchronous on both tiers. Submitting returns job ids and a `pending` status; the
+result arrives once the job reaches a terminal state. The clients wrap that loop for you, so
+nothing rides on a single long-lived HTTP request and a large file cannot trip a request timeout.
+
+## Extract one document and wait
+
+<Tabs syncKey="lang">
+<TabItem label="Python">
+
+<Snip_python_quickstart_single />
+
+</TabItem>
+<TabItem label="TypeScript">
+
+<Snip_typescript_quickstart_single />
+
+</TabItem>
+<TabItem label="Go">
+
+<Snip_go_quickstart_single />
+
+</TabItem>
+</Tabs>
+
+## What `extract_and_wait` actually does
+
+It is a convenience over two calls you can make yourself:
+
+1. **Submit** — `POST /v1/extract` returns `job_ids` and `status: "pending"`, with **202**.
+2. **Poll** — `GET /v1/jobs/{id}` until the status is terminal (`completed`, `partial_success`,
+   `failed` or `cancelled`).
+3. **Read** — `GET /v1/jobs/{id}/result` returns the extracted documents.
+
+Two timeouts are in play and they are deliberately separate: a **per-request** timeout of 30
+seconds, and a **wait** timeout of 5 minutes covering the whole poll loop. Polling starts at one
+second and can back off exponentially. Raise the wait timeout for large documents rather than the
+request timeout — the request is only ever a short status read.
+
+If the job ends `failed` or `cancelled`, the wait raises rather than returning a job you would
+have to inspect.
