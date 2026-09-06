@@ -431,9 +431,7 @@ def _parse_crawl_event(payload: str) -> CrawlEvent:
     try:
         body = json.loads(payload)
     except json.JSONDecodeError as exc:
-        raise XbergError(
-            f"crawl event stream sent a non-JSON frame: {payload!r}", status_code=None
-        ) from exc
+        raise XbergError(f"crawl event stream sent a non-JSON frame: {payload!r}", status_code=None) from exc
     document = _expect_object(body, "crawl event")
     model = _CRAWL_EVENT_MODELS.get(str(document.get("kind", "")))
     if model is None:

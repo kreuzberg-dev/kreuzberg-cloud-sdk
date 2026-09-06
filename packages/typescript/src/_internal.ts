@@ -206,10 +206,10 @@ export class EventStreamDecoder {
       const boundary = this.nextLineBoundary();
       if (boundary === undefined) {
         if (this.buffer.length > MAX_EVENT_STREAM_FRAME_BYTES) {
-          throw new XbergError(
-            `Crawl event stream sent a line longer than ${MAX_EVENT_STREAM_FRAME_BYTES} bytes`,
-            { status: 0, body: null },
-          );
+          throw new XbergError(`Crawl event stream sent a line longer than ${MAX_EVENT_STREAM_FRAME_BYTES} bytes`, {
+            status: 0,
+            body: null,
+          });
         }
         return payloads;
       }
