@@ -181,7 +181,7 @@ func (c *Client) doOnceWithCancel(
 	resp, err := c.cfg.httpClient.Do(req)
 	if err != nil {
 		cancel()
-		return nil, fmt.Errorf("xberg: %s %s: %w", spec.method, url, err)
+		return nil, &ConnectionError{Method: spec.method, URL: url, Cause: err}
 	}
 	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
 		return &cancellingReadCloser{rc: resp.Body, cancel: cancel}, nil

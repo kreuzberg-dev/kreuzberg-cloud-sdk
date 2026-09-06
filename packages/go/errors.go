@@ -25,8 +25,16 @@ type XbergError struct {
 	Body    json.RawMessage
 }
 
-// Error implements the error interface.
+// Error implements the error interface. A zero Status means no HTTP response
+// backs this error (a decode failure on a stream, say), so the status is left
+// out rather than rendered as a misleading "HTTP 0".
 func (e *XbergError) Error() string {
+	if e.Status == 0 {
+		if e.Message != "" {
+			return "xberg: " + e.Message
+		}
+		return "xberg: error"
+	}
 	if e.Message != "" {
 		return fmt.Sprintf("xberg: HTTP %d: %s", e.Status, e.Message)
 	}
@@ -148,6 +156,38 @@ func (e *TierError) Error() string {
 // Unwrap exposes the embedded XbergError.
 func (e *TierError) Unwrap() error { return &e.XbergError }
 
+// ConnectionError is returned when the round-trip never produced an HTTP
+// response at all: DNS resolution failed, the connection was refused or reset,
+// the TLS handshake failed, or the dial timed out. Status is always 0 because
+// there is no response to take one from — matching Python's
+// XbergError(status_code=None) and TypeScript's { status: 0 } for the same
+// failure. It embeds [XbergError] (see that type's doc comment) so the base
+// errors.As catch reaches it.
+//
+// It is retryable. Python retries httpx.TransportError and TypeScript retries a
+// thrown fetch up to the configured attempt budget; without a type the retry
+// engine can classify, [WithRetries] would be silently inert in Go for an
+// entire class of failure that the other two clients ride out.
+type ConnectionError struct {
+	XbergError
+	// Method and URL identify the request that could not be completed.
+	Method string
+	URL    string
+	// Cause is the underlying transport error from the HTTP client.
+	Cause error
+}
+
+// Error implements error.
+func (e *ConnectionError) Error() string {
+	return fmt.Sprintf("xberg: %s %s: %s", e.Method, e.URL, e.Cause)
+}
+
+// Unwrap exposes both the embedded [XbergError] — so errors.As(err,
+// &XbergError{}) matches, as it does for every other error here — and the
+// transport cause, so errors.Is against a net or syscall error still reaches
+// through.
+func (e *ConnectionError) Unwrap() []error { return []error{&e.XbergError, e.Cause} }
+
 // errorBody is the canonical error envelope used by the API service.
 type errorBody struct {
 	Error   string `json:"error,omitempty"`
@@ -213,8 +253,13 @@ func parseRetryAfter(header http.Header) time.Duration {
 }
 
 // IsRetryable reports whether an error should trigger a transport-level retry.
-// 429 and 502/503/504 are retryable; everything else is terminal.
+// A [ConnectionError] (no response at all), 429, and 502/503/504 are
+// retryable; everything else is terminal.
 func IsRetryable(err error) bool {
+	var conn *ConnectionError
+	if errors.As(err, &conn) {
+		return true
+	}
 	var rate *RateLimitError
 	if errors.As(err, &rate) {
 		return true
