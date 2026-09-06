@@ -59,7 +59,7 @@ def test_get_job_result_parses_into_job_result_shape(base_url: str, api_key: str
     assert result.status == "partial_success"
     assert result.completed_at == "2026-05-09T10:05:00Z"
     assert result.child_job_ids == ["job-1-a"]
-    assert [document["content"] for document in result.results] == ["page one", "page two"]
+    assert [document.content for document in result.results] == ["page one", "page two"]
     assert len(result.errors) == 1
     assert result.errors[0].error_type == "unsupported_mime_type"
     assert result.errors[0].message == "cannot parse application/x-weird"
@@ -115,7 +115,7 @@ async def test_get_job_result_async_parses_into_job_result_shape(api_key: str) -
 
     assert isinstance(result, JobResult)
     assert result.job_id == "job-5"
-    assert [document["content"] for document in result.results] == ["async body"]
+    assert [document.content for document in result.results] == ["async body"]
 
 
 @pytest.mark.asyncio

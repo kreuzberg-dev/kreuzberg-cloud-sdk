@@ -363,17 +363,15 @@ func TestGetJobResult_ParsesJobResultEnvelope(t *testing.T) {
 	if got := len(*result.Results); got != 2 {
 		t.Fatalf("len(Results) = %d, want 2", got)
 	}
-	first, ok := (*result.Results)[0].(map[string]any)
-	if !ok {
-		t.Fatalf("Results[0] = %T, want a decoded JSON object", (*result.Results)[0])
+	// JobResultDocument is a generated struct now that the spec declares it;
+	// it used to reach callers as an untyped map because the schema was absent.
+	first := (*result.Results)[0]
+	if first.Content != "page one" {
+		t.Errorf("Results[0].Content = %v, want 'page one'", first.Content)
 	}
-	if first["content"] != "page one" {
-		t.Errorf("Results[0][content] = %v, want 'page one'", first["content"])
-	}
-	// The opaque payload must survive untouched, including the keys the
-	// structured pipeline merges in.
-	if _, present := first["structured_output"]; !present {
-		t.Errorf("Results[0] lost the structured_output key: %v", first)
+	// The structured pipeline's output must still survive decoding.
+	if first.StructuredOutput == nil {
+		t.Errorf("Results[0] lost the structured_output field: %+v", first)
 	}
 	if result.ChildJobIds == nil || len(*result.ChildJobIds) != 2 {
 		t.Fatalf("ChildJobIds = %v, want two entries", result.ChildJobIds)

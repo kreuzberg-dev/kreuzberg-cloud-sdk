@@ -49,24 +49,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                required:
-                  - error
-                properties:
-                  error:
-                    type: object
-                    required:
-                      - code
-                      - message
-                    properties:
-                      code:
-                        type: string
-                        description: Always `rate_limited` for this response.
-                        examples:
-                          - rate_limited
-                      message:
-                        type: string
-                        description: Human-readable message naming the wait.
+                $ref: '#/components/schemas/ErrorResponse'
         "500":
           description: The account rows were deleted but the stored documents, cached results or vector collections were not fully erased. Retry the request.
           content:
@@ -161,72 +144,25 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                required:
-                  - error
-                properties:
-                  error:
-                    type: object
-                    required:
-                      - code
-                      - message
-                    properties:
-                      code:
-                        type: string
-                        description: A stable identifier for the failure, such as `validation`
-                      message:
-                        type: string
-                        description: What went wrong, naming the field where the request named one
+                $ref: '#/components/schemas/ErrorResponse'
         "415":
           description: 'The request body was not sent with Content-Type: application/json'
           content:
             application/json:
               schema:
-                type: object
-                required:
-                  - error
-                properties:
-                  error:
-                    type: object
-                    required:
-                      - code
-                      - message
-                    properties:
-                      code:
-                        type: string
-                        description: A stable identifier for the failure, such as `validation`
-                      message:
-                        type: string
-                        description: What went wrong, naming the field where the request named one
+                $ref: '#/components/schemas/ErrorResponse'
         "422":
-          description: Body is valid JSON but does not match the request schema
+          description: Request fails validation
           content:
-            text/plain:
+            application/json:
               schema:
-                type: string
+                $ref: '#/components/schemas/ErrorResponse'
         "429":
           description: Rate limit exceeded for this caller. The body is the shared error envelope with code `rate_limited`; `Retry-After` and the `x-ratelimit-*` headers carry the wait.
           content:
             application/json:
               schema:
-                type: object
-                required:
-                  - error
-                properties:
-                  error:
-                    type: object
-                    required:
-                      - code
-                      - message
-                    properties:
-                      code:
-                        type: string
-                        description: Always `rate_limited` for this response.
-                        examples:
-                          - rate_limited
-                      message:
-                        type: string
-                        description: Human-readable message naming the wait.
+                $ref: '#/components/schemas/ErrorResponse'
         "503":
           description: Identity provider service unavailable
           content:
@@ -281,12 +217,14 @@ paths:
           description: Malformed request
           content:
             application/json:
-              schema: {}
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         "422":
           description: Request fails validation
           content:
             application/json:
-              schema: {}
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         "503":
           description: A dependency is unreachable
           content:
@@ -361,24 +299,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                required:
-                  - error
-                properties:
-                  error:
-                    type: object
-                    required:
-                      - code
-                      - message
-                    properties:
-                      code:
-                        type: string
-                        description: Always `rate_limited` for this response.
-                        examples:
-                          - rate_limited
-                      message:
-                        type: string
-                        description: Human-readable message naming the wait.
+                $ref: '#/components/schemas/ErrorResponse'
         "500":
           description: Persistence error
           content:
@@ -438,24 +359,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                required:
-                  - error
-                properties:
-                  error:
-                    type: object
-                    required:
-                      - code
-                      - message
-                    properties:
-                      code:
-                        type: string
-                        description: Always `rate_limited` for this response.
-                        examples:
-                          - rate_limited
-                      message:
-                        type: string
-                        description: Human-readable message naming the wait.
+                $ref: '#/components/schemas/ErrorResponse'
         "500":
           description: Persistence error
           content:
@@ -509,43 +413,13 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                required:
-                  - error
-                properties:
-                  error:
-                    type: object
-                    required:
-                      - code
-                      - message
-                    properties:
-                      code:
-                        type: string
-                        description: A stable identifier for the failure, such as `validation`
-                      message:
-                        type: string
-                        description: What went wrong, naming the field where the request named one
+                $ref: '#/components/schemas/ErrorResponse'
         "415":
           description: 'The request body was not sent with Content-Type: application/json'
           content:
             application/json:
               schema:
-                type: object
-                required:
-                  - error
-                properties:
-                  error:
-                    type: object
-                    required:
-                      - code
-                      - message
-                    properties:
-                      code:
-                        type: string
-                        description: A stable identifier for the failure, such as `validation`
-                      message:
-                        type: string
-                        description: What went wrong, naming the field where the request named one
+                $ref: '#/components/schemas/ErrorResponse'
         "422":
           description: Request fails validation
           content:
@@ -605,24 +479,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                required:
-                  - error
-                properties:
-                  error:
-                    type: object
-                    required:
-                      - code
-                      - message
-                    properties:
-                      code:
-                        type: string
-                        description: Always `rate_limited` for this response.
-                        examples:
-                          - rate_limited
-                      message:
-                        type: string
-                        description: Human-readable message naming the wait.
+                $ref: '#/components/schemas/ErrorResponse'
       security:
         - bearer_auth: []
   /v1/auto-tune/{id}:
@@ -674,24 +531,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                required:
-                  - error
-                properties:
-                  error:
-                    type: object
-                    required:
-                      - code
-                      - message
-                    properties:
-                      code:
-                        type: string
-                        description: Always `rate_limited` for this response.
-                        examples:
-                          - rate_limited
-                      message:
-                        type: string
-                        description: Human-readable message naming the wait.
+                $ref: '#/components/schemas/ErrorResponse'
         "500":
           description: Persistence error
           content:
@@ -756,24 +596,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                required:
-                  - error
-                properties:
-                  error:
-                    type: object
-                    required:
-                      - code
-                      - message
-                    properties:
-                      code:
-                        type: string
-                        description: Always `rate_limited` for this response.
-                        examples:
-                          - rate_limited
-                      message:
-                        type: string
-                        description: Human-readable message naming the wait.
+                $ref: '#/components/schemas/ErrorResponse'
         "500":
           description: Persistence error
           content:
@@ -843,43 +666,13 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                required:
-                  - error
-                properties:
-                  error:
-                    type: object
-                    required:
-                      - code
-                      - message
-                    properties:
-                      code:
-                        type: string
-                        description: A stable identifier for the failure, such as `validation`
-                      message:
-                        type: string
-                        description: What went wrong, naming the field where the request named one
+                $ref: '#/components/schemas/ErrorResponse'
         "415":
           description: 'The request body was not sent with Content-Type: application/json'
           content:
             application/json:
               schema:
-                type: object
-                required:
-                  - error
-                properties:
-                  error:
-                    type: object
-                    required:
-                      - code
-                      - message
-                    properties:
-                      code:
-                        type: string
-                        description: A stable identifier for the failure, such as `validation`
-                      message:
-                        type: string
-                        description: What went wrong, naming the field where the request named one
+                $ref: '#/components/schemas/ErrorResponse'
         "422":
           description: Request fails validation
           content:
@@ -891,24 +684,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                required:
-                  - error
-                properties:
-                  error:
-                    type: object
-                    required:
-                      - code
-                      - message
-                    properties:
-                      code:
-                        type: string
-                        description: Always `rate_limited` for this response.
-                        examples:
-                          - rate_limited
-                      message:
-                        type: string
-                        description: Human-readable message naming the wait.
+                $ref: '#/components/schemas/ErrorResponse'
         "500":
           description: Persistence error
           content:
@@ -972,24 +748,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                required:
-                  - error
-                properties:
-                  error:
-                    type: object
-                    required:
-                      - code
-                      - message
-                    properties:
-                      code:
-                        type: string
-                        description: Always `rate_limited` for this response.
-                        examples:
-                          - rate_limited
-                      message:
-                        type: string
-                        description: Human-readable message naming the wait.
+                $ref: '#/components/schemas/ErrorResponse'
         "500":
           description: Persistence error
           content:
@@ -1002,21 +761,27 @@ paths:
     post:
       tags:
         - extract
-      summary: POST /v1/extract — submit a document for extraction.
+      summary: |-
+        POST /v1/extract — submit up to [`PRO_MAX_DOCUMENTS_PER_REQUEST`] documents
+        for extraction.
       description: |-
-        Accepts the canonical `ExtractRequest` superset (ADR-0066) but only
-        honors Pro's single-document subset: exactly one entry in `documents`,
-        no `urls`/`crawl_config`, and no `options.split_documents`.
+        Accepts the canonical `ExtractRequest` superset (ADR-0066, amended
+        2026-09-05) as `application/json`, or the equivalent
+        [`ExtractMultipartForm`] shape as `multipart/form-data`. `urls`/
+        `crawl_config` (crawl-based extraction) remain Enterprise-only.
       operationId: extract
       requestBody:
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/ExtractRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ExtractMultipartForm'
         required: true
       responses:
         "202":
-          description: Job accepted
+          description: Job(s) accepted
           content:
             application/json:
               schema:
@@ -1052,55 +817,23 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         "415":
-          description: 'The request body was not sent with Content-Type: application/json'
+          description: Content-Type is neither application/json nor multipart/form-data (parsed as malformed JSON and answered 400)
           content:
             application/json:
               schema:
-                type: object
-                required:
-                  - error
-                properties:
-                  error:
-                    type: object
-                    required:
-                      - code
-                      - message
-                    properties:
-                      code:
-                        type: string
-                        description: A stable identifier for the failure, such as `validation`
-                      message:
-                        type: string
-                        description: What went wrong, naming the field where the request named one
+                $ref: '#/components/schemas/ErrorResponse'
         "422":
-          description: Body is valid JSON but does not match the request schema
+          description: Request fails validation
           content:
-            text/plain:
+            application/json:
               schema:
-                type: string
+                $ref: '#/components/schemas/ErrorResponse'
         "429":
           description: Rate limit exceeded for this caller. The body is the shared error envelope with code `rate_limited`; `Retry-After` and the `x-ratelimit-*` headers carry the wait.
           content:
             application/json:
               schema:
-                type: object
-                required:
-                  - error
-                properties:
-                  error:
-                    type: object
-                    required:
-                      - code
-                      - message
-                    properties:
-                      code:
-                        type: string
-                        description: Always `rate_limited` for this response.
-                        examples:
-                          - rate_limited
-                      message:
-                        type: string
-                        description: Human-readable message naming the wait.
+                $ref: '#/components/schemas/ErrorResponse'
       security:
         - bearer_auth: []
   /v1/jobs:
@@ -1167,24 +900,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                required:
-                  - error
-                properties:
-                  error:
-                    type: object
-                    required:
-                      - code
-                      - message
-                    properties:
-                      code:
-                        type: string
-                        description: Always `rate_limited` for this response.
-                        examples:
-                          - rate_limited
-                      message:
-                        type: string
-                        description: Human-readable message naming the wait.
+                $ref: '#/components/schemas/ErrorResponse'
         "500":
           description: Persistence error
           content:
@@ -1250,24 +966,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                required:
-                  - error
-                properties:
-                  error:
-                    type: object
-                    required:
-                      - code
-                      - message
-                    properties:
-                      code:
-                        type: string
-                        description: Always `rate_limited` for this response.
-                        examples:
-                          - rate_limited
-                      message:
-                        type: string
-                        description: Human-readable message naming the wait.
+                $ref: '#/components/schemas/ErrorResponse'
         "500":
           description: Persistence error
           content:
@@ -1303,50 +1002,38 @@ paths:
           description: Invalid job ID
           content:
             application/json:
-              schema: {}
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         "401":
           description: Unauthorized
           content:
             application/json:
-              schema: {}
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         "404":
           description: Job or project not visible to the caller
           content:
             application/json:
-              schema: {}
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         "422":
           description: Request fails validation
           content:
             application/json:
-              schema: {}
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         "429":
           description: Rate limit exceeded for this caller. The body is the shared error envelope with code `rate_limited`; `Retry-After` and the `x-ratelimit-*` headers carry the wait.
           content:
             application/json:
               schema:
-                type: object
-                required:
-                  - error
-                properties:
-                  error:
-                    type: object
-                    required:
-                      - code
-                      - message
-                    properties:
-                      code:
-                        type: string
-                        description: Always `rate_limited` for this response.
-                        examples:
-                          - rate_limited
-                      message:
-                        type: string
-                        description: Human-readable message naming the wait.
+                $ref: '#/components/schemas/ErrorResponse'
         "500":
           description: Cancellation failed
           content:
             application/json:
-              schema: {}
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
       security:
         - bearer_auth: []
   /v1/jobs/{id}/result:
@@ -1412,24 +1099,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                required:
-                  - error
-                properties:
-                  error:
-                    type: object
-                    required:
-                      - code
-                      - message
-                    properties:
-                      code:
-                        type: string
-                        description: Always `rate_limited` for this response.
-                        examples:
-                          - rate_limited
-                      message:
-                        type: string
-                        description: Human-readable message naming the wait.
+                $ref: '#/components/schemas/ErrorResponse'
         "500":
           description: Persistence or storage error
           content:
@@ -1673,24 +1343,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                required:
-                  - error
-                properties:
-                  error:
-                    type: object
-                    required:
-                      - code
-                      - message
-                    properties:
-                      code:
-                        type: string
-                        description: Always `rate_limited` for this response.
-                        examples:
-                          - rate_limited
-                      message:
-                        type: string
-                        description: Human-readable message naming the wait.
+                $ref: '#/components/schemas/ErrorResponse'
         "500":
           description: Persistence error
           content:
@@ -1749,72 +1402,25 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                required:
-                  - error
-                properties:
-                  error:
-                    type: object
-                    required:
-                      - code
-                      - message
-                    properties:
-                      code:
-                        type: string
-                        description: A stable identifier for the failure, such as `validation`
-                      message:
-                        type: string
-                        description: What went wrong, naming the field where the request named one
+                $ref: '#/components/schemas/ErrorResponse'
         "415":
           description: 'The request body was not sent with Content-Type: application/json'
           content:
             application/json:
               schema:
-                type: object
-                required:
-                  - error
-                properties:
-                  error:
-                    type: object
-                    required:
-                      - code
-                      - message
-                    properties:
-                      code:
-                        type: string
-                        description: A stable identifier for the failure, such as `validation`
-                      message:
-                        type: string
-                        description: What went wrong, naming the field where the request named one
+                $ref: '#/components/schemas/ErrorResponse'
         "422":
-          description: Body is valid JSON but does not match the request schema
+          description: Request fails validation
           content:
-            text/plain:
+            application/json:
               schema:
-                type: string
+                $ref: '#/components/schemas/ErrorResponse'
         "429":
           description: Rate limit exceeded for this caller. The body is the shared error envelope with code `rate_limited`; `Retry-After` and the `x-ratelimit-*` headers carry the wait.
           content:
             application/json:
               schema:
-                type: object
-                required:
-                  - error
-                properties:
-                  error:
-                    type: object
-                    required:
-                      - code
-                      - message
-                    properties:
-                      code:
-                        type: string
-                        description: Always `rate_limited` for this response.
-                        examples:
-                          - rate_limited
-                      message:
-                        type: string
-                        description: Human-readable message naming the wait.
+                $ref: '#/components/schemas/ErrorResponse'
         "500":
           description: Persistence error
           content:
@@ -1893,24 +1499,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                required:
-                  - error
-                properties:
-                  error:
-                    type: object
-                    required:
-                      - code
-                      - message
-                    properties:
-                      code:
-                        type: string
-                        description: Always `rate_limited` for this response.
-                        examples:
-                          - rate_limited
-                      message:
-                        type: string
-                        description: Human-readable message naming the wait.
+                $ref: '#/components/schemas/ErrorResponse'
         "500":
           description: Persistence error
           content:
@@ -1974,72 +1563,25 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                required:
-                  - error
-                properties:
-                  error:
-                    type: object
-                    required:
-                      - code
-                      - message
-                    properties:
-                      code:
-                        type: string
-                        description: A stable identifier for the failure, such as `validation`
-                      message:
-                        type: string
-                        description: What went wrong, naming the field where the request named one
+                $ref: '#/components/schemas/ErrorResponse'
         "415":
           description: 'The request body was not sent with Content-Type: application/json'
           content:
             application/json:
               schema:
-                type: object
-                required:
-                  - error
-                properties:
-                  error:
-                    type: object
-                    required:
-                      - code
-                      - message
-                    properties:
-                      code:
-                        type: string
-                        description: A stable identifier for the failure, such as `validation`
-                      message:
-                        type: string
-                        description: What went wrong, naming the field where the request named one
+                $ref: '#/components/schemas/ErrorResponse'
         "422":
-          description: Body is valid JSON but does not match the request schema
+          description: Request fails validation
           content:
-            text/plain:
+            application/json:
               schema:
-                type: string
+                $ref: '#/components/schemas/ErrorResponse'
         "429":
           description: Rate limit exceeded for this caller. The body is the shared error envelope with code `rate_limited`; `Retry-After` and the `x-ratelimit-*` headers carry the wait.
           content:
             application/json:
               schema:
-                type: object
-                required:
-                  - error
-                properties:
-                  error:
-                    type: object
-                    required:
-                      - code
-                      - message
-                    properties:
-                      code:
-                        type: string
-                        description: Always `rate_limited` for this response.
-                        examples:
-                          - rate_limited
-                      message:
-                        type: string
-                        description: Human-readable message naming the wait.
+                $ref: '#/components/schemas/ErrorResponse'
         "500":
           description: Persistence error
           content:
@@ -2107,24 +1649,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                required:
-                  - error
-                properties:
-                  error:
-                    type: object
-                    required:
-                      - code
-                      - message
-                    properties:
-                      code:
-                        type: string
-                        description: Always `rate_limited` for this response.
-                        examples:
-                          - rate_limited
-                      message:
-                        type: string
-                        description: Human-readable message naming the wait.
+                $ref: '#/components/schemas/ErrorResponse'
         "500":
           description: Persistence error
           content:
@@ -2203,24 +1728,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                required:
-                  - error
-                properties:
-                  error:
-                    type: object
-                    required:
-                      - code
-                      - message
-                    properties:
-                      code:
-                        type: string
-                        description: Always `rate_limited` for this response.
-                        examples:
-                          - rate_limited
-                      message:
-                        type: string
-                        description: Human-readable message naming the wait.
+                $ref: '#/components/schemas/ErrorResponse'
         "500":
           description: Persistence error
           content:
@@ -2284,72 +1792,25 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                required:
-                  - error
-                properties:
-                  error:
-                    type: object
-                    required:
-                      - code
-                      - message
-                    properties:
-                      code:
-                        type: string
-                        description: A stable identifier for the failure, such as `validation`
-                      message:
-                        type: string
-                        description: What went wrong, naming the field where the request named one
+                $ref: '#/components/schemas/ErrorResponse'
         "415":
           description: 'The request body was not sent with Content-Type: application/json'
           content:
             application/json:
               schema:
-                type: object
-                required:
-                  - error
-                properties:
-                  error:
-                    type: object
-                    required:
-                      - code
-                      - message
-                    properties:
-                      code:
-                        type: string
-                        description: A stable identifier for the failure, such as `validation`
-                      message:
-                        type: string
-                        description: What went wrong, naming the field where the request named one
+                $ref: '#/components/schemas/ErrorResponse'
         "422":
-          description: Body is valid JSON but does not match the request schema
+          description: Request fails validation
           content:
-            text/plain:
+            application/json:
               schema:
-                type: string
+                $ref: '#/components/schemas/ErrorResponse'
         "429":
           description: Rate limit exceeded for this caller. The body is the shared error envelope with code `rate_limited`; `Retry-After` and the `x-ratelimit-*` headers carry the wait.
           content:
             application/json:
               schema:
-                type: object
-                required:
-                  - error
-                properties:
-                  error:
-                    type: object
-                    required:
-                      - code
-                      - message
-                    properties:
-                      code:
-                        type: string
-                        description: Always `rate_limited` for this response.
-                        examples:
-                          - rate_limited
-                      message:
-                        type: string
-                        description: Human-readable message naming the wait.
+                $ref: '#/components/schemas/ErrorResponse'
         "500":
           description: Persistence error
           content:
@@ -2421,24 +1882,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                required:
-                  - error
-                properties:
-                  error:
-                    type: object
-                    required:
-                      - code
-                      - message
-                    properties:
-                      code:
-                        type: string
-                        description: Always `rate_limited` for this response.
-                        examples:
-                          - rate_limited
-                      message:
-                        type: string
-                        description: Human-readable message naming the wait.
+                $ref: '#/components/schemas/ErrorResponse'
         "500":
           description: Persistence error
           content:
@@ -2505,24 +1949,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                required:
-                  - error
-                properties:
-                  error:
-                    type: object
-                    required:
-                      - code
-                      - message
-                    properties:
-                      code:
-                        type: string
-                        description: Always `rate_limited` for this response.
-                        examples:
-                          - rate_limited
-                      message:
-                        type: string
-                        description: Human-readable message naming the wait.
+                $ref: '#/components/schemas/ErrorResponse'
         "500":
           description: Persistence error
           content:
@@ -2594,24 +2021,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                required:
-                  - error
-                properties:
-                  error:
-                    type: object
-                    required:
-                      - code
-                      - message
-                    properties:
-                      code:
-                        type: string
-                        description: Always `rate_limited` for this response.
-                        examples:
-                          - rate_limited
-                      message:
-                        type: string
-                        description: Human-readable message naming the wait.
+                $ref: '#/components/schemas/ErrorResponse'
         "500":
           description: Provider or persistence error
           content:
@@ -2685,24 +2095,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                required:
-                  - error
-                properties:
-                  error:
-                    type: object
-                    required:
-                      - code
-                      - message
-                    properties:
-                      code:
-                        type: string
-                        description: Always `rate_limited` for this response.
-                        examples:
-                          - rate_limited
-                      message:
-                        type: string
-                        description: Human-readable message naming the wait.
+                $ref: '#/components/schemas/ErrorResponse'
         "500":
           description: Persistence error
           content:
@@ -2958,24 +2351,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                required:
-                  - error
-                properties:
-                  error:
-                    type: object
-                    required:
-                      - code
-                      - message
-                    properties:
-                      code:
-                        type: string
-                        description: Always `rate_limited` for this response.
-                        examples:
-                          - rate_limited
-                      message:
-                        type: string
-                        description: Human-readable message naming the wait.
+                $ref: '#/components/schemas/ErrorResponse'
       security:
         - bearer_auth: []
     put:
@@ -3033,72 +2409,25 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                required:
-                  - error
-                properties:
-                  error:
-                    type: object
-                    required:
-                      - code
-                      - message
-                    properties:
-                      code:
-                        type: string
-                        description: A stable identifier for the failure, such as `validation`
-                      message:
-                        type: string
-                        description: What went wrong, naming the field where the request named one
+                $ref: '#/components/schemas/ErrorResponse'
         "415":
           description: 'The request body was not sent with Content-Type: application/json'
           content:
             application/json:
               schema:
-                type: object
-                required:
-                  - error
-                properties:
-                  error:
-                    type: object
-                    required:
-                      - code
-                      - message
-                    properties:
-                      code:
-                        type: string
-                        description: A stable identifier for the failure, such as `validation`
-                      message:
-                        type: string
-                        description: What went wrong, naming the field where the request named one
+                $ref: '#/components/schemas/ErrorResponse'
         "422":
-          description: Body is valid JSON but does not match the request schema
+          description: Request fails validation
           content:
-            text/plain:
+            application/json:
               schema:
-                type: string
+                $ref: '#/components/schemas/ErrorResponse'
         "429":
           description: Rate limit exceeded for this caller. The body is the shared error envelope with code `rate_limited`; `Retry-After` and the `x-ratelimit-*` headers carry the wait.
           content:
             application/json:
               schema:
-                type: object
-                required:
-                  - error
-                properties:
-                  error:
-                    type: object
-                    required:
-                      - code
-                      - message
-                    properties:
-                      code:
-                        type: string
-                        description: Always `rate_limited` for this response.
-                        examples:
-                          - rate_limited
-                      message:
-                        type: string
-                        description: Human-readable message naming the wait.
+                $ref: '#/components/schemas/ErrorResponse'
       security:
         - bearer_auth: []
   /v1/rag/collections:
@@ -3159,24 +2488,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                required:
-                  - error
-                properties:
-                  error:
-                    type: object
-                    required:
-                      - code
-                      - message
-                    properties:
-                      code:
-                        type: string
-                        description: Always `rate_limited` for this response.
-                        examples:
-                          - rate_limited
-                      message:
-                        type: string
-                        description: Human-readable message naming the wait.
+                $ref: '#/components/schemas/ErrorResponse'
         "500":
           description: Database error
           content:
@@ -3242,43 +2554,13 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                required:
-                  - error
-                properties:
-                  error:
-                    type: object
-                    required:
-                      - code
-                      - message
-                    properties:
-                      code:
-                        type: string
-                        description: A stable identifier for the failure, such as `validation`
-                      message:
-                        type: string
-                        description: What went wrong, naming the field where the request named one
+                $ref: '#/components/schemas/ErrorResponse'
         "415":
           description: 'The request body was not sent with Content-Type: application/json'
           content:
             application/json:
               schema:
-                type: object
-                required:
-                  - error
-                properties:
-                  error:
-                    type: object
-                    required:
-                      - code
-                      - message
-                    properties:
-                      code:
-                        type: string
-                        description: A stable identifier for the failure, such as `validation`
-                      message:
-                        type: string
-                        description: What went wrong, naming the field where the request named one
+                $ref: '#/components/schemas/ErrorResponse'
         "422":
           description: Request fails validation
           content:
@@ -3290,24 +2572,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                required:
-                  - error
-                properties:
-                  error:
-                    type: object
-                    required:
-                      - code
-                      - message
-                    properties:
-                      code:
-                        type: string
-                        description: Always `rate_limited` for this response.
-                        examples:
-                          - rate_limited
-                      message:
-                        type: string
-                        description: Human-readable message naming the wait.
+                $ref: '#/components/schemas/ErrorResponse'
         "500":
           description: Database error
           content:
@@ -3367,24 +2632,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                required:
-                  - error
-                properties:
-                  error:
-                    type: object
-                    required:
-                      - code
-                      - message
-                    properties:
-                      code:
-                        type: string
-                        description: Always `rate_limited` for this response.
-                        examples:
-                          - rate_limited
-                      message:
-                        type: string
-                        description: Human-readable message naming the wait.
+                $ref: '#/components/schemas/ErrorResponse'
         "500":
           description: Database error
           content:
@@ -3448,24 +2696,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                required:
-                  - error
-                properties:
-                  error:
-                    type: object
-                    required:
-                      - code
-                      - message
-                    properties:
-                      code:
-                        type: string
-                        description: Always `rate_limited` for this response.
-                        examples:
-                          - rate_limited
-                      message:
-                        type: string
-                        description: Human-readable message naming the wait.
+                $ref: '#/components/schemas/ErrorResponse'
         "500":
           description: Database error
           content:
@@ -3545,43 +2776,13 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                required:
-                  - error
-                properties:
-                  error:
-                    type: object
-                    required:
-                      - code
-                      - message
-                    properties:
-                      code:
-                        type: string
-                        description: A stable identifier for the failure, such as `validation`
-                      message:
-                        type: string
-                        description: What went wrong, naming the field where the request named one
+                $ref: '#/components/schemas/ErrorResponse'
         "415":
           description: 'The request body was not sent with Content-Type: application/json'
           content:
             application/json:
               schema:
-                type: object
-                required:
-                  - error
-                properties:
-                  error:
-                    type: object
-                    required:
-                      - code
-                      - message
-                    properties:
-                      code:
-                        type: string
-                        description: A stable identifier for the failure, such as `validation`
-                      message:
-                        type: string
-                        description: What went wrong, naming the field where the request named one
+                $ref: '#/components/schemas/ErrorResponse'
         "422":
           description: Request fails validation
           content:
@@ -3660,43 +2861,13 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                required:
-                  - error
-                properties:
-                  error:
-                    type: object
-                    required:
-                      - code
-                      - message
-                    properties:
-                      code:
-                        type: string
-                        description: A stable identifier for the failure, such as `validation`
-                      message:
-                        type: string
-                        description: What went wrong, naming the field where the request named one
+                $ref: '#/components/schemas/ErrorResponse'
         "415":
           description: 'The request body was not sent with Content-Type: application/json'
           content:
             application/json:
               schema:
-                type: object
-                required:
-                  - error
-                properties:
-                  error:
-                    type: object
-                    required:
-                      - code
-                      - message
-                    properties:
-                      code:
-                        type: string
-                        description: A stable identifier for the failure, such as `validation`
-                      message:
-                        type: string
-                        description: What went wrong, naming the field where the request named one
+                $ref: '#/components/schemas/ErrorResponse'
         "422":
           description: Request fails validation
           content:
@@ -3708,24 +2879,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                required:
-                  - error
-                properties:
-                  error:
-                    type: object
-                    required:
-                      - code
-                      - message
-                    properties:
-                      code:
-                        type: string
-                        description: Always `rate_limited` for this response.
-                        examples:
-                          - rate_limited
-                      message:
-                        type: string
-                        description: Human-readable message naming the wait.
+                $ref: '#/components/schemas/ErrorResponse'
         "500":
           description: Database error
           content:
@@ -3806,43 +2960,13 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                required:
-                  - error
-                properties:
-                  error:
-                    type: object
-                    required:
-                      - code
-                      - message
-                    properties:
-                      code:
-                        type: string
-                        description: A stable identifier for the failure, such as `validation`
-                      message:
-                        type: string
-                        description: What went wrong, naming the field where the request named one
+                $ref: '#/components/schemas/ErrorResponse'
         "415":
           description: 'The request body was not sent with Content-Type: application/json'
           content:
             application/json:
               schema:
-                type: object
-                required:
-                  - error
-                properties:
-                  error:
-                    type: object
-                    required:
-                      - code
-                      - message
-                    properties:
-                      code:
-                        type: string
-                        description: A stable identifier for the failure, such as `validation`
-                      message:
-                        type: string
-                        description: What went wrong, naming the field where the request named one
+                $ref: '#/components/schemas/ErrorResponse'
         "422":
           description: Request fails validation
           content:
@@ -3854,24 +2978,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                required:
-                  - error
-                properties:
-                  error:
-                    type: object
-                    required:
-                      - code
-                      - message
-                    properties:
-                      code:
-                        type: string
-                        description: Always `rate_limited` for this response.
-                        examples:
-                          - rate_limited
-                      message:
-                        type: string
-                        description: Human-readable message naming the wait.
+                $ref: '#/components/schemas/ErrorResponse'
         "500":
           description: Database or NATS error
           content:
@@ -3942,43 +3049,13 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                required:
-                  - error
-                properties:
-                  error:
-                    type: object
-                    required:
-                      - code
-                      - message
-                    properties:
-                      code:
-                        type: string
-                        description: A stable identifier for the failure, such as `validation`
-                      message:
-                        type: string
-                        description: What went wrong, naming the field where the request named one
+                $ref: '#/components/schemas/ErrorResponse'
         "415":
           description: 'The request body was not sent with Content-Type: application/json'
           content:
             application/json:
               schema:
-                type: object
-                required:
-                  - error
-                properties:
-                  error:
-                    type: object
-                    required:
-                      - code
-                      - message
-                    properties:
-                      code:
-                        type: string
-                        description: A stable identifier for the failure, such as `validation`
-                      message:
-                        type: string
-                        description: What went wrong, naming the field where the request named one
+                $ref: '#/components/schemas/ErrorResponse'
         "422":
           description: Invalid migration parameters
           content:
@@ -3990,24 +3067,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                required:
-                  - error
-                properties:
-                  error:
-                    type: object
-                    required:
-                      - code
-                      - message
-                    properties:
-                      code:
-                        type: string
-                        description: Always `rate_limited` for this response.
-                        examples:
-                          - rate_limited
-                      message:
-                        type: string
-                        description: Human-readable message naming the wait.
+                $ref: '#/components/schemas/ErrorResponse'
         "500":
           description: Database error
           content:
@@ -4072,24 +3132,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                required:
-                  - error
-                properties:
-                  error:
-                    type: object
-                    required:
-                      - code
-                      - message
-                    properties:
-                      code:
-                        type: string
-                        description: Always `rate_limited` for this response.
-                        examples:
-                          - rate_limited
-                      message:
-                        type: string
-                        description: Human-readable message naming the wait.
+                $ref: '#/components/schemas/ErrorResponse'
         "500":
           description: Database error
           content:
@@ -4154,43 +3197,13 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                required:
-                  - error
-                properties:
-                  error:
-                    type: object
-                    required:
-                      - code
-                      - message
-                    properties:
-                      code:
-                        type: string
-                        description: A stable identifier for the failure, such as `validation`
-                      message:
-                        type: string
-                        description: What went wrong, naming the field where the request named one
+                $ref: '#/components/schemas/ErrorResponse'
         "415":
           description: 'The request body was not sent with Content-Type: application/json'
           content:
             application/json:
               schema:
-                type: object
-                required:
-                  - error
-                properties:
-                  error:
-                    type: object
-                    required:
-                      - code
-                      - message
-                    properties:
-                      code:
-                        type: string
-                        description: A stable identifier for the failure, such as `validation`
-                      message:
-                        type: string
-                        description: What went wrong, naming the field where the request named one
+                $ref: '#/components/schemas/ErrorResponse'
         "422":
           description: Validation error
           content:
@@ -4202,24 +3215,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                required:
-                  - error
-                properties:
-                  error:
-                    type: object
-                    required:
-                      - code
-                      - message
-                    properties:
-                      code:
-                        type: string
-                        description: Always `rate_limited` for this response.
-                        examples:
-                          - rate_limited
-                      message:
-                        type: string
-                        description: Human-readable message naming the wait.
+                $ref: '#/components/schemas/ErrorResponse'
         "500":
           description: Database error
           content:
@@ -4303,24 +3299,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                required:
-                  - error
-                properties:
-                  error:
-                    type: object
-                    required:
-                      - code
-                      - message
-                    properties:
-                      code:
-                        type: string
-                        description: Always `rate_limited` for this response.
-                        examples:
-                          - rate_limited
-                      message:
-                        type: string
-                        description: Human-readable message naming the wait.
+                $ref: '#/components/schemas/ErrorResponse'
         "500":
           description: Database or NATS error
           content:
@@ -4380,24 +3359,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                required:
-                  - error
-                properties:
-                  error:
-                    type: object
-                    required:
-                      - code
-                      - message
-                    properties:
-                      code:
-                        type: string
-                        description: Always `rate_limited` for this response.
-                        examples:
-                          - rate_limited
-                      message:
-                        type: string
-                        description: Human-readable message naming the wait.
+                $ref: '#/components/schemas/ErrorResponse'
         "500":
           description: Persistence error
           content:
@@ -4447,43 +3409,13 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                required:
-                  - error
-                properties:
-                  error:
-                    type: object
-                    required:
-                      - code
-                      - message
-                    properties:
-                      code:
-                        type: string
-                        description: A stable identifier for the failure, such as `validation`
-                      message:
-                        type: string
-                        description: What went wrong, naming the field where the request named one
+                $ref: '#/components/schemas/ErrorResponse'
         "415":
           description: 'The request body was not sent with Content-Type: application/json'
           content:
             application/json:
               schema:
-                type: object
-                required:
-                  - error
-                properties:
-                  error:
-                    type: object
-                    required:
-                      - code
-                      - message
-                    properties:
-                      code:
-                        type: string
-                        description: A stable identifier for the failure, such as `validation`
-                      message:
-                        type: string
-                        description: What went wrong, naming the field where the request named one
+                $ref: '#/components/schemas/ErrorResponse'
         "422":
           description: Request fails validation
           content:
@@ -4495,24 +3427,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                required:
-                  - error
-                properties:
-                  error:
-                    type: object
-                    required:
-                      - code
-                      - message
-                    properties:
-                      code:
-                        type: string
-                        description: Always `rate_limited` for this response.
-                        examples:
-                          - rate_limited
-                      message:
-                        type: string
-                        description: Human-readable message naming the wait.
+                $ref: '#/components/schemas/ErrorResponse'
         "500":
           description: Persistence error
           content:
@@ -4571,24 +3486,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                required:
-                  - error
-                properties:
-                  error:
-                    type: object
-                    required:
-                      - code
-                      - message
-                    properties:
-                      code:
-                        type: string
-                        description: Always `rate_limited` for this response.
-                        examples:
-                          - rate_limited
-                      message:
-                        type: string
-                        description: Human-readable message naming the wait.
+                $ref: '#/components/schemas/ErrorResponse'
         "500":
           description: Persistence error
           content:
@@ -4648,24 +3546,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                required:
-                  - error
-                properties:
-                  error:
-                    type: object
-                    required:
-                      - code
-                      - message
-                    properties:
-                      code:
-                        type: string
-                        description: Always `rate_limited` for this response.
-                        examples:
-                          - rate_limited
-                      message:
-                        type: string
-                        description: Human-readable message naming the wait.
+                $ref: '#/components/schemas/ErrorResponse'
         "500":
           description: Persistence error
           content:
@@ -4729,43 +3610,13 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                required:
-                  - error
-                properties:
-                  error:
-                    type: object
-                    required:
-                      - code
-                      - message
-                    properties:
-                      code:
-                        type: string
-                        description: A stable identifier for the failure, such as `validation`
-                      message:
-                        type: string
-                        description: What went wrong, naming the field where the request named one
+                $ref: '#/components/schemas/ErrorResponse'
         "415":
           description: 'The request body was not sent with Content-Type: application/json'
           content:
             application/json:
               schema:
-                type: object
-                required:
-                  - error
-                properties:
-                  error:
-                    type: object
-                    required:
-                      - code
-                      - message
-                    properties:
-                      code:
-                        type: string
-                        description: A stable identifier for the failure, such as `validation`
-                      message:
-                        type: string
-                        description: What went wrong, naming the field where the request named one
+                $ref: '#/components/schemas/ErrorResponse'
         "422":
           description: Request fails validation
           content:
@@ -4777,24 +3628,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                required:
-                  - error
-                properties:
-                  error:
-                    type: object
-                    required:
-                      - code
-                      - message
-                    properties:
-                      code:
-                        type: string
-                        description: Always `rate_limited` for this response.
-                        examples:
-                          - rate_limited
-                      message:
-                        type: string
-                        description: Human-readable message naming the wait.
+                $ref: '#/components/schemas/ErrorResponse'
         "500":
           description: Persistence error
           content:
@@ -4854,24 +3688,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                required:
-                  - error
-                properties:
-                  error:
-                    type: object
-                    required:
-                      - code
-                      - message
-                    properties:
-                      code:
-                        type: string
-                        description: Always `rate_limited` for this response.
-                        examples:
-                          - rate_limited
-                      message:
-                        type: string
-                        description: Human-readable message naming the wait.
+                $ref: '#/components/schemas/ErrorResponse'
         "500":
           description: Persistence error
           content:
@@ -4929,24 +3746,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                required:
-                  - error
-                properties:
-                  error:
-                    type: object
-                    required:
-                      - code
-                      - message
-                    properties:
-                      code:
-                        type: string
-                        description: Always `rate_limited` for this response.
-                        examples:
-                          - rate_limited
-                      message:
-                        type: string
-                        description: Human-readable message naming the wait.
+                $ref: '#/components/schemas/ErrorResponse'
         "500":
           description: Persistence error
           content:
@@ -5005,24 +3805,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                required:
-                  - error
-                properties:
-                  error:
-                    type: object
-                    required:
-                      - code
-                      - message
-                    properties:
-                      code:
-                        type: string
-                        description: Always `rate_limited` for this response.
-                        examples:
-                          - rate_limited
-                      message:
-                        type: string
-                        description: Human-readable message naming the wait.
+                $ref: '#/components/schemas/ErrorResponse'
         "500":
           description: Persistence error
           content:
@@ -6071,13 +4854,27 @@ components:
           description: Optional description of the preset.
         emit_citations:
           type: boolean
-          description: Whether to emit citations in results.
+          description: |-
+            Whether to emit citations in results.
+
+            Stored and returned verbatim, but **not applied at extraction time** —
+            see `preferred_call_mode`. Results produced from a saved preset carry no
+            citations regardless of this value. Defaults to `true` when omitted.
         name:
           type: string
           description: Preset name (must be unique per project).
         preferred_call_mode:
           type: string
-          description: Preferred orchestration path (text_only, vision_only, or text_plus_vision).
+          description: |-
+            Preferred orchestration path (`text_only`, `vision_only`, or
+            `text_plus_vision`).
+
+            Validated on write, stored, and returned verbatim, but
+            **not applied at extraction time**. Call-mode selection belongs to the
+            vision pipeline, which a job reaches only through the curated preset
+            registry (`options.preset`); a saved preset never routes there. On Xberg
+            Pro a saved preset contributes its `schema`, `system_prompt` and
+            `context_template`, and nothing else.
         schema:
           description: JSON Schema (Draft 2020-12) for the extraction result.
         system_prompt:
@@ -6140,8 +4937,9 @@ components:
         reference to a connected integration (`integration`). Exactly one of the
         two must be present; supplying both or neither is a validation error.
 
-        A single-document extraction (Pro's primary use case) is simply a
-        `documents` vector of length one on [`ExtractRequest`].
+        A single-document extraction is simply a `documents` vector of length one
+        on [`ExtractRequest`]; both tiers also accept a batch of up to
+        `MAX_DOCUMENTS_PER_REQUEST` entries (10 on both Pro and Enterprise).
       required:
         - filename
         - mime_type
@@ -6261,14 +5059,57 @@ components:
         error:
           $ref: '#/components/schemas/ErrorBody'
           description: The nested error body with code, message, and optional details.
+    ExtractMultipartForm:
+      type: object
+      description: |-
+        Multipart (`multipart/form-data`) variant of the extract request body.
+
+        Send one or more files as binary parts whose field name is the filename
+        (for example a part named `invoice.pdf`). Two reserved text parts carry
+        JSON: `options` (an [`ExtractionOptions`]) and `webhook` (a
+        [`api_types::WebhookConfig`]). To attach a lineage document id to a file —
+        rejected today, see [`PendingDocument`] below — add a text part named
+        `document_id-<filename>` whose value is the document UUID.
+
+        Documentation-only: parsing goes through
+        [`api_types::multipart::parse_extract_multipart`], not a derived
+        `FromRequest` impl on this type. Modeled on
+        `services/api/src/rest/extract.rs::ExtractMultipartForm`.
+      required:
+        - file
+      properties:
+        file:
+          type: array
+          items:
+            type: integer
+            format: binary
+            minimum: 0
+          description: |-
+            A document file. Repeat with one binary part per file; the part's field
+            name (or filename) becomes the document filename and its `Content-Type`
+            the document MIME type.
+          contentMediaType: application/octet-stream
+        options:
+          oneOf:
+            - type: "null"
+            - $ref: '#/components/schemas/ExtractionOptions'
+              description: Optional `options` part — a JSON-encoded [`ExtractionOptions`].
+        webhook:
+          oneOf:
+            - type: "null"
+            - $ref: '#/components/schemas/WebhookConfig'
+              description: |-
+                Optional `webhook` part — a JSON-encoded [`api_types::WebhookConfig`]
+                for async result delivery.
     ExtractRequest:
       type: object
       description: |-
         Request body for `POST /v1/extract`.
 
-        A superset of single-document (Pro) and batch/crawl (Enterprise)
-        submission: Pro fills `documents` with exactly one entry and leaves
-        `urls` empty; Enterprise fills either or both. `options` and `webhook`
+        A superset of document-batch (both tiers) and crawl (Enterprise-only)
+        submission: both tiers fill `documents` with up to 10 entries; Enterprise
+        alone also fills `urls`/`crawl_config` for crawl-based extraction — Pro
+        leaves those empty (ADR-0066, amended 2026-09-05). `options` and `webhook`
         apply to every document/URL in the request.
       properties:
         crawl_config:
@@ -6321,11 +5162,11 @@ components:
       description: |-
         Response body for `POST /v1/extract` (HTTP 202 Accepted).
 
-        `job_ids` is always populated — Pro returns a one-element vector for its
-        single-document submission, Enterprise returns one entry per submitted
-        document. `documents` and `crawl_job_ids` are Enterprise-only batch/crawl
-        detail and are omitted from the wire entirely when empty, so Pro's
-        payload stays lean.
+        `job_ids` and `documents` are always populated by both tiers — one entry
+        per submitted document (Pro's `DocumentSubmission::document_id` and
+        `version_sequence` stay `None`: lineage is an Enterprise-only feature).
+        `crawl_job_ids` is Enterprise-only crawl detail and is omitted from the
+        wire entirely when empty, so Pro's payload stays lean.
       required:
         - status
       properties:
@@ -6340,7 +5181,8 @@ components:
             $ref: '#/components/schemas/DocumentSubmission'
           description: |-
             Detailed per-document submissions, including lineage when present.
-            Enterprise-only; empty on Pro.
+            Populated by both tiers; `document_id`/`version_sequence` stay `None`
+            on Pro, which has no lineage feature.
         job_ids:
           type: array
           items:
@@ -6385,6 +5227,13 @@ components:
           description: |-
             Saved preset ID (project-scoped, user-created). Mutually exclusive
             with `preset`.
+
+            Both tiers apply it. The Enterprise extraction handler (`extract` in
+            `services/api/src/rest/extract.rs`) fetches the saved preset through
+            the project-scoped connection after the project is authorized and
+            applies its schema and system prompt before any job exists, the same
+            way Pro injects it, so both tiers dispatch the same config. An unknown
+            id is a validation error.
         split_documents:
           type:
             - boolean
@@ -6582,7 +5431,8 @@ components:
           description: The job this result belongs to.
         results:
           type: array
-          items: {}
+          items:
+            $ref: '#/components/schemas/JobResultDocument'
           description: |-
             Extracted documents, present once the job reaches a terminal
             successful state (`completed` or `partial_success`).
@@ -6595,6 +5445,97 @@ components:
         status:
           $ref: '#/components/schemas/JobStatus'
           description: Job status at the time the result was read.
+    JobResultDocument:
+      type: object
+      description: |-
+        One extracted document inside [`JobResult::results`].
+
+        A **projection** of the engine's `xberg::types::ExtractedDocument`, not a
+        separate wire type: the service serializes the engine type itself, and this
+        schema names the subset of its fields the API surface documents. Additional
+        properties are permitted and do occur — per-page content, OCR elements,
+        document structure, archive children and extracted URIs are all carried by
+        the payload without appearing here, because registering the engine type
+        would pull its entire nested schema graph into the spec.
+      required:
+        - content
+        - mime_type
+        - metadata
+        - counts
+        - tables
+      properties:
+        chunks:
+          type:
+            - array
+            - "null"
+          items: {}
+          description: |-
+            Text chunks, present only when chunking was requested. Opaque here; the
+            engine type is `Chunk`.
+        content:
+          type: string
+          description: |-
+            Plain-text (or Markdown, per the requested output format) rendering of
+            the document.
+        counts:
+          description: |-
+            Structural counts, always present: `{"pages": n, "tables": n,
+            "images": n}`. `pages` is `0` for formats that are not page-addressable.
+        detected_languages:
+          type:
+            - array
+            - "null"
+          items:
+            type: string
+          description: |-
+            ISO language codes detected in the content, when detection ran and
+            something met its confidence floor.
+        extraction_method:
+          type:
+            - string
+            - "null"
+          description: |-
+            How the text was produced: `native`, `ocr`, or `mixed`. Absent when the
+            extractor cannot distinguish them — a client must not read absence as
+            "no OCR".
+        metadata:
+          description: |-
+            Document-level metadata (title, authors, dates, page structure,
+            format-specific fields). Opaque here; the engine type is `Metadata`.
+        mime_type:
+          type: string
+          description: MIME type the engine resolved for the source document.
+        processing_warnings:
+          type:
+            - array
+            - "null"
+          items:
+            $ref: '#/components/schemas/JobResultWarning'
+          description: |-
+            Non-fatal warnings from the extraction pipeline — the signal that an
+            otherwise successful job produced degraded output. Absent when the
+            document raised none.
+        quality_score:
+          type:
+            - number
+            - "null"
+          format: double
+          description: |-
+            Cleanliness/readability score in `[0.0, 1.0]` for the text that was
+            retained. Not a completeness score: read `processing_warnings` to learn
+            what was dropped.
+        structured_output:
+          description: |-
+            LLM-extracted JSON matching the requested schema, present only when the
+            job supplied one (`options.preset`, an explicit
+            `structured_extraction.schema`, or `options.saved_preset_id`, which
+            both tiers apply).
+        tables:
+          type: array
+          items: {}
+          description: |-
+            Tables extracted from the document. Opaque here; the engine type is
+            `Table`.
     JobResultError:
       type: object
       description: |-
@@ -6634,6 +5575,28 @@ components:
             - string
             - "null"
           description: Origin of the error (e.g. the failing stage or component).
+    JobResultWarning:
+      type: object
+      description: |-
+        A non-fatal warning raised by one stage of the extraction pipeline, attached
+        to the document it degraded.
+
+        Independent of [`JobResultDocument::quality_score`], which scores only the
+        text that was retained: a document can score well and still have lost
+        content. A noisy OCR page, a chunker that gave up, a language detector that
+        found nothing — each surfaces here rather than failing the job.
+      required:
+        - source
+        - message
+      properties:
+        message:
+          type: string
+          description: Human-readable description of what degraded.
+        source:
+          type: string
+          description: |-
+            Pipeline stage or feature that raised the warning (e.g. `"ocr"`,
+            `"embedding"`, `"chunking"`, `"language_detection"`, `"output_format"`).
     JobStatus:
       type: string
       description: |-
@@ -7873,7 +6836,12 @@ components:
           description: Optional description.
         emit_citations:
           type: boolean
-          description: Whether citations are emitted.
+          description: |-
+            Whether to emit citations in results.
+
+            Stored and returned verbatim, but **not applied at extraction time** —
+            see `preferred_call_mode`. Results produced from a saved preset carry no
+            citations regardless of this value.
         id:
           type: string
           description: Unique preset ID.
@@ -7882,7 +6850,16 @@ components:
           description: Preset name.
         preferred_call_mode:
           type: string
-          description: Preferred call mode.
+          description: |-
+            Preferred orchestration path (`text_only`, `vision_only`, or
+            `text_plus_vision`).
+
+            Validated on write, stored, and returned verbatim, but
+            **not applied at extraction time**. Call-mode selection belongs to the
+            vision pipeline, which a job reaches only through the curated preset
+            registry (`options.preset`); a saved preset never routes there. On Xberg
+            Pro a saved preset contributes its `schema`, `system_prompt` and
+            `context_template`, and nothing else.
         schema:
           description: JSON Schema for the extraction result.
         system_prompt:
@@ -7918,7 +6895,16 @@ components:
           description: Preset name.
         preferred_call_mode:
           type: string
-          description: Preferred call mode.
+          description: |-
+            Preferred orchestration path (`text_only`, `vision_only`, or
+            `text_plus_vision`).
+
+            Validated on write, stored, and returned verbatim, but
+            **not applied at extraction time**. Call-mode selection belongs to the
+            vision pipeline, which a job reaches only through the curated preset
+            registry (`options.preset`); a saved preset never routes there. On Xberg
+            Pro a saved preset contributes its `schema`, `system_prompt` and
+            `context_template`, and nothing else.
     ScoreBreakdown:
       type: object
       description: Score detail for a single returned chunk.
@@ -8047,13 +7033,27 @@ components:
           description: Optional description of the preset.
         emit_citations:
           type: boolean
-          description: Whether to emit citations in results.
+          description: |-
+            Whether to emit citations in results.
+
+            Stored and returned verbatim, but **not applied at extraction time** —
+            see `preferred_call_mode`. Results produced from a saved preset carry no
+            citations regardless of this value.
         name:
           type: string
           description: Preset name.
         preferred_call_mode:
           type: string
-          description: Preferred orchestration path (text_only, vision_only, or text_plus_vision).
+          description: |-
+            Preferred orchestration path (`text_only`, `vision_only`, or
+            `text_plus_vision`).
+
+            Validated on write, stored, and returned verbatim, but
+            **not applied at extraction time**. Call-mode selection belongs to the
+            vision pipeline, which a job reaches only through the curated preset
+            registry (`options.preset`); a saved preset never routes there. On Xberg
+            Pro a saved preset contributes its `schema`, `system_prompt` and
+            `context_template`, and nothing else.
         schema:
           description: JSON Schema (Draft 2020-12) for the extraction result.
         system_prompt:

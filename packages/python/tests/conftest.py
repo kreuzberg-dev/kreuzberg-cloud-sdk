@@ -44,14 +44,18 @@ def make_extract_response(*, job_ids: list[str] | None = None, status: str = "pe
 def make_extraction_result(*, content: str = "hello world") -> dict[str, Any]:
     """Build a minimal ExtractionResult dict.
 
-    ``metadata`` and ``tables`` became required fields in the post-shadow-type
-    OpenAPI surface; provide empty defaults so wire-level parsing succeeds.
+    ``metadata``, ``tables`` and ``counts`` are all required by
+    ``JobResultDocument``, and a live instance sends every one of them on every
+    document -- ``counts`` as ``{"pages": n, "tables": n, "images": n}``. The
+    defaults here mirror that, so a fixture cannot encode a shape the server
+    never sends.
     """
     return {
         "content": content,
         "mime_type": "text/plain",
         "metadata": {},
         "tables": [],
+        "counts": {"pages": 0, "tables": 0, "images": 0},
     }
 
 
