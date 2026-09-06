@@ -15,18 +15,18 @@
 
 <div align="center" style="display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin: 20px 0;">
 
-<a href="https://pypi.org/project/xberg-io-sdk/"><img src="https://img.shields.io/pypi/v/xberg-io-sdk?label=PyPI&color=7B5CFF&labelColor=06111E" alt="PyPI"></a>
-<a href="https://www.npmjs.com/package/@xberg-io/sdk"><img src="https://img.shields.io/npm/v/%40xberg-io%2Fsdk?label=npm&color=7B5CFF&labelColor=06111E" alt="npm"></a>
-<a href="https://pkg.go.dev/github.com/xberg-io/sdks/packages/go"><img src="https://img.shields.io/badge/Go-pkg.go.dev-7B5CFF?logo=go&logoColor=white&labelColor=06111E" alt="Go Reference"></a>
-<a href="https://github.com/xberg-io/sdks/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-7B5CFF?labelColor=06111E" alt="License"></a>
-<a href="https://docs.sdks.xberg.io"><img src="https://img.shields.io/badge/docs-docs.sdks.xberg.io-7B5CFF?labelColor=06111E" alt="Documentation"></a>
+<a href="https://pypi.org/project/xberg-io-sdk/"><img src="https://img.shields.io/pypi/v/xberg-io-sdk?label=PyPI&color=007ec6" alt="PyPI"></a>
+<a href="https://www.npmjs.com/package/@xberg-io/sdk"><img src="https://img.shields.io/npm/v/%40xberg-io%2Fsdk?label=npm&color=007ec6" alt="npm"></a>
+<a href="https://pkg.go.dev/github.com/xberg-io/sdks/packages/go"><img src="https://img.shields.io/badge/Go-pkg.go.dev-007ec6?logo=go&logoColor=white" alt="Go Reference"></a>
+<a href="https://github.com/xberg-io/sdks/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-007ec6" alt="License"></a>
+<a href="https://docs.sdks.xberg.io"><img src="https://img.shields.io/badge/docs-docs.sdks.xberg.io-007ec6" alt="Documentation"></a>
 <a href="https://github.com/xberg-io/sdks/actions/workflows/validate.yml"><img src="https://github.com/xberg-io/sdks/actions/workflows/validate.yml/badge.svg" alt="CI"></a>
 
 </div>
 
 <div align="center" style="margin-top: 20px;">
 
-<a href="https://discord.gg/xt9WY3GnKR"><img height="22" src="https://img.shields.io/badge/Discord-Join%20our%20community-7289da?logo=discord&logoColor=white&labelColor=06111E" alt="Discord"></a>
+<a href="https://discord.gg/xt9WY3GnKR"><img height="22" src="https://img.shields.io/badge/Discord-Join%20our%20community-7289da?logo=discord&logoColor=white" alt="Discord"></a>
 
 </div>
 
