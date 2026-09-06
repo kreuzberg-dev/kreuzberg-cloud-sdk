@@ -19,7 +19,7 @@
 <a href="https://www.npmjs.com/package/@xberg-io/sdk"><img src="https://img.shields.io/npm/v/%40xberg-io%2Fsdk?label=npm&color=007ec6" alt="npm"></a>
 <a href="https://pkg.go.dev/github.com/xberg-io/sdks/packages/go"><img src="https://img.shields.io/badge/Go-pkg.go.dev-007ec6?logo=go&logoColor=white" alt="Go Reference"></a>
 <a href="https://github.com/xberg-io/sdks/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License"></a>
-<a href="https://enterprise.xberg.io"><img src="https://img.shields.io/badge/docs-enterprise.xberg.io-007ec6" alt="Documentation"></a>
+<a href="https://docs.sdks.xberg.io"><img src="https://img.shields.io/badge/docs-docs.sdks.xberg.io-007ec6" alt="Documentation"></a>
 <a href="https://github.com/xberg-io/sdks/actions/workflows/validate.yml"><img src="https://github.com/xberg-io/sdks/actions/workflows/validate.yml/badge.svg" alt="CI"></a>
 
 </div>
@@ -31,8 +31,7 @@
 </div>
 
 Official Python client for the [Xberg Enterprise](https://enterprise.xberg.io)
-and [Xberg Pro](https://enterprise.xberg.io) document-processing APIs — one
-client, two targets.
+and Xberg Pro document-processing APIs — one client, two targets.
 
 - httpx-based, sync (`XbergClient`) and async (`AsyncXbergClient`) surfaces
 - One client speaks to both products: shared
@@ -158,7 +157,8 @@ Errors are raised as one of:
 
 ## Documentation
 
-Full reference and guides: <https://enterprise.xberg.io>
+- SDK docs: <https://docs.sdks.xberg.io>
+- Full reference and guides: <https://enterprise.xberg.io>
 
 ## License
 

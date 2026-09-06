@@ -13,7 +13,7 @@
 <a href="https://www.npmjs.com/package/@xberg-io/sdk"><img src="https://img.shields.io/npm/v/%40xberg-io%2Fsdk?label=npm&color=007ec6" alt="npm"></a>
 <a href="https://pkg.go.dev/github.com/xberg-io/sdks/packages/go"><img src="https://img.shields.io/badge/Go-pkg.go.dev-007ec6?logo=go&logoColor=white" alt="Go Reference"></a>
 <a href="https://github.com/xberg-io/sdks/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License"></a>
-<a href="https://enterprise.xberg.io"><img src="https://img.shields.io/badge/docs-enterprise.xberg.io-007ec6" alt="Documentation"></a>
+<a href="https://docs.sdks.xberg.io"><img src="https://img.shields.io/badge/docs-docs.sdks.xberg.io-007ec6" alt="Documentation"></a>
 <a href="https://github.com/xberg-io/sdks/actions/workflows/validate.yml"><img src="https://github.com/xberg-io/sdks/actions/workflows/validate.yml/badge.svg" alt="CI"></a>
 
 </div>
@@ -25,7 +25,7 @@
 </div>
 
 Official client SDKs for the extraction API served by [Xberg Enterprise](https://enterprise.xberg.io)
-and [Xberg Pro](https://enterprise.xberg.io). One package per language, one dual-target client:
+and Xberg Pro. One package per language, one dual-target client:
 point it at an Enterprise or a Pro deployment and it exposes the shared surface plus the tier-specific
 methods available on that target. Generated from the upstream OpenAPI 3.1 specifications.
 
@@ -57,10 +57,11 @@ pnpm add @xberg-io/sdk
 go get github.com/xberg-io/sdks/packages/go
 ```
 
-For language-specific quickstarts, examples, and API documentation, see the per-language READMEs in `packages/{python,typescript,go/v1}/`.
+For language-specific quickstarts, examples, and API documentation, see the per-language READMEs in `packages/{python,typescript,go}/`.
 
 ## Documentation
 
+- SDK docs: [docs.sdks.xberg.io](https://docs.sdks.xberg.io)
 - API & Quickstart: [enterprise.xberg.io](https://enterprise.xberg.io)
 - API Reference: [enterprise.xberg.io/reference/api](https://enterprise.xberg.io/reference/api/)
 - Changelog: [CHANGELOG.md](CHANGELOG.md)

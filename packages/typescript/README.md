@@ -19,7 +19,7 @@
 <a href="https://www.npmjs.com/package/@xberg-io/sdk"><img src="https://img.shields.io/npm/v/%40xberg-io%2Fsdk?label=npm&color=007ec6" alt="npm"></a>
 <a href="https://pkg.go.dev/github.com/xberg-io/sdks/packages/go"><img src="https://img.shields.io/badge/Go-pkg.go.dev-007ec6?logo=go&logoColor=white" alt="Go Reference"></a>
 <a href="https://github.com/xberg-io/sdks/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License"></a>
-<a href="https://enterprise.xberg.io"><img src="https://img.shields.io/badge/docs-enterprise.xberg.io-007ec6" alt="Documentation"></a>
+<a href="https://docs.sdks.xberg.io"><img src="https://img.shields.io/badge/docs-docs.sdks.xberg.io-007ec6" alt="Documentation"></a>
 <a href="https://github.com/xberg-io/sdks/actions/workflows/validate.yml"><img src="https://github.com/xberg-io/sdks/actions/workflows/validate.yml/badge.svg" alt="CI"></a>
 
 </div>
@@ -35,7 +35,7 @@ and Xberg Pro document-processing APIs. One `XbergClient` speaks to either
 product: the shared surface (extraction, jobs, audit, curated presets, RAG) is
 written once, and tier-specific methods are capability-gated.
 
-- ESM-only, modern (Node 20+, Bun, Deno, Cloudflare Workers)
+- ESM-only, modern (Node 22+, Bun, Deno, Cloudflare Workers)
 - Dual-target: two generated schema sets (Enterprise + Pro), never merged
 - Generated types via `openapi-typescript`, runtime via `openapi-fetch`
 - Tree-shakable, no bundled dependencies
@@ -159,7 +159,8 @@ is still exported for direct OpenAPI access.
 
 ## Docs
 
-Full reference at <https://enterprise.xberg.io>.
+- SDK docs: <https://docs.sdks.xberg.io>
+- Full reference at <https://enterprise.xberg.io>.
 
 ## License
 
