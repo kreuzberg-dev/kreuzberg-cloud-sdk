@@ -174,7 +174,12 @@ func encodePerFileConfig(config *FileExtractionConfig, filename string) (string,
 // and points at the fix; the alternative is sending whichever config was written
 // last and losing the other with no signal at all.
 func validatePerFileConfigs(files []FileSource, configs []*FileExtractionConfig) error {
-	if len(configs) == 0 {
+	// nil means "no overrides"; an explicitly supplied empty slice does not, and
+	// is a length mismatch like any other. Python and TypeScript draw the line
+	// in the same place (None/undefined skips, [] does not), and conflating the
+	// two here would turn a caller's emptied slice into a silent no-op in Go
+	// alone.
+	if configs == nil {
 		return nil
 	}
 	if len(configs) != len(files) {

@@ -637,3 +637,60 @@ func TestExtractBatch_RejectsAConfigsSliceThatDoesNotMatchTheFiles(t *testing.T)
 		t.Error("request was sent despite the length mismatch")
 	}
 }
+
+// TestExtractBatch_RejectsAnExplicitlyEmptyConfigsSlice pins the nil/empty
+// distinction. Python skips only on None and TypeScript only on undefined, so
+// an emptied slice is a length mismatch there; treating it as "no overrides"
+// in Go alone would turn the same caller mistake into a silent no-op.
+func TestExtractBatch_RejectsAnExplicitlyEmptyConfigsSlice(t *testing.T) {
+	t.Parallel()
+	var reached bool
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		reached = true
+		w.WriteHeader(http.StatusAccepted)
+	}))
+	defer server.Close()
+
+	client := mustClient(t, xberg.WithBaseURL(server.URL))
+	_, err := client.ExtractBatch(
+		context.Background(),
+		[]xberg.FileSource{
+			{Name: "scanned.pdf", Reader: strings.NewReader("body-0")},
+			{Name: "digital.pdf", Reader: strings.NewReader("body-1")},
+		},
+		&xberg.ExtractOptions{Configs: []*xberg.FileExtractionConfig{}},
+	)
+	if err == nil {
+		t.Fatal("ExtractBatch accepted an explicitly empty Configs slice alongside two files")
+	}
+	if !strings.Contains(err.Error(), "has 0 entries but 2 files were supplied") {
+		t.Errorf("error = %v, want it to report the length mismatch", err)
+	}
+	if reached {
+		t.Error("request was sent despite the length mismatch")
+	}
+}
+
+// TestExtractBatch_NilConfigsMeansNoOverrides is the other half: nil still
+// means "no per-file configs", so the common call site keeps working.
+func TestExtractBatch_NilConfigsMeansNoOverrides(t *testing.T) {
+	t.Parallel()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusAccepted)
+		_, _ = w.Write([]byte(`{"job_ids":["550e8400-e29b-41d4-a716-446655440000"]}`))
+	}))
+	defer server.Close()
+
+	client := mustClient(t, xberg.WithBaseURL(server.URL))
+	ids, err := client.ExtractBatch(
+		context.Background(),
+		[]xberg.FileSource{{Name: "scanned.pdf", Reader: strings.NewReader("body-0")}},
+		&xberg.ExtractOptions{Configs: nil},
+	)
+	if err != nil {
+		t.Fatalf("ExtractBatch with nil Configs: %v", err)
+	}
+	if len(ids) != 1 {
+		t.Errorf("job ids = %v, want one", ids)
+	}
+}
