@@ -594,7 +594,9 @@ paths:
         "200":
           description: Crawl events SSE stream
           content:
-            text/event-stream: {}
+            text/event-stream:
+              schema:
+                $ref: '#/components/schemas/CrawlEventV1'
         "400":
           description: 'The request is malformed: a path parameter, a query parameter or the body did not parse'
           content:
@@ -4831,6 +4833,135 @@ components:
         stay_on_domain: true
         allow_subdomains: true
         respect_robots_txt: true
+    CrawlEventV1:
+      oneOf:
+        - type: object
+          description: A page was successfully crawled and indexed.
+          required:
+            - crawl_job_id
+            - ts
+            - url
+            - status_code
+            - depth
+            - kind
+          properties:
+            crawl_job_id:
+              type: string
+              format: uuid
+              description: Job ID this event belongs to
+            depth:
+              type: integer
+              description: Crawl depth when this page was discovered
+              minimum: 0
+            kind:
+              type: string
+              enum:
+                - page
+            status_code:
+              type: integer
+              format: int32
+              description: HTTP status code
+              minimum: 0
+            ts:
+              type: string
+              format: date-time
+              description: Event timestamp (UTC)
+            url:
+              type: string
+              description: URL that was crawled
+        - type: object
+          description: An error occurred while crawling a URL.
+          required:
+            - crawl_job_id
+            - ts
+            - url
+            - error
+            - kind
+          properties:
+            crawl_job_id:
+              type: string
+              format: uuid
+              description: Job ID this event belongs to
+            error:
+              type: string
+              description: Error description
+            kind:
+              type: string
+              enum:
+                - error
+            ts:
+              type: string
+              format: date-time
+              description: Event timestamp (UTC)
+            url:
+              type: string
+              description: URL that failed
+        - type: object
+          description: A new URL was discovered during crawling.
+          required:
+            - crawl_job_id
+            - ts
+            - url
+            - depth
+            - kind
+          properties:
+            crawl_job_id:
+              type: string
+              format: uuid
+              description: Job ID this event belongs to
+            depth:
+              type: integer
+              description: Depth at which this URL was discovered
+              minimum: 0
+            kind:
+              type: string
+              enum:
+                - discovered
+            ts:
+              type: string
+              format: date-time
+              description: Event timestamp (UTC)
+            url:
+              type: string
+              description: URL that was discovered
+        - type: object
+          description: Crawl job completed.
+          required:
+            - crawl_job_id
+            - ts
+            - pages_crawled
+            - kind
+          properties:
+            crawl_job_id:
+              type: string
+              format: uuid
+              description: Job ID this event belongs to
+            kind:
+              type: string
+              enum:
+                - complete
+            pages_crawled:
+              type: integer
+              description: Total pages successfully crawled
+              minimum: 0
+            ts:
+              type: string
+              format: date-time
+              description: Event timestamp (UTC)
+      description: |-
+        A crawl event published to the SSE stream.
+
+        Tagged union with event kind as the discriminator. Each variant carries
+        `crawl_job_id` and `ts` (timestamp) for client-side ordering and deduplication.
+
+        Internally tagged on `kind` (`#[serde(tag = "kind")]`): each variant
+        serializes as a flat JSON object with a `kind` field alongside its other
+        fields, e.g. `{"kind":"page","crawl_job_id":"...","ts":"...",...}`. utoipa
+        derives the matching `oneOf` schema straight from that `#[serde(tag = ..)]`
+        attribute, so no separate `#[schema(...)]` tagging is needed. An explicit
+        `discriminator` is not applicable here: utoipa only supports OpenAPI
+        discriminators for `#[serde(untagged)]` enums with single-reference-field
+        variants, not internally tagged enums like this one.
     CrawlJobResponse:
       type: object
       description: Response for crawl job status query
@@ -5800,6 +5931,20 @@ components:
         - filename
         - mime_type
       properties:
+        config:
+          $ref: '#/components/schemas/FileExtractionConfig'
+          description: |-
+            Per-file extraction config override.
+
+            Precedence, highest to lowest: this override > the request's
+            batch-level `options.extraction_config` > a curated/saved preset > the
+            project default. The merge is shallow: a top-level field this override
+            sets replaces the batch-level value outright, and a field it leaves
+            unset falls through to whatever the batch level (already resolved
+            against any preset and project default) carries for it. Omitting
+            `config` entirely means "use the batch default" for every field. On a
+            multipart request the equivalent is a `config-<filename>` JSON text
+            part, mirroring the existing `document_id-<filename>` convention.
         data:
           type:
             - string
@@ -6657,7 +6802,11 @@ components:
         (for example a part named `invoice.pdf`). Two reserved text parts carry
         JSON: `options` (an [`ExtractionOptions`]) and `webhook` (a
         [`WebhookConfig`]). To attach a lineage document id to a file, add a text
-        part named `document_id-<filename>` whose value is the document UUID.
+        part named `document_id-<filename>` whose value is the document UUID. To
+        attach a per-file extraction config override, add a text part named
+        `config-<filename>` whose value is a JSON-encoded
+        [`types::FileExtractionConfig`] — see its doc comment for the merge
+        precedence against `options.extraction_config`.
       required:
         - file
       properties:
@@ -7379,8 +7528,19 @@ components:
             - integer
             - "null"
           format: int64
-          description: Per-file extraction timeout in seconds
-          minimum: 0
+          description: |-
+            Extraction timeout in seconds, applied to every document in the batch
+            unless a per-file `FileExtractionConfig.extraction_timeout_secs`
+            overrides it (default: 600, min: 1, max: 600).
+
+            The engine clamps a client-supplied value lower-only against its own
+            default (`crates/engine/src/config_convert.rs`'s `wire_to_xberg`): a
+            value above 600 is silently reduced to 600, never rejected. `maximum`
+            here documents that existing ceiling for the SDK rather than enforcing
+            a second one — this field is otherwise unvalidated at the API boundary.
+          example: 600
+          maximum: 600
+          minimum: 1
         force_ocr:
           type:
             - boolean
@@ -7661,6 +7821,14 @@ components:
         Batch-only fields (`use_cache`, `cache_namespace`, `cache_ttl_secs`,
         `max_concurrent_extractions`, `security_limits`, `max_archive_depth`,
         `max_embedded_file_bytes`) are not per-file overrides.
+
+        Precedence, highest to lowest: this per-file config > the request's
+        batch-level `options.extraction_config` > a curated/saved preset > the
+        project default. The preset and project default are already folded into
+        the batch-level config by the time a per-file override is applied, and the
+        merge is shallow over top-level fields, so an override here always wins the
+        field it sets and an unset field falls through to whatever the batch level
+        carries.
       properties:
         chunking:
           $ref: '#/components/schemas/ChunkingConfig'
@@ -7679,7 +7847,18 @@ components:
             - integer
             - "null"
           format: int64
-          minimum: 0
+          description: |-
+            Per-file extraction timeout in seconds (default: 600, min: 1, max: 600).
+
+            The engine clamps a client-supplied value lower-only against its own
+            default (`crates/engine/src/config_convert.rs`'s `wire_to_xberg`, which
+            `wire_to_xberg_file` delegates to for a per-file override): a value
+            above 600 is silently reduced to 600, never rejected. `maximum` here
+            documents that existing ceiling for the SDK rather than enforcing a
+            second one — this field is otherwise unvalidated at the API boundary.
+          example: 600
+          maximum: 600
+          minimum: 1
         force_ocr:
           type:
             - boolean

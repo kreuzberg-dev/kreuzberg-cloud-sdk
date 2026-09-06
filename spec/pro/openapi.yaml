@@ -4223,6 +4223,45 @@ components:
         authorize_url:
           type: string
           description: Provider authorization URL to send the user to.
+    ChunkingConfig:
+      type: object
+      description: Text chunking configuration.
+      properties:
+        chunker_type:
+          type:
+            - string
+            - "null"
+          description: 'Chunker type: "text", "markdown", "yaml"'
+        embedding:
+          $ref: '#/components/schemas/EmbeddingConfig'
+          description: Embedding generation configuration
+        max_characters:
+          type:
+            - integer
+            - "null"
+          format: int32
+          description: Maximum chunk size in characters. Defaults to 1000 when omitted.
+          minimum: 0
+        overlap:
+          type:
+            - integer
+            - "null"
+          format: int32
+          description: |-
+            Overlap between adjacent chunks in characters. Defaults to 200 when omitted,
+            reduced to fit when `max_characters` is smaller than that.
+          minimum: 0
+        preset:
+          type:
+            - string
+            - "null"
+          description: Preset name (overrides other settings)
+        trim:
+          type:
+            - boolean
+            - "null"
+          description: Trim whitespace from chunk boundaries. Defaults to true when omitted.
+      additionalProperties: false
     CollectionChunkingConfig:
       type: object
       description: |-
@@ -4342,6 +4381,31 @@ components:
             - string
             - "null"
           description: Last ingestion timestamp (RFC3339)
+    ContentFilterConfig:
+      type: object
+      description: Content filtering configuration (headers, footers, watermarks).
+      properties:
+        include_footers:
+          type:
+            - boolean
+            - "null"
+          description: Include running footers
+        include_headers:
+          type:
+            - boolean
+            - "null"
+          description: Include running headers
+        include_watermarks:
+          type:
+            - boolean
+            - "null"
+          description: Include watermarks
+        strip_repeating_text:
+          type:
+            - boolean
+            - "null"
+          description: Strip cross-page repeating text. Defaults to true when omitted.
+      additionalProperties: false
     CreateApiKeyRequest:
       type: object
       description: Request to create a new API key.
@@ -4955,6 +5019,20 @@ components:
         - filename
         - mime_type
       properties:
+        config:
+          $ref: '#/components/schemas/FileExtractionConfig'
+          description: |-
+            Per-file extraction config override.
+
+            Precedence, highest to lowest: this override > the request's
+            batch-level `options.extraction_config` > a curated/saved preset > the
+            project default. The merge is shallow: a top-level field this override
+            sets replaces the batch-level value outright, and a field it leaves
+            unset falls through to whatever the batch level (already resolved
+            against any preset and project default) carries for it. Omitting
+            `config` entirely means "use the batch default" for every field. On a
+            multipart request the equivalent is a `config-<filename>` JSON text
+            part, mirroring the existing `document_id-<filename>` convention.
         data:
           type:
             - string
@@ -5042,6 +5120,31 @@ components:
           description: |-
             Version sequence number within the document's lineage, when lineage
             tracking applies.
+    EmbeddingConfig:
+      type: object
+      description: Embedding generation configuration for chunks.
+      properties:
+        batch_size:
+          type:
+            - integer
+            - "null"
+          format: int32
+          description: Batch size for embedding generation. Defaults to 32 when omitted.
+          minimum: 0
+        model:
+          type: object
+          description: 'Model configuration (flexible JSON: {"type":"preset","name":"balanced"})'
+        normalize:
+          type:
+            - boolean
+            - "null"
+          description: Normalize embedding vectors. Defaults to true when omitted.
+        show_download_progress:
+          type:
+            - boolean
+            - "null"
+          description: Show model download progress
+      additionalProperties: false
     EnrichmentOverridesRequest:
       type: object
       description: |-
@@ -5118,7 +5221,10 @@ components:
         JSON: `options` (an [`ExtractionOptions`]) and `webhook` (a
         [`api_types::WebhookConfig`]). To attach a lineage document id to a file —
         rejected today, see [`PendingDocument`] below — add a text part named
-        `document_id-<filename>` whose value is the document UUID.
+        `document_id-<filename>` whose value is the document UUID. To attach a
+        per-file extraction config override, add a text part named
+        `config-<filename>` whose value is a JSON-encoded
+        [`api_types::FileExtractionConfig`].
 
         Documentation-only: parsing goes through
         [`api_types::multipart::parse_extract_multipart`], not a derived
@@ -5285,6 +5391,100 @@ components:
             When true and a document is a PDF, enable multi-document boundary
             detection and fan-out orchestration. Enterprise-only; Pro ignores it.
       additionalProperties: false
+    FileExtractionConfig:
+      type: object
+      description: |-
+        Per-file extraction config override for batch/presign requests.
+
+        All fields are optional — only provided fields override the batch-level config.
+        Batch-only fields (`use_cache`, `cache_namespace`, `cache_ttl_secs`,
+        `max_concurrent_extractions`, `security_limits`, `max_archive_depth`,
+        `max_embedded_file_bytes`) are not per-file overrides.
+
+        Precedence, highest to lowest: this per-file config > the request's
+        batch-level `options.extraction_config` > a curated/saved preset > the
+        project default. The preset and project default are already folded into
+        the batch-level config by the time a per-file override is applied, and the
+        merge is shallow over top-level fields, so an override here always wins the
+        field it sets and an unset field falls through to whatever the batch level
+        carries.
+      properties:
+        chunking:
+          $ref: '#/components/schemas/ChunkingConfig'
+        content_filter:
+          $ref: '#/components/schemas/ContentFilterConfig'
+        disable_ocr:
+          type:
+            - boolean
+            - "null"
+        enable_quality_processing:
+          type:
+            - boolean
+            - "null"
+        extraction_timeout_secs:
+          type:
+            - integer
+            - "null"
+          format: int64
+          description: |-
+            Per-file extraction timeout in seconds (default: 600, min: 1, max: 600).
+
+            The engine clamps a client-supplied value lower-only against its own
+            default (`crates/engine/src/config_convert.rs`'s `wire_to_xberg`, which
+            `wire_to_xberg_file` delegates to for a per-file override): a value
+            above 600 is silently reduced to 600, never rejected. `maximum` here
+            documents that existing ceiling for the SDK rather than enforcing a
+            second one — this field is otherwise unvalidated at the API boundary.
+          example: 600
+          maximum: 600
+          minimum: 1
+        force_ocr:
+          type:
+            - boolean
+            - "null"
+        force_ocr_pages:
+          type:
+            - array
+            - "null"
+          items:
+            type: integer
+            format: int32
+            minimum: 0
+        html_options:
+          type: object
+        images:
+          $ref: '#/components/schemas/ImageExtractionConfig'
+        include_document_structure:
+          type:
+            - boolean
+            - "null"
+        keywords:
+          $ref: '#/components/schemas/KeywordConfig'
+        language_detection:
+          $ref: '#/components/schemas/LanguageDetectionConfig'
+        layout:
+          $ref: '#/components/schemas/LayoutDetectionConfig'
+        ocr:
+          $ref: '#/components/schemas/OcrConfig'
+        output_format:
+          type:
+            - string
+            - "null"
+        pages:
+          $ref: '#/components/schemas/PageConfig'
+        pdf_options:
+          $ref: '#/components/schemas/PdfConfig'
+        postprocessor:
+          $ref: '#/components/schemas/PostProcessorConfig'
+        result_format:
+          type:
+            - string
+            - "null"
+        structured_extraction:
+          $ref: '#/components/schemas/StructuredExtractionConfig'
+        token_reduction:
+          $ref: '#/components/schemas/TokenReductionConfig'
+      additionalProperties: false
     GetJobResponse:
       type: object
       description: Job metadata returned by `GET /v1/jobs/{id}`.
@@ -5367,6 +5567,121 @@ components:
           type: string
         tier:
           type: string
+    HierarchyConfig:
+      type: object
+      description: Heading hierarchy detection configuration.
+      properties:
+        enabled:
+          type:
+            - boolean
+            - "null"
+          description: Enable hierarchy detection. Defaults to true when omitted.
+        include_bbox:
+          type:
+            - boolean
+            - "null"
+          description: Include bounding boxes. Defaults to true when omitted.
+        k_clusters:
+          type:
+            - integer
+            - "null"
+          format: int32
+          description: Number of font-size clusters for heading levels. Defaults to 3 when omitted.
+          minimum: 0
+        ocr_coverage_threshold:
+          type:
+            - number
+            - "null"
+          format: float
+          description: OCR coverage threshold
+      additionalProperties: false
+    ImageExtractionConfig:
+      type: object
+      description: Image extraction and processing configuration.
+      properties:
+        auto_adjust_dpi:
+          type:
+            - boolean
+            - "null"
+          description: Auto-adjust DPI based on content. Defaults to true when omitted.
+        extract_images:
+          type:
+            - boolean
+            - "null"
+          description: Extract images from documents. Defaults to true when omitted.
+        inject_placeholders:
+          type:
+            - boolean
+            - "null"
+          description: Inject image reference placeholders in markdown output. Defaults to true when omitted.
+        max_dpi:
+          type:
+            - integer
+            - "null"
+          format: int32
+          description: Maximum DPI threshold. Defaults to 600 when omitted.
+        max_image_dimension:
+          type:
+            - integer
+            - "null"
+          format: int32
+          description: Maximum image dimension (width or height). Defaults to 4096 when omitted.
+        min_dpi:
+          type:
+            - integer
+            - "null"
+          format: int32
+          description: Minimum DPI threshold. Defaults to 72 when omitted.
+        target_dpi:
+          type:
+            - integer
+            - "null"
+          format: int32
+          description: Target DPI for image normalization. Defaults to 300 when omitted.
+      additionalProperties: false
+    ImagePreprocessingConfig:
+      type: object
+      description: |-
+        Image preprocessing configuration for OCR.
+
+        These settings control how images are preprocessed before OCR to improve
+        text recognition quality. Different preprocessing strategies work better
+        for different document types.
+      properties:
+        auto_rotate:
+          type: boolean
+          description: Auto-detect and correct image rotation.
+          default: false
+        binarization_method:
+          type: string
+          description: |-
+            Binarization method: "none" (alias "off"), "otsu", "sauvola", or "adaptive".
+            `deskew` must be `false` when this is `none` or `off`.
+          default: otsu
+        contrast_enhance:
+          type: boolean
+          description: |-
+            Enhance contrast for better text visibility. With `none` or `off` binarization, this
+            applies background normalization and sharpening while preserving grayscale pixels.
+          default: false
+        denoise:
+          type: boolean
+          description: Remove noise from the image.
+          default: false
+        deskew:
+          type: boolean
+          description: Correct skew (tilted images). Must be `false` with `none` or `off` binarization.
+          default: true
+        invert_colors:
+          type: boolean
+          description: Invert colors (white text on black → black on white).
+          default: false
+        target_dpi:
+          type: integer
+          format: int32
+          description: Target DPI for the image (300 is standard, 600 for small text).
+          default: 300
+      additionalProperties: false
     IncludeMask:
       type: object
       description: Mask of optional response fields.
@@ -5734,6 +6049,79 @@ components:
         status:
           $ref: '#/components/schemas/JobStatus'
           description: Current job status.
+    KeywordAlgorithm:
+      type: string
+      description: Keyword algorithm selection.
+      enum:
+        - yake
+        - rake
+    KeywordConfig:
+      type: object
+      description: Keyword extraction configuration.
+      properties:
+        algorithm:
+          $ref: '#/components/schemas/KeywordAlgorithm'
+          description: Algorithm to use for extraction.
+        language:
+          type:
+            - string
+            - "null"
+          description: |-
+            Language code for stopword filtering (e.g., "en", "de", "fr").
+
+            If None, no stopword filtering is applied.
+        max_keywords:
+          type: integer
+          description: 'Maximum number of keywords to extract (default: 10).'
+          minimum: 0
+        min_score:
+          type: number
+          format: float
+          description: |-
+            Minimum score threshold (0.0-1.0, default: 0.0).
+
+            Keywords with scores below this threshold are filtered out.
+            Note: Score ranges differ between algorithms.
+        ngram_range:
+          $ref: '#/components/schemas/NgramRange'
+          description: |-
+            N-gram range for keyword extraction (min, max).
+
+            (1, 1) = unigrams only
+            (1, 2) = unigrams and bigrams
+            (1, 3) = unigrams, bigrams, and trigrams (default)
+        rake_params:
+          oneOf:
+            - type: "null"
+            - $ref: '#/components/schemas/RakeParams'
+              description: RAKE-specific tuning parameters.
+        yake_params:
+          oneOf:
+            - type: "null"
+            - $ref: '#/components/schemas/YakeParams'
+              description: YAKE-specific tuning parameters.
+      additionalProperties: false
+    LanguageDetectionConfig:
+      type: object
+      description: Language detection configuration.
+      properties:
+        detect_multiple:
+          type:
+            - boolean
+            - "null"
+          description: Detect multiple languages in document
+        enabled:
+          type:
+            - boolean
+            - "null"
+          description: Enable language detection. Defaults to true when omitted.
+        min_confidence:
+          type:
+            - number
+            - "null"
+          format: double
+          description: Minimum confidence threshold (0.0-1.0). Defaults to 0.8 when omitted.
+      additionalProperties: false
     LatencyBreakdown:
       type: object
       description: Latency breakdown (milliseconds) for a single retrieve call.
@@ -5760,6 +6148,45 @@ components:
           format: int64
           description: End-to-end including response serialization.
           minimum: 0
+    LayoutDetectionConfig:
+      type: object
+      description: Document layout detection configuration.
+      properties:
+        apply_heuristics:
+          type:
+            - boolean
+            - "null"
+          description: Apply postprocessing heuristics. Defaults to true when omitted.
+        confidence_threshold:
+          type:
+            - number
+            - "null"
+          format: float
+          description: Confidence threshold override
+        preset:
+          type:
+            - string
+            - "null"
+          description: |-
+            Layout presets are unavailable. xberg's `LayoutDetectionConfig` has no
+            preset concept, and the wire config has no field to carry one, so a
+            value here reached nothing. Omit this field; setting it returns HTTP 400.
+            Set `confidence_threshold` and `apply_heuristics` directly instead.
+        table_model:
+          type:
+            - string
+            - "null"
+          description: |-
+            Table structure model: "tatr", "slanet_wired", "slanet_wireless",
+            "slanet_plus", "slanet_auto" or "disabled". Engine default when omitted.
+        table_overlap_preference:
+          type:
+            - string
+            - "null"
+          description: |-
+            Which region wins when a table and another block overlap. Engine
+            default when omitted.
+      additionalProperties: false
     LeaderboardEntry:
       type: object
       description: One entry in an auto-tune run's leaderboard.
@@ -6053,6 +6480,60 @@ components:
           type: integer
           format: int64
           description: Total count of tuning profiles in the project.
+    LlmConfig:
+      type: object
+      description: LLM provider configuration routed through liter-llm.
+      required:
+        - model
+      properties:
+        api_key:
+          type:
+            - string
+            - "null"
+          description: |-
+            API key for the provider. Mutually exclusive with `use_managed = true`.
+            Treated as a secret — never logged.
+        base_url:
+          type:
+            - string
+            - "null"
+          description: Override the provider base URL.
+        max_retries:
+          type:
+            - integer
+            - "null"
+          format: int32
+          description: Max retry attempts.
+          minimum: 0
+        max_tokens:
+          type:
+            - integer
+            - "null"
+          format: int64
+          description: Maximum tokens to generate.
+          minimum: 0
+        model:
+          type: string
+          description: liter-llm routing identifier, e.g. "openai/gpt-4o-mini".
+        temperature:
+          type:
+            - number
+            - "null"
+          format: double
+          description: Sampling temperature.
+        timeout_secs:
+          type:
+            - integer
+            - "null"
+          format: int64
+          description: Request timeout in seconds.
+          minimum: 0
+        use_managed:
+          type: boolean
+          description: |-
+            Managed provider keys are not available. The worker holds no key to
+            substitute, so a request that sets this is rejected with a 400.
+      additionalProperties: false
     LoginRequest:
       type: object
       description: Login request with an OIDC ID token (e.g. from Google/Firebase sign-in).
@@ -6218,6 +6699,18 @@ components:
         status:
           $ref: '#/components/schemas/MigrateStatus'
           description: Current status.
+    NgramRange:
+      type: object
+      required:
+        - min
+        - max
+      properties:
+        max:
+          type: integer
+          minimum: 1
+        min:
+          type: integer
+          minimum: 1
     OcrBackendCapabilityInfo:
       type: object
       description: One OCR backend available to this deployment, for capability discovery.
@@ -6241,6 +6734,229 @@ components:
       enum:
         - local
         - llm_metered
+    OcrConfig:
+      type: object
+      description: OCR backend and language configuration.
+      properties:
+        auto_rotate:
+          type:
+            - boolean
+            - "null"
+          description: Automatic page rotation detection
+        backend:
+          type:
+            - string
+            - "null"
+          description: 'OCR backend: only "tesseract" is supported; any other value is rejected at the API.'
+        element_config:
+          $ref: '#/components/schemas/OcrElementConfig'
+          description: Structured OCR element extraction
+        language:
+          type:
+            - string
+            - "null"
+          description: Language code (e.g., "eng", "deu", "fra")
+        output_format:
+          type:
+            - string
+            - "null"
+          description: OCR output format override
+        pipeline:
+          $ref: '#/components/schemas/OcrPipelineConfig'
+          description: Multi-backend OCR pipeline with quality-based fallback
+        psm:
+          type:
+            - integer
+            - "null"
+          format: int32
+          description: |-
+            Tesseract page-segmentation mode (0..=13).
+
+            Present because this service's own auto-tune sweeps it (`Knob::Psm`) and
+            returns it inside a winning profile. Without the field the DTO dropped it
+            at parse, so a profile this API produced could not be replayed through
+            this API. When this synthesizes a Tesseract config, the engine carries
+            the top-level language into that config.
+        quality_thresholds:
+          $ref: '#/components/schemas/OcrQualityThresholds'
+          description: Quality thresholds for OCR fallback decisions
+        tesseract_config:
+          $ref: '#/components/schemas/TesseractConfig'
+          description: Tesseract-specific configuration
+        vlm_config:
+          type: object
+          description: VLM (Vision Language Model) configuration
+        vlm_fallback:
+          $ref: '#/components/schemas/VlmFallbackPolicy'
+          description: VLM fallback policy for OCR operations
+        vlm_prompt:
+          type:
+            - string
+            - "null"
+          description: Custom Jinja2 prompt template for VLM OCR
+      additionalProperties: false
+    OcrElementConfig:
+      type: object
+      description: Structured OCR element extraction configuration.
+      properties:
+        build_hierarchy:
+          type: boolean
+          description: Build parent-child relationships
+        include_elements:
+          type: boolean
+          description: Include OCR elements in result
+        min_confidence:
+          type:
+            - number
+            - "null"
+          format: double
+          description: Minimum recognition confidence (0.0-1.0)
+        min_level:
+          type:
+            - string
+            - "null"
+          description: 'Minimum hierarchical level: "word", "line", "block", "page"'
+      additionalProperties: false
+    OcrPipelineConfig:
+      type: object
+      description: Multi-backend OCR pipeline with quality-based fallback.
+      properties:
+        quality_thresholds:
+          $ref: '#/components/schemas/OcrQualityThresholds'
+          description: Quality evaluation thresholds for fallback decisions
+        stages:
+          type: array
+          items:
+            $ref: '#/components/schemas/OcrPipelineStage'
+          description: Ordered list of backends to try (sorted by priority descending)
+      additionalProperties: false
+    OcrPipelineStage:
+      type: object
+      description: Single backend stage in the OCR pipeline.
+      required:
+        - backend
+      properties:
+        backend:
+          type: string
+          description: 'Backend name: only "tesseract" is supported; any other value is rejected at the API boundary.'
+        language:
+          type:
+            - string
+            - "null"
+          description: Language override for this stage
+        priority:
+          type:
+            - integer
+            - "null"
+          format: int32
+          description: |-
+            Priority (higher = tried first). Omit to take the default of 100.
+
+            Optional so that an omitted priority stays omitted. As a plain `u32` it
+            deserialized to zero, serialized as `"priority": 0` into the job
+            message, and the mapping layer could no longer tell a caller who asked
+            for the lowest priority from one who never mentioned it.
+          minimum: 0
+        tesseract_config:
+          $ref: '#/components/schemas/TesseractConfig'
+          description: Tesseract config override for this stage
+        vlm_config:
+          type: object
+          description: VLM config override for this stage
+      additionalProperties: false
+    OcrQualityThresholds:
+      type: object
+      description: Quality thresholds for OCR fallback decisions.
+      properties:
+        alnum_ws_ratio_threshold:
+          type:
+            - number
+            - "null"
+          format: double
+        critical_fragmented_word_ratio:
+          type:
+            - number
+            - "null"
+          format: double
+        max_fragmented_word_ratio:
+          type:
+            - number
+            - "null"
+          format: double
+        min_alnum_ratio:
+          type:
+            - number
+            - "null"
+          format: double
+        min_avg_word_length:
+          type:
+            - number
+            - "null"
+          format: double
+        min_consecutive_repeat_ratio:
+          type:
+            - number
+            - "null"
+          format: double
+        min_garbage_chars:
+          type:
+            - integer
+            - "null"
+          format: int64
+          minimum: 0
+        min_meaningful_word_len:
+          type:
+            - integer
+            - "null"
+          format: int64
+          minimum: 0
+        min_meaningful_words:
+          type:
+            - integer
+            - "null"
+          format: int64
+          minimum: 0
+        min_non_whitespace_per_page:
+          type:
+            - number
+            - "null"
+          format: double
+        min_total_non_whitespace:
+          type:
+            - integer
+            - "null"
+          format: int64
+          minimum: 0
+        min_words_for_avg_length_check:
+          type:
+            - integer
+            - "null"
+          format: int64
+          minimum: 0
+        min_words_for_repeat_check:
+          type:
+            - integer
+            - "null"
+          format: int64
+          minimum: 0
+        non_text_min_chars:
+          type:
+            - integer
+            - "null"
+          format: int64
+          minimum: 0
+        pipeline_min_quality:
+          type:
+            - number
+            - "null"
+          format: double
+        substantive_min_chars:
+          type:
+            - integer
+            - "null"
+          format: int64
+          minimum: 0
+      additionalProperties: false
     OidcInfo:
       type: object
       description: OIDC login configuration, as visible to an unauthenticated caller.
@@ -6263,6 +6979,102 @@ components:
             Provider label derived from the configured issuer (`"google"`,
             `"github"`, `"firebase"`, `"oidc"`), or `None` when disabled or running
             in mock mode without a configured issuer.
+    PageConfig:
+      type: object
+      description: Page extraction configuration.
+      properties:
+        extract_pages:
+          type:
+            - boolean
+            - "null"
+          description: |-
+            Extract pages as separate array in result. Omit to keep the library default.
+
+            Optional so that an omitted key stays omitted on the wire. A plain `bool`
+            serialized `false` into the job message, and the conversion wrote that
+            over the library default as if the caller had asked for it.
+        insert_page_markers:
+          type:
+            - boolean
+            - "null"
+          description: Insert page markers in content text. Omit to keep the library default.
+        marker_format:
+          type:
+            - string
+            - "null"
+          description: Page marker format template (e.g., "\n\n<!-- PAGE {page_num} -->\n\n")
+      additionalProperties: false
+    PdfConfig:
+      type: object
+      description: PDF-specific extraction options.
+      properties:
+        bottom_margin_fraction:
+          type:
+            - number
+            - "null"
+          format: float
+          description: Bottom margin fraction to skip (0.0-1.0)
+        extract_annotations:
+          type:
+            - boolean
+            - "null"
+          description: Extract PDF annotations
+        extract_images:
+          type:
+            - boolean
+            - "null"
+          description: Extract images from PDF
+        extract_metadata:
+          type:
+            - boolean
+            - "null"
+          description: Extract PDF metadata. Defaults to true when omitted.
+        extract_tables:
+          type:
+            - boolean
+            - "null"
+          description: Extract tables from PDF pages. Defaults to true when omitted.
+        hierarchy:
+          $ref: '#/components/schemas/HierarchyConfig'
+          description: Heading hierarchy detection
+        passwords:
+          type:
+            - array
+            - "null"
+          items:
+            type: string
+          description: PDF passwords to try
+        top_margin_fraction:
+          type:
+            - number
+            - "null"
+          format: float
+          description: Top margin fraction to skip (0.0-1.0)
+      additionalProperties: false
+    PostProcessorConfig:
+      type: object
+      description: Post-processing pipeline configuration.
+      properties:
+        disabled_processors:
+          type:
+            - array
+            - "null"
+          items:
+            type: string
+          description: Blacklist of processors to disable (None = none)
+        enabled:
+          type:
+            - boolean
+            - "null"
+          description: Enable post-processors. Defaults to true when omitted.
+        enabled_processors:
+          type:
+            - array
+            - "null"
+          items:
+            type: string
+          description: Whitelist of processors to enable (None = all)
+      additionalProperties: false
     PresetCallMode:
       type: string
       description: Preferred call mode for a preset.
@@ -6657,6 +7469,22 @@ components:
         state:
           $ref: '#/components/schemas/RagJobState'
           description: Current job state
+    RakeParams:
+      type: object
+      description: RAKE-specific parameters.
+      required:
+        - min_word_length
+        - max_words_per_phrase
+      properties:
+        max_words_per_phrase:
+          type: integer
+          description: 'Maximum words in a keyword phrase (default: 3).'
+          minimum: 0
+        min_word_length:
+          type: integer
+          description: 'Minimum word length to consider (default: 1).'
+          minimum: 0
+      additionalProperties: false
     ReadinessChecks:
       type: object
       description: Per-dependency readiness results.
@@ -7097,6 +7925,209 @@ components:
         enabled:
           type: boolean
           description: Whether RAG should be enabled for this project.
+    StructuredExtractionConfig:
+      type: object
+      description: |-
+        LLM-driven structured extraction.
+
+        When set, the worker passes the extracted document text and the supplied
+        JSON schema to an LLM provider (routed through liter-llm) and returns the
+        validated JSON on `ExtractionResult::structured_output`.
+      required:
+        - llm
+      properties:
+        llm:
+          $ref: '#/components/schemas/LlmConfig'
+          description: LLM provider + model configuration.
+        prompt:
+          type:
+            - string
+            - "null"
+          description: Custom Jinja2 prompt template. When omitted, the xberg default is used.
+        schema:
+          type: object
+          description: |-
+            JSON Schema (draft-07) the structured output must conform to. Optional
+            only when `options.preset` or `options.saved_preset_id` supplies it.
+        schema_description:
+          type:
+            - string
+            - "null"
+          description: Optional human-readable schema description supplied to the LLM.
+        schema_name:
+          type: string
+          description: Schema name passed to the LLM's structured-output mode. Defaults to "extraction".
+        strict:
+          type: boolean
+          description: Strict mode — output must match the schema exactly (provider-dependent).
+      additionalProperties: false
+    TesseractConfig:
+      type: object
+      description: |-
+        Tesseract OCR configuration.
+
+        Provides fine-grained control over Tesseract OCR engine parameters.
+        Most users can use the defaults, but these settings allow optimization
+        for specific document types (invoices, handwriting, etc.).
+
+        **This is the public-facing counterpart of `ocr::types::TesseractConfig`
+        (the internal, engine-facing representation with `u8`/`String` fields instead of
+        `i32`/`Vec<String>`).** They are two independent struct definitions bridged only by
+        an explicit `From<&TesseractConfig> for crate::ocr::types::TesseractConfig` impl in
+        `ocr/types.rs` — that conversion carries field *values* across, but each struct keeps
+        its own `Default` impl, and the conversion does nothing to keep those two defaults in
+        sync. Several production call sites (`extractors::image::apply_default_tesseract_psm`,
+        `configured_region_ocr`, `sparse_image_ocr_fallback_config`) construct *this* struct's
+        default and convert it, bypassing the internal struct's `Default` entirely — so if the
+        two defaults disagree, standalone image OCR silently uses this struct's value while
+        PDF-embedded OCR (which can reach the internal `Default` directly when no
+        `tesseract_config` is set) uses the other. When changing a default here, also update
+        `ocr::types::TesseractConfig::default`, and vice versa.
+      properties:
+        classify_use_pre_adapted_templates:
+          type: boolean
+          description: Use pre-adapted templates for character classification
+          default: true
+        enable_table_detection:
+          type: boolean
+          description: Enable automatic table detection and reconstruction
+          default: true
+        language:
+          type: array
+          items:
+            type: string
+          description: |-
+            Language code(s) for OCR recognition. For Tesseract, languages are joined with "+".
+
+            A list is the canonical form and the only form accepted by the binding
+            object APIs (Python, Node, PHP, WASM, etc.): `["eng", "deu"]`. When
+            deserializing from a config file, JSON body, or the REST/MCP API, a
+            single string is also accepted, either as one code ("eng") or
+            "+"-joined ("eng+deu").
+          default:
+            - eng
+        language_model_ngram_on:
+          type: boolean
+          description: |-
+            Enable N-gram language model.
+
+            Kept on by default (see [`Self::default`] and
+            `ocr::types::TesseractConfig::language_model_ngram_on` for the rationale);
+            keep this field's default in sync with the internal struct's.
+          default: true
+        min_confidence:
+          type: number
+          format: double
+          description: |-
+            Minimum confidence threshold (0.0-100.0).
+
+            Words with confidence below this threshold may be rejected or flagged.
+          default: 0
+        oem:
+          type: integer
+          format: int32
+          description: |-
+            OCR Engine Mode (0-3).
+
+            - 0: Legacy engine only
+            - 1: Neural nets (LSTM) only (usually best)
+            - 2: Legacy + LSTM
+            - 3: Default (based on what's available)
+          default: 3
+        output_format:
+          type: string
+          description: Output format ("text" or "markdown")
+          default: markdown
+        preprocessing:
+          oneOf:
+            - type: "null"
+            - $ref: '#/components/schemas/ImagePreprocessingConfig'
+              description: |-
+                Image preprocessing configuration.
+
+                Controls how images are preprocessed before OCR. Can significantly
+                improve quality for scanned documents or low-quality images.
+          default: null
+        psm:
+          type: integer
+          format: int32
+          description: |-
+            Page Segmentation Mode (0-13).
+
+            Common values:
+            - 3: Fully automatic page segmentation (native default)
+            - 6: Assume a single uniform block of text (WASM default — avoids layout-analysis hang)
+            - 11: Sparse text with no particular order
+          default: 3
+        table_column_threshold:
+          type: integer
+          format: int32
+          description: Column threshold for table detection (pixels)
+          default: 50
+        table_min_confidence:
+          type: number
+          format: double
+          description: Minimum confidence threshold for table detection (0.0-1.0)
+          default: 0
+        table_row_threshold_ratio:
+          type: number
+          format: double
+          description: Row threshold ratio for table detection (0.0-1.0)
+          default: 0.5
+        tessedit_char_blacklist:
+          type: string
+          description: Blacklist of forbidden characters (empty = none forbidden)
+          default: ""
+        tessedit_char_whitelist:
+          type: string
+          description: Whitelist of allowed characters (empty = all allowed)
+          default: ""
+        tessedit_dont_blkrej_good_wds:
+          type: boolean
+          description: Don't reject good words during block-level processing
+          default: true
+        tessedit_dont_rowrej_good_wds:
+          type: boolean
+          description: Don't reject good words during row-level processing
+          default: true
+        tessedit_enable_dict_correction:
+          type: boolean
+          description: Enable dictionary correction
+          default: true
+        tessedit_use_primary_params_model:
+          type: boolean
+          description: Use primary language params model
+          default: true
+        textord_space_size_is_variable:
+          type: boolean
+          description: Variable-width space detection
+          default: true
+        thresholding_method:
+          type: boolean
+          description: Use adaptive thresholding method
+          default: false
+        use_cache:
+          type: boolean
+          description: Enable OCR result caching
+          default: true
+      additionalProperties: false
+    TokenReductionConfig:
+      type: object
+      description: Token reduction configuration for LLM consumption.
+      properties:
+        mode:
+          type:
+            - string
+            - "null"
+          description: |-
+            Reduction mode: "off", "light", "moderate", "aggressive", "maximum".
+            Defaults to "off" when omitted.
+        preserve_important_words:
+          type:
+            - boolean
+            - "null"
+          description: Preserve capitalized/technical terms. Defaults to true when omitted.
+      additionalProperties: false
     TunableKnobInfo:
       type: object
       description: One knob that auto-tune can search over, for capability discovery.
@@ -7269,6 +8300,49 @@ components:
           type: string
           description: User id from the identity provider (OIDC `sub`).
           example: user-id-abc123
+    VlmFallbackPolicy:
+      oneOf:
+        - type: object
+          description: No VLM fallback (default). Uses single-backend mode only.
+          required:
+            - mode
+          properties:
+            mode:
+              type: string
+              enum:
+                - disabled
+        - type: object
+          description: |-
+            Try the classical OCR backend first, then fall back to VLM below a quality
+            threshold. Not available on the managed API — rejected with a 400.
+          required:
+            - quality_threshold
+            - mode
+          properties:
+            mode:
+              type: string
+              enum:
+                - on_low_quality
+            quality_threshold:
+              type: number
+              format: double
+        - type: object
+          description: |-
+            Send every page directly to VLM. Not available on the managed API —
+            rejected with a 400.
+          required:
+            - mode
+          properties:
+            mode:
+              type: string
+              enum:
+                - always
+      description: |-
+        VLM fallback policy for OCR operations.
+
+        Determines whether and when to fall back from classical OCR (tesseract) to
+        Vision Language Model (VLM) processing. VLM is not available on the managed
+        API — any non-`disabled` policy is rejected with a 400.
     WebhookConfig:
       type: object
       description: Webhook configuration for async delivery of job results.
@@ -7376,6 +8450,20 @@ components:
         - job.completed
         - job.failed
         - job.cancelled
+    YakeParams:
+      type: object
+      description: YAKE-specific parameters.
+      required:
+        - window_size
+      properties:
+        window_size:
+          type: integer
+          description: |-
+            Window size for co-occurrence analysis (default: 2).
+
+            Controls the context window for computing co-occurrence statistics.
+          minimum: 0
+      additionalProperties: false
   securitySchemes:
     bearer_auth:
       type: http
