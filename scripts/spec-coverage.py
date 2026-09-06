@@ -24,6 +24,12 @@ import yaml
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 CLIENT = REPO_ROOT / "packages" / "python" / "src" / "xberg_io_sdk" / "client.py"
+
+# `spec/backend/openapi.yaml` -- the Enterprise control plane -- is deliberately
+# absent. It is vendored and generates types in all three languages, but no
+# client method reaches any of its 48 operations yet, so listing it here would
+# fail the build on every one of them. Add it in the same change that lands the
+# control-plane methods, not before.
 SPECS = {
     "enterprise": REPO_ROOT / "spec" / "api" / "openapi.yaml",
     "pro": REPO_ROOT / "spec" / "pro" / "openapi.yaml",

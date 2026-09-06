@@ -70,7 +70,7 @@ jobs:
             https://github.com/mikefarah/yq/releases/download/v4.53.3/yq_linux_amd64
           sudo chmod +x /usr/local/bin/yq
 
-      - name: Convert both JSON specs to YAML
+      - name: Normalise all three upstream specs into the vendored copies
         run: |
           yq -P -oy '.' \
             _xberg-enterprise/services/api/spec/openapi.json \
@@ -78,11 +78,17 @@ jobs:
           yq -P -oy '.' \
             _xberg-enterprise/services/pro/spec/openapi.json \
             > spec/pro/openapi.yaml
+          # The control plane's spec is vendored by the frontend and is already
+          # YAML; it still goes through yq so all three copies share one
+          # formatting and a drift diff stays readable.
+          yq -P -oy '.' \
+            _xberg-enterprise/frontend/openapi-backend.yaml \
+            > spec/backend/openapi.yaml
 
       - name: Detect drift
         id: diff
         run: |
-          if git diff --quiet -- spec/api/openapi.yaml spec/pro/openapi.yaml; then
+          if git diff --quiet -- spec/api/openapi.yaml spec/pro/openapi.yaml spec/backend/openapi.yaml; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
           else
             echo "changed=true" >> "$GITHUB_OUTPUT"
@@ -93,12 +99,13 @@ jobs:
         uses: peter-evans/create-pull-request@v7
         with:
           token: ${{ steps.app-token.outputs.token }}
-          commit-message: "chore(spec): sync api + pro openapi specs from xberg-enterprise (${{ steps.ref.outputs.version }})"
+          commit-message: "chore(spec): sync api + pro + backend openapi specs from xberg-enterprise (${{ steps.ref.outputs.version }})"
           title: "chore(spec): sync openapi specs from xberg-enterprise (${{ steps.ref.outputs.version }})"
           body: |
-            Automated sync of `spec/api/openapi.yaml` and `spec/pro/openapi.yaml` from
-            `xberg-io/xberg-enterprise@${{ steps.ref.outputs.ref }}`
-            (`services/api/spec/openapi.json` + `services/pro/spec/openapi.json`).
+            Automated sync of `spec/api/openapi.yaml`, `spec/pro/openapi.yaml` and
+            `spec/backend/openapi.yaml` from `xberg-io/xberg-enterprise@${{ steps.ref.outputs.ref }}`
+            (`services/api/spec/openapi.json` + `services/pro/spec/openapi.json` +
+            `frontend/openapi-backend.yaml`).
 
             API version: `${{ steps.ref.outputs.version }}`
 
@@ -110,3 +117,4 @@ jobs:
           add-paths: |
             spec/api/openapi.yaml
             spec/pro/openapi.yaml
+            spec/backend/openapi.yaml

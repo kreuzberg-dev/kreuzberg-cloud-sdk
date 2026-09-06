@@ -35,19 +35,23 @@ vendor/
 *.out
 go.work.sum
 # `go build ./...` inside the tools module drops a binary named after its directory
-tools/oapi-pro-config/oapi-pro-config
+tools/oapi-schemaset-config/oapi-schemaset-config
 
 # Generated client code (kept out of git; produced by `task generate`)
 packages/python/src/xberg_io_sdk/_generated_api/
 packages/python/src/xberg_io_sdk/_generated_pro/
+packages/python/src/xberg_io_sdk/_generated_backend/
 packages/typescript/src/_generated/
 packages/go/generated_api.go
 packages/go/generated_pro.go
-# Derived oapi-codegen config for the Pro schema set, and the derived Pro spec
-# it is generated against (both written by tools/oapi-pro-config from
-# oapi-codegen-pro.yaml + both vendored specs).
+packages/go/generated_backend.go
+# Derived oapi-codegen config for each secondary Go schema set, and the derived
+# spec it is generated against (both written by tools/oapi-schemaset-config from
+# the matching base config + the vendored specs).
 packages/go/oapi-codegen-pro.gen.yaml
 packages/go/spec-pro.gen.yaml
+packages/go/oapi-codegen-backend.gen.yaml
+packages/go/spec-backend.gen.yaml
 
 # Editor
 .idea/

@@ -1,0 +1,42 @@
+# Base config for the Xberg Enterprise CONTROL PLANE schema set (projects, API
+# keys, integrations, RAG config, members, invitations, managed webhooks, usage,
+# analytics, billing), emitted into the shared `xberg` package alongside
+# generated_api.go and generated_pro.go.
+#
+# Enterprise splits into two binaries: the data plane on :8080 (spec/api) and the
+# control plane on :8081 (spec/backend). Pro serves both from one binary, which
+# is why the Pro schema set already carries part of this surface — and why the
+# derived exclusion list below is large.
+#
+# This file is NOT passed to oapi-codegen directly. `task go:generate` runs
+# tools/oapi-schemaset-config with BOTH earlier schema sets as `-prior`, and it
+# writes two files:
+#
+#   oapi-codegen-backend.gen.yaml  this file plus two derived lists:
+#
+#     exclude-schemas              the schema names the Enterprise or Pro schema
+#                                  set already emits with an identical shape
+#     include-operation-ids        the operations only this spec declares, so no
+#                                  shared operation's param/body types are
+#                                  emitted twice
+#
+#   spec-backend.gen.yaml          a copy of the backend spec in which every
+#                                  schema an earlier set declares with a
+#                                  DIFFERENT structure — plus every schema that
+#                                  reaches one through a `$ref` — is renamed
+#                                  behind a `Backend` prefix.
+#
+# The Pro spec is handed to the tool as its DERIVED copy (spec-pro.gen.yaml), not
+# the vendored one: the names that run moved behind a `Pro` prefix are what the
+# package actually declares, and the names it vacated are free here.
+#
+# Both lists and the renames are recomputed from the specs on every run, so a
+# spec sync cannot leave them stale. Do not pin them here — oapi-schemaset-config
+# rejects a base config that sets either list. The schema sets are never merged;
+# mirrors xberg-enterprise ADR-0072.
+package: xberg
+output: generated_backend.go
+generate:
+  models: true
+output-options:
+  skip-prune: true

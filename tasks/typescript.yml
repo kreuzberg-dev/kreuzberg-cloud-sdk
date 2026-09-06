@@ -1,17 +1,20 @@
 version: "3"
 
 # ~keep The TypeScript SDK ships ONE package (`@xberg-io/sdk`) with ONE dual-target
-# client, generated from TWO OpenAPI specs kept as separate schema sets (never
+# client, generated from THREE OpenAPI specs kept as separate schema sets (never
 # merged; see xberg-enterprise ADR-0072):
-#   - spec/api/openapi.yaml -> src/_generated/api.d.ts  (Xberg Enterprise)
-#   - spec/pro/openapi.yaml -> src/_generated/pro.d.ts  (Xberg Pro)
+#   - spec/api/openapi.yaml     -> src/_generated/api.d.ts      (Enterprise data plane)
+#   - spec/pro/openapi.yaml     -> src/_generated/pro.d.ts      (Xberg Pro)
+#   - spec/backend/openapi.yaml -> src/_generated/backend.d.ts  (Enterprise control plane)
+# Each set lands in its own module, so a name several specs share needs no
+# renaming here — unlike the Go SDK, where all three share one package.
 # The generated dir is gitignored; `generate` must run before `build`/`test`.
 vars:
   PKG_DIR: packages/typescript
 
 tasks:
   generate:
-    desc: "Regenerate both TypeScript schema sets (Enterprise + Pro) via openapi-typescript"
+    desc: "Regenerate all three TypeScript schema sets (Enterprise + Pro + control plane)"
     dir: "{{.PKG_DIR}}"
     cmds:
       - bash scripts/generate.sh

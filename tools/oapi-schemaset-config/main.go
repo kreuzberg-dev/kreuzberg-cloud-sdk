@@ -1,28 +1,35 @@
-// Command oapi-pro-config derives the oapi-codegen configuration for the Pro
-// schema set from the two vendored OpenAPI specs.
+// Command oapi-schemaset-config derives the oapi-codegen configuration for a
+// SECONDARY schema set — one generated into a Go package that already holds the
+// types of other specs.
 //
-// The Go SDK ships one package (`xberg`) built from two specs kept as separate
-// schema sets (never merged; see xberg-enterprise ADR-0072). Anything the
-// Enterprise spec already declares must therefore be excluded from the Pro
-// generation, or the two files declare the same Go identifier twice and the
-// package stops compiling.
+// The Go SDK ships one package (`xberg`) built from three specs kept as separate
+// schema sets (never merged; see xberg-enterprise ADR-0072): the Enterprise data
+// plane, Pro, and the Enterprise control plane. Anything an earlier schema set
+// already declares must therefore be excluded from a later one, or the two files
+// declare the same Go identifier twice and the package stops compiling.
 //
 // That exclusion set used to be hand-maintained and went stale on every spec
-// sync. This command computes it instead: it reads both specs, intersects
-// their `components.schemas` keys and their operation IDs, and writes a derived
-// config that merges those two lists into a checked-in base config. A spec sync
-// that adds, removes, or reclassifies a schema is picked up automatically the
-// next time `task go:generate` runs.
+// sync. This command computes it instead: it reads the specs already generated
+// (`-prior`, repeatable, in generation order) and the spec being configured
+// (`-spec`), intersects their `components.schemas` keys and their operation IDs,
+// and writes a derived config that merges those two lists into a checked-in base
+// config. A spec sync that adds, removes, or reclassifies a schema is picked up
+// automatically the next time `task go:generate` runs.
 //
 // A shared NAME does not always mean a shared SHAPE. `ReadinessChecks`, for
 // one, requires `nats` on Enterprise and `storage` on Pro — the two products
-// genuinely report different dependencies. Excluding such a name would hand Pro
-// the Enterprise struct, so a Pro caller would read a `Nats` field the service
-// never sends and have no field at all for the one it does. Only the schemas
-// that are structurally identical are therefore excluded; a divergent one is
-// renamed with a `Pro` prefix in a derived copy of the Pro spec, which is what
+// genuinely report different dependencies. Excluding such a name would hand the
+// later schema set the earlier struct, so a Pro caller would read a `Nats` field
+// the service never sends and have no field at all for the one it does. Only the
+// schemas that are structurally identical are therefore excluded; a divergent
+// one is renamed behind `-prefix` in a derived copy of the spec, which is what
 // oapi-codegen actually reads. The vendored spec is never touched, so it stays
 // byte-identical to the upstream copy `task spec:check` compares against.
+//
+// A prior schema set that was itself generated from a derived copy must be
+// passed as that DERIVED copy, not as its vendored original: the renames the
+// earlier run applied are part of what the package declares, and a name it moved
+// out of the way is free for this one.
 package main
 
 import (
@@ -36,6 +43,8 @@ import (
 
 	"gopkg.in/yaml.v3"
 )
+
+const toolName = "oapi-schemaset-config"
 
 // httpMethods are the path-item keys that hold an operation. Every other key
 // (`parameters`, `summary`, `servers`, `$ref`, …) is metadata, not an operation.
@@ -52,7 +61,7 @@ var httpMethods = map[string]struct{}{
 
 // documentationKeys hold prose only. Two schemas that differ solely in these
 // keys generate identical Go types, so they are stripped before comparing a
-// shared schema's Enterprise and Pro definitions.
+// shared schema's two definitions.
 var documentationKeys = map[string]struct{}{
 	"description": {},
 	"example":     {},
@@ -69,39 +78,56 @@ type specDocument struct {
 	Paths map[string]map[string]any `yaml:"paths"`
 }
 
+// specPaths collects a repeatable path flag, preserving the order it was given
+// in — which is the order the schema sets are generated in.
+type specPaths []string
+
+func (p *specPaths) String() string { return strings.Join(*p, ",") }
+
+func (p *specPaths) Set(value string) error {
+	*p = append(*p, value)
+	return nil
+}
+
 func main() {
-	apiSpecPath := flag.String("api", "", "path to the Enterprise OpenAPI spec")
-	proSpecPath := flag.String("pro", "", "path to the Pro OpenAPI spec")
-	basePath := flag.String("base", "", "path to the checked-in base oapi-codegen config for the Pro schema set")
+	var priorSpecPaths specPaths
+	flag.Var(&priorSpecPaths, "prior",
+		"path to a spec whose Go types the package already declares; repeat in generation order")
+	specPath := flag.String("spec", "", "path to the OpenAPI spec whose schema set is being configured")
+	prefix := flag.String("prefix", "", "Go name prefix for a schema this spec declares with its own shape")
+	basePath := flag.String("base", "", "path to the checked-in base oapi-codegen config for this schema set")
 	outputPath := flag.String("out", "", "path of the derived oapi-codegen config to write")
 	flag.Parse()
 
-	if err := run(*apiSpecPath, *proSpecPath, *basePath, *outputPath); err != nil {
-		fmt.Fprintf(os.Stderr, "oapi-pro-config: %v\n", err)
+	if err := run(priorSpecPaths, *specPath, *prefix, *basePath, *outputPath); err != nil {
+		fmt.Fprintf(os.Stderr, "%s: %v\n", toolName, err)
 		os.Exit(1)
 	}
 }
 
-func run(apiSpecPath, proSpecPath, basePath, outputPath string) error {
+func run(priorSpecPaths []string, specPath, prefix, basePath, outputPath string) error {
 	for name, value := range map[string]string{
-		"-api": apiSpecPath, "-pro": proSpecPath, "-base": basePath, "-out": outputPath,
+		"-spec": specPath, "-prefix": prefix, "-base": basePath, "-out": outputPath,
 	} {
 		if value == "" {
 			return fmt.Errorf("%s is required", name)
 		}
 	}
+	if len(priorSpecPaths) == 0 {
+		return errors.New("-prior is required at least once")
+	}
 
-	apiSpec, err := loadSpec(apiSpecPath)
+	priorSchemas, priorOperations, err := alreadyDeclared(priorSpecPaths)
 	if err != nil {
 		return err
 	}
-	proSpec, err := loadSpec(proSpecPath)
+	spec, err := loadSpec(specPath)
 	if err != nil {
 		return err
 	}
 
-	sharedSchemas := intersection(keys(apiSpec.Components.Schemas), keys(proSpec.Components.Schemas))
-	proOnlyOperations := difference(operationIDs(proSpec), operationIDs(apiSpec))
+	sharedSchemas := intersection(keys(priorSchemas), keys(spec.Components.Schemas))
+	newOperations := difference(operationIDs(spec), priorOperations)
 
 	config, err := loadBaseConfig(basePath)
 	if err != nil {
@@ -118,37 +144,63 @@ func run(apiSpecPath, proSpecPath, basePath, outputPath string) error {
 	}
 
 	// Only a shared name whose two definitions generate the same Go type may be
-	// excluded. A divergent one is renamed instead, so Pro keeps its own shape.
-	divergent := divergentClosure(apiSpec, proSpec, sharedSchemas)
+	// excluded. A divergent one is renamed instead, so this spec keeps its shape.
+	divergent := divergentClosure(priorSchemas, spec, sharedSchemas)
 	outputOptions["exclude-schemas"] = withoutNames(sharedSchemas, divergent)
-	outputOptions["include-operation-ids"] = proOnlyOperations
+	outputOptions["include-operation-ids"] = newOperations
 
-	renames, err := proTypeNames(divergent, apiSpec, proSpec)
+	renames, err := typeNames(divergent, prefix, priorSchemas, spec)
 	if err != nil {
 		return err
 	}
-	if err := writeDerivedSpec(derivedSpecPathFor(outputPath), proSpecPath, renames); err != nil {
+	if err := writeDerivedSpec(derivedSpecPathFor(outputPath, prefix), specPath, prefix, renames); err != nil {
 		return err
 	}
 	for _, name := range divergent {
 		fmt.Fprintf(os.Stderr,
-			"oapi-pro-config: schema %q differs structurally between the specs; "+
-				"the Pro schema set emits it as %s\n", name, renames[name])
+			"%s: schema %q differs structurally from the already-generated definition; "+
+				"this schema set emits it as %s\n", toolName, name, renames[name])
 	}
 
 	body, err := yaml.Marshal(config)
 	if err != nil {
 		return fmt.Errorf("marshalling derived config: %w", err)
 	}
-	document := header(basePath, sharedSchemas, proOnlyOperations, divergent) + string(body)
+	document := header(basePath, prefix, sharedSchemas, newOperations, divergent) + string(body)
 	if err := os.WriteFile(outputPath, []byte(document), 0o644); err != nil { //nolint:gosec // generated build input, not a secret
 		return fmt.Errorf("writing %s: %w", outputPath, err)
 	}
 
 	fmt.Fprintf(os.Stderr,
-		"oapi-pro-config: wrote %s (%d shared schemas excluded, %d renamed, %d Pro-only operations included)\n",
-		outputPath, len(sharedSchemas)-len(divergent), len(divergent), len(proOnlyOperations))
+		"%s: wrote %s (%d shared schemas excluded, %d renamed, %d new operations included)\n",
+		toolName, outputPath, len(sharedSchemas)-len(divergent), len(divergent), len(newOperations))
 	return nil
+}
+
+// alreadyDeclared merges the schemas and operation IDs of every schema set the
+// package already holds into the two sets this run compares against.
+//
+// The first declaration of a name wins, and which one that is does not matter: a
+// name two prior specs share is one an earlier run already proved structurally
+// identical, and a name they declare differently was renamed apart by that run.
+func alreadyDeclared(priorSpecPaths []string) (map[string]any, map[string]struct{}, error) {
+	schemas := map[string]any{}
+	operations := map[string]struct{}{}
+	for _, path := range priorSpecPaths {
+		spec, err := loadSpec(path)
+		if err != nil {
+			return nil, nil, err
+		}
+		for name, definition := range spec.Components.Schemas {
+			if _, present := schemas[name]; !present {
+				schemas[name] = definition
+			}
+		}
+		for id := range operationIDs(spec) {
+			operations[id] = struct{}{}
+		}
+	}
+	return schemas, operations, nil
 }
 
 func loadSpec(path string) (*specDocument, error) {
@@ -220,16 +272,16 @@ func operationIDs(spec *specDocument) map[string]struct{} {
 }
 
 // divergentSharedSchemas reports shared schema names whose two definitions
-// differ beyond documentation, meaning the Pro schema set silently reuses the
-// Enterprise shape for a type the Pro API describes differently.
-func divergentSharedSchemas(apiSpec, proSpec *specDocument, shared []string) []string {
+// differ beyond documentation, meaning this schema set would silently reuse the
+// already-generated shape for a type its own spec describes differently.
+func divergentSharedSchemas(priorSchemas map[string]any, spec *specDocument, shared []string) []string {
 	var divergent []string
 	for _, name := range shared {
-		apiSchema := stripDocumentation(apiSpec.Components.Schemas[name])
-		proSchema := stripDocumentation(proSpec.Components.Schemas[name])
-		apiRendered, apiErr := yaml.Marshal(apiSchema)
-		proRendered, proErr := yaml.Marshal(proSchema)
-		if apiErr != nil || proErr != nil || string(apiRendered) != string(proRendered) {
+		priorSchema := stripDocumentation(priorSchemas[name])
+		schema := stripDocumentation(spec.Components.Schemas[name])
+		priorRendered, priorErr := yaml.Marshal(priorSchema)
+		rendered, err := yaml.Marshal(schema)
+		if priorErr != nil || err != nil || string(priorRendered) != string(rendered) {
 			divergent = append(divergent, name)
 		}
 	}
@@ -272,9 +324,9 @@ func schemaRefs(value any) map[string]struct{} {
 // it would hand Pro an Enterprise `ReadinessResponse` whose `Checks` is the
 // Enterprise struct, reintroducing through one field exactly the mismatch the
 // rename removes. A schema is only safe to share when everything it reaches is.
-func divergentClosure(apiSpec, proSpec *specDocument, shared []string) []string {
+func divergentClosure(priorSchemas map[string]any, spec *specDocument, shared []string) []string {
 	divergent := map[string]struct{}{}
-	for _, name := range divergentSharedSchemas(apiSpec, proSpec, shared) {
+	for _, name := range divergentSharedSchemas(priorSchemas, spec, shared) {
 		divergent[name] = struct{}{}
 	}
 
@@ -284,7 +336,7 @@ func divergentClosure(apiSpec, proSpec *specDocument, shared []string) []string 
 			if _, already := divergent[name]; already {
 				continue
 			}
-			for reference := range schemaRefs(proSpec.Components.Schemas[name]) {
+			for reference := range schemaRefs(spec.Components.Schemas[name]) {
 				if _, isDivergent := divergent[reference]; isDivergent {
 					divergent[name] = struct{}{}
 					changed = true
@@ -326,52 +378,55 @@ func stripDocumentation(value any) any {
 	}
 }
 
-// proTypeNameFor is the Go identifier a divergent shared schema is emitted
-// under in the Pro schema set. The Enterprise definition keeps the bare name.
-func proTypeNameFor(schemaName string) string {
-	return "Pro" + schemaName
+// typeNameFor is the Go identifier a divergent shared schema is emitted under in
+// this schema set. The already-generated definition keeps the bare name.
+func typeNameFor(prefix, schemaName string) string {
+	return prefix + schemaName
 }
 
-// proTypeNames maps each divergent schema to its Pro Go name, refusing a name
-// that either spec already declares. Without this guard the rename would trade
+// typeNames maps each divergent schema to its prefixed Go name, refusing a name
+// any of the specs already declares. Without this guard the rename would trade
 // one silent redeclaration for another.
-func proTypeNames(divergent []string, apiSpec, proSpec *specDocument) (map[string]string, error) {
+func typeNames(divergent []string, prefix string, priorSchemas map[string]any,
+	spec *specDocument,
+) (map[string]string, error) {
 	renames := make(map[string]string, len(divergent))
 	for _, name := range divergent {
-		renamed := proTypeNameFor(name)
-		_, inAPI := apiSpec.Components.Schemas[renamed]
-		_, inPro := proSpec.Components.Schemas[renamed]
-		if inAPI || inPro {
+		renamed := typeNameFor(prefix, name)
+		_, inPrior := priorSchemas[renamed]
+		_, inSpec := spec.Components.Schemas[renamed]
+		if inPrior || inSpec {
 			return nil, fmt.Errorf(
-				"schema %q differs between the specs and would be renamed to %q, but that name is already declared; "+
-					"rename one of them upstream", name, renamed)
+				"schema %q differs from the already-generated definition and would be renamed to %q, "+
+					"but that name is already declared; rename one of them upstream", name, renamed)
 		}
 		renames[name] = renamed
 	}
 	return renames, nil
 }
 
-// derivedSpecPathFor places the derived Pro spec beside the derived config, so
-// the two generated build inputs live and die together.
-func derivedSpecPathFor(outputPath string) string {
+// derivedSpecPathFor places the derived spec beside the derived config, so the
+// two generated build inputs live and die together. The prefix is part of the
+// name because every schema set derives its own copy into the same directory.
+func derivedSpecPathFor(outputPath, prefix string) string {
 	directory := filepath.Dir(outputPath)
-	return filepath.Join(directory, "spec-pro.gen.yaml")
+	return filepath.Join(directory, "spec-"+strings.ToLower(prefix)+".gen.yaml")
 }
 
-// writeDerivedSpec copies the Pro spec, renaming each divergent schema and
-// every reference to it.
+// writeDerivedSpec copies the spec, renaming each divergent schema and every
+// reference to it.
 //
 // It is written unconditionally, even when nothing is renamed, so `task
 // go:generate` can always hand oapi-codegen the same path instead of branching
 // on whether a rename happened.
-func writeDerivedSpec(path, proSpecPath string, renames map[string]string) error {
-	raw, err := os.ReadFile(proSpecPath) //nolint:gosec // path comes from the Taskfile, not user input
+func writeDerivedSpec(path, specPath, prefix string, renames map[string]string) error {
+	raw, err := os.ReadFile(specPath) //nolint:gosec // path comes from the Taskfile, not user input
 	if err != nil {
-		return fmt.Errorf("reading spec %s: %w", proSpecPath, err)
+		return fmt.Errorf("reading spec %s: %w", specPath, err)
 	}
 	var document map[string]any
 	if err := yaml.Unmarshal(raw, &document); err != nil {
-		return fmt.Errorf("parsing spec %s: %w", proSpecPath, err)
+		return fmt.Errorf("parsing spec %s: %w", specPath, err)
 	}
 
 	renameSchemaKeys(document, renames)
@@ -382,11 +437,11 @@ func writeDerivedSpec(path, proSpecPath string, renames map[string]string) error
 		return fmt.Errorf("marshalling derived spec: %w", err)
 	}
 
-	header := "# Code generated by tools/oapi-pro-config; DO NOT EDIT.\n" +
+	header := "# Code generated by tools/" + toolName + "; DO NOT EDIT.\n" +
 		"#\n" +
-		"# A copy of the vendored Pro spec with every schema the Enterprise spec declares\n" +
-		"# differently renamed behind a `Pro` prefix, so both shapes can live in one Go\n" +
-		"# package. Edit spec/pro/openapi.yaml — never this file.\n"
+		"# A copy of the vendored spec with every schema an already-generated schema set\n" +
+		"# declares differently renamed behind a `" + prefix + "` prefix, so both shapes can\n" +
+		"# live in one Go package. Edit the vendored spec — never this file.\n"
 
 	if err := os.WriteFile(path, []byte(header+string(body)), 0o644); err != nil { //nolint:gosec // generated build input, not a secret
 		return fmt.Errorf("writing %s: %w", path, err)
@@ -455,21 +510,23 @@ func withoutNames(names, excluded []string) []string {
 	return kept
 }
 
-func header(basePath string, shared, proOnly, divergent []string) string {
+func header(basePath, prefix string, shared, newOperations, divergent []string) string {
 	var builder strings.Builder
-	builder.WriteString("# Code generated by tools/oapi-pro-config; DO NOT EDIT.\n")
+	builder.WriteString("# Code generated by tools/" + toolName + "; DO NOT EDIT.\n")
 	builder.WriteString("#\n")
-	fmt.Fprintf(&builder, "# %s plus two lists derived from the Enterprise and Pro OpenAPI specs.\n", basePath)
-	fmt.Fprintf(&builder, "# exclude-schemas is the %d schema names both specs declare identically (already\n", len(shared)-len(divergent))
-	fmt.Fprintf(&builder, "# emitted into generated_api.go); include-operation-ids is the %d operations the\n", len(proOnly))
-	builder.WriteString("# Pro spec declares and the Enterprise spec does not. Edit the base config or\n")
-	builder.WriteString("# the specs — never this file.\n")
+	fmt.Fprintf(&builder, "# %s plus two lists derived from this spec and the ones already generated.\n", basePath)
+	fmt.Fprintf(&builder, "# exclude-schemas is the %d schema names an earlier schema set already\n",
+		len(shared)-len(divergent))
+	fmt.Fprintf(&builder, "# declares identically; include-operation-ids is the %d operations this spec\n",
+		len(newOperations))
+	builder.WriteString("# declares and no earlier one does. Edit the base config or the specs — never\n")
+	builder.WriteString("# this file.\n")
 	if len(divergent) > 0 {
 		builder.WriteString("#\n")
-		builder.WriteString("# These shared schemas differ structurally between the two specs, so the Pro\n")
-		builder.WriteString("# schema set emits each under its own Go name in the derived spec:\n")
+		builder.WriteString("# These shared schemas differ structurally from the already-generated definition,\n")
+		builder.WriteString("# so this schema set emits each under its own Go name in the derived spec:\n")
 		for _, name := range divergent {
-			fmt.Fprintf(&builder, "#   %s -> %s\n", name, proTypeNameFor(name))
+			fmt.Fprintf(&builder, "#   %s -> %s\n", name, typeNameFor(prefix, name))
 		}
 	}
 	return builder.String()

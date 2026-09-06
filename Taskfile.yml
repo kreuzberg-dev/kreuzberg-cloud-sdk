@@ -33,12 +33,12 @@ tasks:
       - uv sync
       - pnpm install
       - cd packages/go && go mod download
-      - cd tools/oapi-pro-config && go mod download
+      - cd tools/oapi-schemaset-config && go mod download
       - command -v poly >/dev/null 2>&1 || brew install goldziher/tap/poly
       - poly hooks install
 
   generate:
-    desc: "Regenerate all language clients from spec/api + spec/pro"
+    desc: "Regenerate all language clients from spec/api + spec/pro + spec/backend"
     cmds:
       - task: python:generate
       - task: typescript:generate
@@ -129,8 +129,11 @@ tasks:
     desc: "Remove generated clients and build artifacts"
     cmds:
       - rm -rf packages/python/src/xberg_io_sdk/_generated_api packages/python/src/xberg_io_sdk/_generated_pro
+      - rm -rf packages/python/src/xberg_io_sdk/_generated_backend
       - rm -rf packages/typescript/src/_generated
-      - rm -f packages/go/generated_api.go packages/go/generated_pro.go packages/go/oapi-codegen-pro.gen.yaml
+      - rm -f packages/go/generated_api.go packages/go/generated_pro.go packages/go/generated_backend.go
+      - rm -f packages/go/oapi-codegen-pro.gen.yaml packages/go/spec-pro.gen.yaml
+      - rm -f packages/go/oapi-codegen-backend.gen.yaml packages/go/spec-backend.gen.yaml
       - rm -rf packages/python/dist packages/typescript/dist
       - rm -rf .pytest_cache .mypy_cache .ruff_cache htmlcov coverage
 

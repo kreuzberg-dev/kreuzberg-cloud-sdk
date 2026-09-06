@@ -1,14 +1,22 @@
 version: "3"
 
-# ~keep The SDK vendors TWO OpenAPI specs — the Enterprise managed API (`services/api`)
-# and Pro (`services/pro`) — and generates one dual-target client from both.
+# ~keep The SDK vendors THREE OpenAPI specs and generates one dual-target client from
+# them. Enterprise splits into two binaries — the data plane (`services/api`, :8080)
+# and the control plane (`services/backend`, :8081, whose spec the frontend vendors as
+# `frontend/openapi-backend.yaml`) — while Pro (`services/pro`) serves both planes from
+# one binary. Without the control-plane spec the Enterprise target could not create a
+# project or mint an API key while the Pro target could.
 # Merging is deliberately avoided (operationId collisions + topology honesty);
 # see xberg-enterprise ADR-0072.
 vars:
   API_SPEC: spec/api/openapi.yaml
   PRO_SPEC: spec/pro/openapi.yaml
+  BACKEND_SPEC: spec/backend/openapi.yaml
   UPSTREAM_API_LOCAL: ../xberg-enterprise/services/api/spec/openapi.json
   UPSTREAM_PRO_LOCAL: ../xberg-enterprise/services/pro/spec/openapi.json
+  # Already YAML upstream; still piped through yq so all three vendored copies
+  # carry the same key ordering and quoting and drift diffs stay readable.
+  UPSTREAM_BACKEND_LOCAL: ../xberg-enterprise/frontend/openapi-backend.yaml
   UPSTREAM_API_URL: '{{.XBERG_ENTERPRISE_URL | default "https://api.xberg.io"}}/api-doc/openapi.json'
 
 tasks:
@@ -18,11 +26,12 @@ tasks:
       - python3 scripts/spec-coverage.py
 
   fetch:
-    desc: "Refresh both vendored specs from the sibling xberg-enterprise repo (JSON → YAML)"
+    desc: "Refresh all three vendored specs from the sibling xberg-enterprise repo"
     cmds:
       - yq -P -oy '.' {{.UPSTREAM_API_LOCAL}} > {{.API_SPEC}}
       - yq -P -oy '.' {{.UPSTREAM_PRO_LOCAL}} > {{.PRO_SPEC}}
-      - git diff --stat {{.API_SPEC}} {{.PRO_SPEC}} || true
+      - yq -P -oy '.' {{.UPSTREAM_BACKEND_LOCAL}} > {{.BACKEND_SPEC}}
+      - git diff --stat {{.API_SPEC}} {{.PRO_SPEC}} {{.BACKEND_SPEC}} || true
 
   fetch:remote:
     desc: "Refresh the Enterprise spec from a running xberg-enterprise API server"
@@ -31,12 +40,13 @@ tasks:
       - git diff --stat {{.API_SPEC}} || true
 
   check:
-    desc: "Fail if either vendored spec drifted from the sibling xberg-enterprise copy"
+    desc: "Fail if a vendored spec drifted from the sibling xberg-enterprise copy"
     cmds:
       - diff -q <(yq -P -oy '.' {{.UPSTREAM_API_LOCAL}}) {{.API_SPEC}}
       - diff -q <(yq -P -oy '.' {{.UPSTREAM_PRO_LOCAL}}) {{.PRO_SPEC}}
+      - diff -q <(yq -P -oy '.' {{.UPSTREAM_BACKEND_LOCAL}}) {{.BACKEND_SPEC}}
 
   show:
     desc: "Print the vendored spec paths"
     cmds:
-      - echo "api={{.API_SPEC}} pro={{.PRO_SPEC}}"
+      - echo "api={{.API_SPEC}} pro={{.PRO_SPEC}} backend={{.BACKEND_SPEC}}"

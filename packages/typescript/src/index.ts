@@ -103,3 +103,4 @@ export {
 } from "./types.js";
 export type { components, paths } from "./_generated/api.js";
 export type { components as proComponents, paths as proPaths } from "./_generated/pro.js";
+export type { components as backendComponents, paths as backendPaths } from "./_generated/backend.js";

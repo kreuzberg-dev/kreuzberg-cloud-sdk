@@ -7,7 +7,9 @@ on:
       - "packages/go/**"
       - "spec/api/**"
       - "spec/pro/**"
+      - "spec/backend/**"
       - "tasks/go.yml"
+      - "tools/oapi-schemaset-config/**"
       - "go.work"
       - ".github/workflows/ci-go.yml"
   push:
@@ -16,7 +18,9 @@ on:
       - "packages/go/**"
       - "spec/api/**"
       - "spec/pro/**"
+      - "spec/backend/**"
       - "tasks/go.yml"
+      - "tools/oapi-schemaset-config/**"
       - "go.work"
       - ".github/workflows/ci-go.yml"
 
@@ -44,7 +48,8 @@ jobs:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
       # ~keep golangci-lint-action@v8 always runs `golangci-lint run`, not just installs the
       # binary — that would lint packages/go before "Generate client" writes the gitignored
-      # generated_api.go/generated_pro.go, failing typecheck. Install the binary only here;
+      # generated_api.go/generated_pro.go/generated_backend.go, failing typecheck. Install the binary
+      # only here;
       # `task go:lint` (after generation) is the sole place golangci-lint actually runs.
       # Installed via `go install`, matching govulncheck below, rather than piping
       # golangci-lint's install.sh from an unpinned `master` into a shell. The v2 module

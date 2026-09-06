@@ -1,32 +1,41 @@
 version: "3"
 
 # ~keep The Python SDK ships ONE package (`xberg_io_sdk`) with ONE dual-target client,
-# generated from TWO OpenAPI specs kept as separate schema sets (never merged;
+# generated from THREE OpenAPI specs kept as separate schema sets (never merged;
 # see xberg-enterprise ADR-0072):
-#   - spec/api/openapi.yaml  -> src/xberg_io_sdk/_generated_api  (Xberg Enterprise)
-#   - spec/pro/openapi.yaml  -> src/xberg_io_sdk/_generated_pro  (Xberg Pro)
+#   - spec/api/openapi.yaml      -> src/xberg_io_sdk/_generated_api      (Enterprise data plane)
+#   - spec/pro/openapi.yaml      -> src/xberg_io_sdk/_generated_pro      (Xberg Pro)
+#   - spec/backend/openapi.yaml  -> src/xberg_io_sdk/_generated_backend  (Enterprise control plane)
+# Each set lands in its own module, so a name three specs share needs no renaming
+# here — unlike the Go SDK, where all three share one package.
 vars:
   PKG_DIR: packages/python
   SRC_DIR: packages/python/src/xberg_io_sdk
   GEN_API: packages/python/src/xberg_io_sdk/_generated_api
   GEN_PRO: packages/python/src/xberg_io_sdk/_generated_pro
+  GEN_BACKEND: packages/python/src/xberg_io_sdk/_generated_backend
   API_SPEC: spec/api/openapi.yaml
   PRO_SPEC: spec/pro/openapi.yaml
+  BACKEND_SPEC: spec/backend/openapi.yaml
 
 tasks:
   generate:
-    desc: "Regenerate both Python schema sets (Enterprise + Pro) via openapi-python-client"
+    desc: "Regenerate all three Python schema sets (Enterprise + Pro + control plane)"
     cmds:
       - task: _generate-one
         vars: { SPEC: "{{.API_SPEC}}", OUT: "{{.GEN_API}}" }
       - task: _generate-one
         vars: { SPEC: "{{.PRO_SPEC}}", OUT: "{{.GEN_PRO}}" }
-      # FormatMetadata discriminator patch — API spec only. Guarded so it is a
-      # no-op when the target spec has no FormatMetadata schema (e.g. Pro).
+      - task: _generate-one
+        vars: { SPEC: "{{.BACKEND_SPEC}}", OUT: "{{.GEN_BACKEND}}" }
+      # FormatMetadata discriminator patch. Guarded so it is a no-op when the
+      # target spec has no FormatMetadata discriminator (e.g. Pro).
       - task: _patch-format-metadata
         vars: { SPEC: "{{.API_SPEC}}", OUT: "{{.GEN_API}}" }
       - task: _patch-format-metadata
         vars: { SPEC: "{{.PRO_SPEC}}", OUT: "{{.GEN_PRO}}" }
+      - task: _patch-format-metadata
+        vars: { SPEC: "{{.BACKEND_SPEC}}", OUT: "{{.GEN_BACKEND}}" }
 
   _generate-one:
     internal: true

@@ -71,6 +71,8 @@ output-options:
   skip-prune: true
 `
 
+const proPrefix = "Pro"
+
 type derivedConfig struct {
 	Package       string `yaml:"package"`
 	OutputOptions struct {
@@ -117,7 +119,7 @@ func readDerived(t *testing.T, path string) derivedConfig {
 func TestRunExcludesExactlyTheSharedSchemas(t *testing.T) {
 	_, apiPath, proPath, basePath, outPath := writeFixtures(t, baseConfigFixture)
 
-	if err := run(apiPath, proPath, basePath, outPath); err != nil {
+	if err := run([]string{apiPath}, proPath, proPrefix, basePath, outPath); err != nil {
 		t.Fatalf("run: %v", err)
 	}
 
@@ -131,7 +133,7 @@ func TestRunExcludesExactlyTheSharedSchemas(t *testing.T) {
 func TestRunKeepsProOnlySchemas(t *testing.T) {
 	_, apiPath, proPath, basePath, outPath := writeFixtures(t, baseConfigFixture)
 
-	if err := run(apiPath, proPath, basePath, outPath); err != nil {
+	if err := run([]string{apiPath}, proPath, proPrefix, basePath, outPath); err != nil {
 		t.Fatalf("run: %v", err)
 	}
 
@@ -149,7 +151,7 @@ func TestRunKeepsProOnlySchemas(t *testing.T) {
 func TestRunIncludesExactlyTheProOnlyOperations(t *testing.T) {
 	_, apiPath, proPath, basePath, outPath := writeFixtures(t, baseConfigFixture)
 
-	if err := run(apiPath, proPath, basePath, outPath); err != nil {
+	if err := run([]string{apiPath}, proPath, proPrefix, basePath, outPath); err != nil {
 		t.Fatalf("run: %v", err)
 	}
 
@@ -163,7 +165,7 @@ func TestRunIncludesExactlyTheProOnlyOperations(t *testing.T) {
 func TestRunPreservesBaseConfigOptions(t *testing.T) {
 	_, apiPath, proPath, basePath, outPath := writeFixtures(t, baseConfigFixture)
 
-	if err := run(apiPath, proPath, basePath, outPath); err != nil {
+	if err := run([]string{apiPath}, proPath, proPrefix, basePath, outPath); err != nil {
 		t.Fatalf("run: %v", err)
 	}
 
@@ -180,7 +182,7 @@ func TestRunRejectsHandWrittenExclusionLists(t *testing.T) {
 	base := baseConfigFixture + "  exclude-schemas:\n    - JobStatus\n"
 	_, apiPath, proPath, basePath, outPath := writeFixtures(t, base)
 
-	err := run(apiPath, proPath, basePath, outPath)
+	err := run([]string{apiPath}, proPath, proPrefix, basePath, outPath)
 	if err == nil {
 		t.Fatal("run accepted a base config that pins exclude-schemas")
 	}
@@ -196,8 +198,22 @@ func TestRunFailsOnSpecWithoutSchemas(t *testing.T) {
 		t.Fatalf("writing fixture: %v", err)
 	}
 
-	if err := run(emptyPath, proPath, basePath, outPath); err == nil {
+	if err := run([]string{emptyPath}, proPath, proPrefix, basePath, outPath); err == nil {
 		t.Fatal("run accepted a spec with no components.schemas")
+	}
+}
+
+func TestRunRequiresAtLeastOnePriorSpec(t *testing.T) {
+	_, _, proPath, basePath, outPath := writeFixtures(t, baseConfigFixture)
+
+	// A schema set with nothing generated before it is the base config's own
+	// job (oapi-codegen-api.yaml), not this command's.
+	err := run(nil, proPath, proPrefix, basePath, outPath)
+	if err == nil {
+		t.Fatal("run accepted an empty -prior list")
+	}
+	if !strings.Contains(err.Error(), "-prior") {
+		t.Errorf("error = %q, want it to name -prior", err)
 	}
 }
 
@@ -213,7 +229,8 @@ func TestDivergentSharedSchemasIgnoresDocumentationOnlyDifferences(t *testing.T)
 	}
 
 	// JobResult differs only in `description`, which generates identical Go.
-	if got := divergentSharedSchemas(apiSpec, proSpec, []string{"JobResult", "JobStatus"}); len(got) != 0 {
+	got := divergentSharedSchemas(apiSpec.Components.Schemas, proSpec, []string{"JobResult", "JobStatus"})
+	if len(got) != 0 {
 		t.Errorf("divergentSharedSchemas = %v, want none", got)
 	}
 }
@@ -235,7 +252,7 @@ func TestDivergentSharedSchemasReportsStructuralDifferences(t *testing.T) {
 		t.Fatalf("loadSpec: %v", err)
 	}
 
-	got := divergentSharedSchemas(apiSpec, proSpec, []string{"JobResult", "JobStatus"})
+	got := divergentSharedSchemas(apiSpec.Components.Schemas, proSpec, []string{"JobResult", "JobStatus"})
 	if !equal(got, []string{"JobStatus"}) {
 		t.Errorf("divergentSharedSchemas = %v, want [JobStatus]", got)
 	}
@@ -289,7 +306,7 @@ func TestRunKeepsDivergentSharedSchemasOutOfTheExclusionList(t *testing.T) {
 	directory, apiPath, _, basePath, outPath := writeFixtures(t, baseConfigFixture)
 	proPath := divergedProSpec(t, directory)
 
-	if err := run(apiPath, proPath, basePath, outPath); err != nil {
+	if err := run([]string{apiPath}, proPath, proPrefix, basePath, outPath); err != nil {
 		t.Fatalf("run: %v", err)
 	}
 
@@ -310,7 +327,7 @@ func TestRunRejectsARenameThatWouldCollide(t *testing.T) {
 		t.Fatalf("writing fixture: %v", err)
 	}
 
-	err := run(apiPath, proPath, basePath, outPath)
+	err := run([]string{apiPath}, proPath, proPrefix, basePath, outPath)
 	if err == nil {
 		t.Fatal("run accepted a rename onto an already-declared schema name")
 	}
@@ -356,11 +373,12 @@ func TestDivergentClosureFollowsRefsIntoDivergentSchemas(t *testing.T) {
 	}
 
 	shared := []string{"JobResult", "JobStatus", "Wrapper"}
-	if got := divergentClosure(apiSpec, proSpec, shared); !equal(got, []string{"JobStatus", "Wrapper"}) {
-		t.Errorf("divergentClosure = %v, want [JobStatus Wrapper]", got)
+	closure := divergentClosure(apiSpec.Components.Schemas, proSpec, shared)
+	if !equal(closure, []string{"JobStatus", "Wrapper"}) {
+		t.Errorf("divergentClosure = %v, want [JobStatus Wrapper]", closure)
 	}
 	// JobResult reaches nothing divergent, so it stays shared.
-	if got := divergentSharedSchemas(apiSpec, proSpec, shared); !equal(got, []string{"JobStatus"}) {
+	if got := divergentSharedSchemas(apiSpec.Components.Schemas, proSpec, shared); !equal(got, []string{"JobStatus"}) {
 		t.Errorf("divergentSharedSchemas = %v, want [JobStatus]", got)
 	}
 }
@@ -390,10 +408,10 @@ type derivedSpecDocument struct {
 	} `yaml:"components"`
 }
 
-func readDerivedSpec(t *testing.T, outPath string) derivedSpecDocument {
+func readDerivedSpec(t *testing.T, outPath, prefix string) derivedSpecDocument {
 	t.Helper()
 	var document derivedSpecDocument
-	if err := yaml.Unmarshal(mustRead(t, derivedSpecPathFor(outPath)), &document); err != nil {
+	if err := yaml.Unmarshal(mustRead(t, derivedSpecPathFor(outPath, prefix)), &document); err != nil {
 		t.Fatalf("parsing derived spec: %v", err)
 	}
 	return document
@@ -403,11 +421,11 @@ func TestRunRenamesDivergentSchemasInTheDerivedSpec(t *testing.T) {
 	directory, apiPath, _, basePath, outPath := writeFixtures(t, baseConfigFixture)
 	proPath := divergedProSpec(t, directory)
 
-	if err := run(apiPath, proPath, basePath, outPath); err != nil {
+	if err := run([]string{apiPath}, proPath, proPrefix, basePath, outPath); err != nil {
 		t.Fatalf("run: %v", err)
 	}
 
-	schemas := readDerivedSpec(t, outPath).Components.Schemas
+	schemas := readDerivedSpec(t, outPath, proPrefix).Components.Schemas
 	if _, present := schemas["ProJobStatus"]; !present {
 		t.Error("derived spec has no ProJobStatus")
 	}
@@ -439,13 +457,13 @@ func TestRunRewritesReferencesToRenamedSchemas(t *testing.T) {
 	}
 	outPath := filepath.Join(directory, "derived.yaml")
 
-	if err := run(apiPath, proPath, basePath, outPath); err != nil {
+	if err := run([]string{apiPath}, proPath, proPrefix, basePath, outPath); err != nil {
 		t.Fatalf("run: %v", err)
 	}
 
 	// Wrapper is dragged along by the closure, and its $ref must follow the
 	// rename or it would resolve to the Enterprise JobStatus.
-	body := string(mustRead(t, derivedSpecPathFor(outPath)))
+	body := string(mustRead(t, derivedSpecPathFor(outPath, proPrefix)))
 	if !strings.Contains(body, "#/components/schemas/ProJobStatus") {
 		t.Error("derived spec still references the pre-rename JobStatus")
 	}
@@ -457,16 +475,102 @@ func TestRunRewritesReferencesToRenamedSchemas(t *testing.T) {
 func TestRunWritesTheDerivedSpecEvenWhenNothingDiverges(t *testing.T) {
 	_, apiPath, proPath, basePath, outPath := writeFixtures(t, baseConfigFixture)
 
-	if err := run(apiPath, proPath, basePath, outPath); err != nil {
+	if err := run([]string{apiPath}, proPath, proPrefix, basePath, outPath); err != nil {
 		t.Fatalf("run: %v", err)
 	}
 
 	// task go:generate always points oapi-codegen at this path, so it has to
 	// exist whether or not a rename happened.
-	schemas := readDerivedSpec(t, outPath).Components.Schemas
+	schemas := readDerivedSpec(t, outPath, proPrefix).Components.Schemas
 	for _, name := range []string{"JobStatus", "JobResult", "LoginRequest", "HealthResponse"} {
 		if _, present := schemas[name]; !present {
 			t.Errorf("derived spec is missing %q", name)
 		}
+	}
+}
+
+func TestDerivedSpecPathIsPerPrefix(t *testing.T) {
+	// Two schema sets derive their copies into the same directory, so a shared
+	// filename would have the second run overwrite the first run's input.
+	pro := derivedSpecPathFor(filepath.Join("packages", "go", "oapi-codegen-pro.gen.yaml"), "Pro")
+	backend := derivedSpecPathFor(filepath.Join("packages", "go", "oapi-codegen-backend.gen.yaml"), "Backend")
+	if pro == backend {
+		t.Fatalf("derivedSpecPathFor returned %q for both prefixes", pro)
+	}
+	if filepath.Base(pro) != "spec-pro.gen.yaml" {
+		t.Errorf("derivedSpecPathFor(Pro) = %q, want spec-pro.gen.yaml", filepath.Base(pro))
+	}
+	if filepath.Base(backend) != "spec-backend.gen.yaml" {
+		t.Errorf("derivedSpecPathFor(Backend) = %q, want spec-backend.gen.yaml", filepath.Base(backend))
+	}
+}
+
+// backendSpecFixture is a third spec that overlaps BOTH earlier ones: JobResult
+// with the Enterprise shape, LoginRequest with Pro's, and one name it declares
+// with a shape neither has.
+const backendSpecFixture = `
+openapi: 3.1.0
+paths:
+  /v1/projects:
+    get:
+      operationId: list_projects
+  /auth/login:
+    post:
+      operationId: login
+components:
+  schemas:
+    JobResult:
+      type: object
+      description: Control-plane wording, same shape.
+      properties:
+        id:
+          type: string
+    LoginRequest:
+      type: object
+    HealthResponse:
+      type: integer
+    ProjectResponse:
+      type: object
+`
+
+// TestRunChainsPriorSchemaSets covers the third schema set: the Pro copy handed
+// to it is the DERIVED one, because the names that run moved behind a `Pro`
+// prefix are what the package actually declares.
+func TestRunChainsPriorSchemaSets(t *testing.T) {
+	directory, apiPath, proPath, basePath, proOutPath := writeFixtures(t, baseConfigFixture)
+
+	if err := run([]string{apiPath}, proPath, proPrefix, basePath, proOutPath); err != nil {
+		t.Fatalf("run (pro): %v", err)
+	}
+
+	backendPath := filepath.Join(directory, "backend.yaml")
+	if err := os.WriteFile(backendPath, []byte(backendSpecFixture), 0o600); err != nil {
+		t.Fatalf("writing fixture: %v", err)
+	}
+	backendOutPath := filepath.Join(directory, "derived-backend.yaml")
+	priors := []string{apiPath, derivedSpecPathFor(proOutPath, proPrefix)}
+
+	if err := run(priors, backendPath, "Backend", basePath, backendOutPath); err != nil {
+		t.Fatalf("run (backend): %v", err)
+	}
+
+	config := readDerived(t, backendOutPath)
+	// JobResult matches the Enterprise definition and LoginRequest the Pro one,
+	// so both are already in the package; HealthResponse is not.
+	if got := config.OutputOptions.ExcludeSchemas; !equal(got, []string{"JobResult", "LoginRequest"}) {
+		t.Errorf("exclude-schemas = %v, want [JobResult LoginRequest]", got)
+	}
+	// `login` is Pro's, already emitted by the Pro schema set; `list_projects`
+	// is new.
+	if got := config.OutputOptions.IncludeOperationIDs; !equal(got, []string{"list_projects"}) {
+		t.Errorf("include-operation-ids = %v, want [list_projects]", got)
+	}
+
+	schemas := readDerivedSpec(t, backendOutPath, "Backend").Components.Schemas
+	if _, present := schemas["BackendHealthResponse"]; !present {
+		t.Error("derived backend spec has no BackendHealthResponse")
+	}
+	if _, present := schemas["ProjectResponse"]; !present {
+		t.Error("derived backend spec dropped the backend-only ProjectResponse")
 	}
 }

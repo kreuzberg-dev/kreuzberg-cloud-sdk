@@ -45,6 +45,7 @@ line-length = 120
 src = ["packages/python/src"]
 extend-exclude = [
   "packages/python/src/xberg_io_sdk/_generated_api",
+  "packages/python/src/xberg_io_sdk/_generated_backend",
   "packages/python/src/xberg_io_sdk/_generated_pro",
   "spec",
 ]
@@ -115,6 +116,7 @@ max_supported_python = "3.14"
 packages = ["xberg_io_sdk"]
 exclude = [
   "packages/python/src/xberg_io_sdk/_generated_api",
+  "packages/python/src/xberg_io_sdk/_generated_backend",
   "packages/python/src/xberg_io_sdk/_generated_pro",
   "packages/python/tests",
 ]
@@ -131,6 +133,7 @@ overrides = [
   ], ignore_missing_imports = true },
   { module = [
     "xberg_io_sdk._generated_api.*",
+    "xberg_io_sdk._generated_backend.*",
     "xberg_io_sdk._generated_pro.*",
   ], ignore_errors = true, ignore_missing_imports = true },
 ]
@@ -145,6 +148,7 @@ ini_options.asyncio_default_fixture_loop_scope = "function"
 run.branch = true
 run.omit = [
   "packages/python/src/xberg_io_sdk/_generated_api/*",
+  "packages/python/src/xberg_io_sdk/_generated_backend/*",
   "packages/python/src/xberg_io_sdk/_generated_pro/*",
   "packages/python/tests/*",
 ]

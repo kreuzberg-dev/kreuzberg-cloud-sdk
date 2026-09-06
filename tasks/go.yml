@@ -1,34 +1,39 @@
 version: "3"
 
 # ~keep The Go SDK ships ONE package (`xberg`) with ONE dual-target client, generated
-# from TWO OpenAPI specs kept as separate schema sets in the same package (never
+# from THREE OpenAPI specs kept as separate schema sets in the same package (never
 # merged; see xberg-enterprise ADR-0072):
-#   - spec/api/openapi.yaml -> packages/go/generated_api.go  (Xberg Enterprise + shared)
-#   - spec/pro/openapi.yaml -> packages/go/generated_pro.go  (Xberg Pro-only)
-# No Go identifier may be declared twice in one package, so tools/oapi-pro-config
-# splits what both specs declare. An operation, or a schema whose two definitions
-# generate IDENTICAL Go, is skipped by the Pro generation. A schema the specs
-# declare with DIFFERENT structures cannot be skipped — that would hand Pro the
-# Enterprise shape — so it is renamed behind a `Pro` prefix in a derived copy of
-# the Pro spec (packages/go/spec-pro.gen.yaml), and oapi-codegen reads that
-# copy. The vendored spec is left untouched so `task spec:check` still compares
-# it byte-for-byte with upstream. Both the exclusion set and the renames are
-# DERIVED from the two specs on every run — never hand-maintained — so a spec
-# sync cannot leave them stale.
+#   - spec/api/openapi.yaml     -> packages/go/generated_api.go     (Xberg Enterprise data plane + shared)
+#   - spec/pro/openapi.yaml     -> packages/go/generated_pro.go     (Xberg Pro-only)
+#   - spec/backend/openapi.yaml -> packages/go/generated_backend.go (Enterprise control plane)
+# No Go identifier may be declared twice in one package, so tools/oapi-schemaset-config
+# splits what a later spec shares with an earlier one. An operation, or a schema whose
+# two definitions generate IDENTICAL Go, is skipped by the later generation. A schema
+# the specs declare with DIFFERENT structures cannot be skipped — that would hand the
+# later set the earlier shape — so it is renamed behind a prefix (`Pro`, `Backend`) in
+# a derived copy of that spec (packages/go/spec-{pro,backend}.gen.yaml), and
+# oapi-codegen reads that copy. The vendored specs are left untouched so
+# `task spec:check` still compares them byte-for-byte with upstream. Both the exclusion
+# sets and the renames are DERIVED from the specs on every run — never hand-maintained
+# — so a spec sync cannot leave them stale.
 vars:
   PKG_DIR: packages/go
-  TOOLS_DIR: tools/oapi-pro-config
+  TOOLS_DIR: tools/oapi-schemaset-config
   API_SPEC: spec/api/openapi.yaml
   PRO_SPEC: spec/pro/openapi.yaml
+  BACKEND_SPEC: spec/backend/openapi.yaml
   PRO_CONFIG_BASE: oapi-codegen-pro.yaml
   PRO_CONFIG_DERIVED: oapi-codegen-pro.gen.yaml
-  # Written by oapi-pro-config beside the derived config; see tools/oapi-pro-config.
+  BACKEND_CONFIG_BASE: oapi-codegen-backend.yaml
+  BACKEND_CONFIG_DERIVED: oapi-codegen-backend.gen.yaml
+  # Written by oapi-schemaset-config beside each derived config; see tools/oapi-schemaset-config.
   PRO_SPEC_DERIVED: spec-pro.gen.yaml
-  CONFIG_TOOL: github.com/xberg-io/sdks/tools/oapi-pro-config
+  BACKEND_SPEC_DERIVED: spec-backend.gen.yaml
+  CONFIG_TOOL: github.com/xberg-io/sdks/tools/oapi-schemaset-config
 
 tasks:
   generate:
-    desc: "Regenerate both Go schema sets (Enterprise + Pro) via oapi-codegen"
+    desc: "Regenerate all three Go schema sets (Enterprise + Pro + control plane) via oapi-codegen"
     dir: "{{.PKG_DIR}}"
     cmds:
       - |
@@ -39,13 +44,26 @@ tasks:
         ROOT="{{.ROOT_DIR}}"
         go tool oapi-codegen --config oapi-codegen-api.yaml "$ROOT/{{.API_SPEC}}"
         go run {{.CONFIG_TOOL}} \
-          -api "$ROOT/{{.API_SPEC}}" \
-          -pro "$ROOT/{{.PRO_SPEC}}" \
+          -prior "$ROOT/{{.API_SPEC}}" \
+          -spec "$ROOT/{{.PRO_SPEC}}" \
+          -prefix Pro \
           -base "{{.PRO_CONFIG_BASE}}" \
           -out "{{.PRO_CONFIG_DERIVED}}"
-        # The derived spec, not the vendored one: oapi-pro-config renames any schema
-        # the two specs declare with different shapes, so both can live in one package.
+        # The derived spec, not the vendored one: oapi-schemaset-config renames any
+        # schema the two specs declare with different shapes, so both can live in one
+        # package.
         go tool oapi-codegen --config "{{.PRO_CONFIG_DERIVED}}" "{{.PRO_SPEC_DERIVED}}"
+        # The control plane is third, so both earlier sets are `-prior`. Pro is passed
+        # as its DERIVED copy: the names that run moved behind a `Pro` prefix are what
+        # the package declares, and the names it vacated are free here.
+        go run {{.CONFIG_TOOL}} \
+          -prior "$ROOT/{{.API_SPEC}}" \
+          -prior "{{.PRO_SPEC_DERIVED}}" \
+          -spec "$ROOT/{{.BACKEND_SPEC}}" \
+          -prefix Backend \
+          -base "{{.BACKEND_CONFIG_BASE}}" \
+          -out "{{.BACKEND_CONFIG_DERIVED}}"
+        go tool oapi-codegen --config "{{.BACKEND_CONFIG_DERIVED}}" "{{.BACKEND_SPEC_DERIVED}}"
       - go fmt ./...
 
   install:
@@ -62,7 +80,7 @@ tasks:
       - go build ./...
 
   test:tools:
-    desc: "Run the codegen-tooling test suite (tools/oapi-pro-config)"
+    desc: "Run the codegen-tooling test suite (tools/oapi-schemaset-config)"
     dir: "{{.TOOLS_DIR}}"
     cmds:
       - go test -race ./...
@@ -83,7 +101,7 @@ tasks:
       - go tool cover -func=coverage.out
 
   lint:tools:
-    desc: "Lint the codegen tooling (tools/oapi-pro-config)"
+    desc: "Lint the codegen tooling (tools/oapi-schemaset-config)"
     dir: "{{.TOOLS_DIR}}"
     cmds:
       - go vet ./...

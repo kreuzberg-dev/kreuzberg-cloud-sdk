@@ -2,7 +2,8 @@
 # package alongside generated_api.go.
 #
 # This file is NOT passed to oapi-codegen directly. `task go:generate` runs
-# tools/oapi-pro-config, which reads both vendored specs and writes two files:
+# tools/oapi-schemaset-config, which reads the Enterprise spec (already
+# generated) and the Pro spec, and writes two files:
 #
 #   oapi-codegen-pro.gen.yaml  this file plus two derived lists:
 #
@@ -25,9 +26,9 @@
 #                              `task spec:check` keeps passing.
 #
 # Both lists and the renames are recomputed from the specs on every run, so a
-# spec sync cannot leave them stale. Do not pin them here — oapi-pro-config
-# rejects a base config that sets either list. The two schema sets are never
-# merged; mirrors xberg-enterprise ADR-0072.
+# spec sync cannot leave them stale. Do not pin them here — oapi-schemaset-config
+# rejects a base config that sets either list. The schema sets are never merged;
+# mirrors xberg-enterprise ADR-0072.
 package: xberg
 output: generated_pro.go
 generate:
