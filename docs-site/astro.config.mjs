@@ -42,8 +42,13 @@ export default defineConfig({
               },
               {
                 label: "Reference",
-                description: "Per-language method reference and the raw OpenAPI surface.",
+                description: "Per-language method reference, tier capabilities and the raw OpenAPI surface.",
                 paths: ["reference/**"],
+              },
+              {
+                label: "More",
+                description: "Changelog.",
+                paths: ["changelog"],
               },
             ],
             optionalLinks: [
@@ -72,6 +77,10 @@ export default defineConfig({
               { label: "API", items: API_LANGUAGES },
               { label: "Tier capabilities", slug: "reference/tier-capabilities" },
             ],
+          },
+          {
+            label: "More",
+            items: [{ label: "Changelog", slug: "changelog" }],
           },
         ],
       }),
